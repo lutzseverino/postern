@@ -156,6 +156,16 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
       );
     },
     async closeIssue(number) {
+      // Pull requests share the issue number space and GitHub's Issues API,
+      // which would close one. Its issue object marks a pull request with
+      // `pull_request`, so the number is read before the write, as GitHub
+      // offers no issue write conditional on what the number names.
+      await transport.rest(`${repo}/issues/${number}`, {}, ({ data }) => {
+        const pullRequest = object(data).pull_request;
+        if (pullRequest === undefined || pullRequest === null) return;
+        object(pullRequest);
+        throw new PlatformError("notFound", `#${number} is a pull request, not an issue.`);
+      });
       await transport.rest(`${repo}/issues/${number}`, { method: "PATCH", body: { state: "closed" } }, ignore);
     },
   };
@@ -410,20 +420,37 @@ function releaseSource(transport: GitHubTransport, repo: string): ReleaseSource 
       });
     },
     async tagCommit(tag) {
-      // An annotated tag points to a tag object, which may itself point to another tag.
-      const peel = (path: string, depth: number): Promise<string> =>
-        transport.rest(path, {}, ({ data }) => {
+      // An annotated tag points to a tag object, which may itself point to
+      // another tag. Each tag object is followed once, so a chain that leads
+      // back to one already followed fails instead of looping, and at most
+      // `tagObjectLimit` are followed, so a chain that never ends cannot send
+      // requests without end.
+      const followed = new Set<string>();
+      let path = `${repo}/git/ref/tags/${encodeTag(tag)}`;
+      for (;;) {
+        const next = await transport.rest(path, {}, ({ data }): { commit: string } | { tagObject: string } => {
           const target = object(object(data).object);
           const type = word(target.type);
-          if (type === "commit") return sha(target.sha);
+          if (type === "commit") return { commit: sha(target.sha) };
           if (type !== "tag") throw new PlatformError("notFound", `Tag ${tag} points to a ${type}, not a commit.`);
-          if (depth === 10) throw invalid(`Tag ${tag} nests too many annotated tags.`);
-          return peel(`${repo}/git/tags/${sha(target.sha)}`, depth + 1);
+          const tagObject = sha(target.sha);
+          // Object IDs are hexadecimal, which GitHub may send in either case.
+          const key = tagObject.toLowerCase();
+          if (followed.has(key)) throw invalid(`Tag ${tag} leads back to a tag object it already passed.`);
+          if (followed.size === tagObjectLimit) throw invalid(`Tag ${tag} passes more than ${tagObjectLimit} tag objects.`);
+          followed.add(key);
+          return { tagObject };
         });
-      return peel(`${repo}/git/ref/tags/${encodeTag(tag)}`, 0);
+        if ("commit" in next) return next.commit;
+        path = `${repo}/git/tags/${next.tagObject}`;
+      }
     },
   };
 }
+
+// Git sets no limit on how many annotated tags a chain passes before its
+// commit, but a real chain is short, and every tag object is one request.
+const tagObjectLimit = 1000;
 
 const encodeTag = (tag: string) => tag.split("/").map(segment).join("/");
 

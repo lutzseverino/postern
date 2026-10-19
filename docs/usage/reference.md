@@ -103,6 +103,13 @@ the same host, so links may cross repositories.
 | `updateComment(id, body)`          | The updated comment.                                                      |
 | `closeIssue(number)`               | Closes the issue.                                                         |
 
+A number names an issue. Where pull requests share the issue number space,
+as on GitHub, `issue` and `closeIssue` fail with `notFound` for a pull
+request's number, and `closeIssue` fails before it writes anything. Label,
+label-change and comment operations act on whatever the platform records under
+the number, which there includes a pull request's labels and conversation
+comments; a caller that needs only issues passes only issue numbers.
+
 An issue is `{ number, id, nodeId, url, state, title, body, author, labels,
 createdAt, parent, subIssues, blockedBy, bodyEditTime, linkTime }`. `id` is
 the platform's stable numeric identifier and `nodeId` its global API
@@ -136,7 +143,7 @@ conclusions are the platform's own words.
 | Operation          | Result                                                                  |
 | ------------------ | ----------------------------------------------------------------------- |
 | `releases()`       | `{ id, tag, name, draft, prerelease, publishedAt }` across every page.  |
-| `tagCommit(tag)`   | The commit SHA the tag points to, peeling annotated tags.               |
+| `tagCommit(tag)`   | The commit SHA the tag points to, peeling annotated tags; `invalidResponse` for a chain that leads back to a tag object it passed. |
 
 ### `access`
 
@@ -206,4 +213,23 @@ The GitHub adapter serves `github.com` repositories and offers every flag.
   installation tokens, so for those it fails with `forbidden`.
 - `checks` reports check runs with their status and conclusion, and commit
   statuses with their state as `status` and no conclusion.
+- A failing status maps to a reason as follows; GraphQL errors map by their
+  type, and an unknown type is `rejected`.
+
+  | Status                                          | Reason            |
+  | ----------------------------------------------- | ----------------- |
+  | 401                                             | `unauthenticated` |
+  | 403 with an exhausted quota or Retry-After, 429 | `rateLimited`     |
+  | 403 otherwise                                   | `forbidden`       |
+  | 404, 410, 451                                   | `notFound`        |
+  | 409, 412                                        | `conflict`        |
+  | 408, 421, 425, 5xx                              | `unavailable`     |
+  | Any other 4xx                                   | `rejected`        |
+
+- `closeIssue` reads the number's issue object before closing it, because
+  GitHub's Issues API would close a pull request; GitHub offers no issue write
+  conditional on what the number names, so an issue converted into a pull
+  request between the read and the write is still closed.
+- `tagCommit` follows at most 1,000 tag objects in one chain, one request each,
+  and fails with `invalidResponse` past that.
 - Requests use REST API version `2022-11-28`.

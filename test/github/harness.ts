@@ -227,6 +227,8 @@ export function startGitHub(open: Opener = connect): { platform: ContractPlatfor
         threads: [],
         isMergeQueueEnabled: seed.mergeQueue ?? false,
         merge: null,
+        labels: [],
+        events: [],
       });
       return number;
     },

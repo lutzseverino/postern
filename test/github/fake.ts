@@ -50,6 +50,9 @@ export interface FakePullRequest {
   threads: Json[];
   isMergeQueueEnabled: boolean;
   merge: { title: string; message: string; sha: string } | null;
+  /** A pull request shares an issue's labels and label events. */
+  labels: string[];
+  events: Json[];
 }
 
 export type Injected =
@@ -182,7 +185,7 @@ export class GitHubFake {
     const arg = (index: number) => decodeURIComponent(parts![index]!);
 
     if (route(/^\/issues\/(\d+)\/events$/, "GET")) {
-      return this.#page(url, this.#issue(repository, Number(arg(1))).events);
+      return this.#page(url, this.#issueOrPull(repository, Number(arg(1))).events);
     }
     if (route(/^\/issues\/(\d+)\/comments$/, "GET")) {
       const key = this.#issueOrPullKey(repository, Number(arg(1)));
@@ -202,14 +205,14 @@ export class GitHubFake {
       return json(200, publicComment(comment));
     }
     if (route(/^\/issues\/(\d+)\/labels$/, "POST")) {
-      const issue = this.#issue(repository, Number(arg(1)));
+      const issue = this.#issueOrPull(repository, Number(arg(1)));
       for (const label of (body as { labels: string[] }).labels) {
         if (!issue.labels.includes(label)) issue.labels.push(label);
       }
       return json(200, issue.labels.map((name) => ({ name })));
     }
     if (route(/^\/issues\/(\d+)\/labels\/(.+)$/, "DELETE")) {
-      const issue = this.#issue(repository, Number(arg(1)));
+      const issue = this.#issueOrPull(repository, Number(arg(1)));
       const index = issue.labels.indexOf(arg(2));
       if (index === -1) return json(404, { message: "Label does not exist" });
       issue.labels.splice(index, 1);
@@ -224,10 +227,14 @@ export class GitHubFake {
       labels.set(String(label.name), created);
       return json(201, created);
     }
+    // GitHub's Issues API serves pull requests too, and closes one it is asked to.
+    if (route(/^\/issues\/(\d+)$/, "GET")) {
+      return json(200, restIssue(this.#issueOrPull(repository, Number(arg(1)))));
+    }
     if (route(/^\/issues\/(\d+)$/, "PATCH")) {
-      const issue = this.#issue(repository, Number(arg(1)));
-      if ((body as Json).state === "closed") issue.state = "CLOSED";
-      return json(200, { number: issue.number, state: issue.state.toLowerCase() });
+      const issue = this.#issueOrPull(repository, Number(arg(1)));
+      if ((body as Json).state === "closed" && issue.state === "OPEN") issue.state = "CLOSED";
+      return json(200, restIssue(issue));
     }
     if (route(/^\/pulls\/(\d+)\/reviews$/, "GET")) {
       return this.#page(url, this.#pull(repository, Number(arg(1))).reviews);
@@ -441,6 +448,13 @@ export class GitHubFake {
     return pull;
   }
 
+  #issueOrPull(repository: string, number: number): FakeIssue | FakePullRequest {
+    const key = `${repository}#${number}`;
+    const found = this.issues.get(key) ?? this.pullRequests.get(key);
+    if (!found) throw notFound();
+    return found;
+  }
+
   #issueOrPullKey(repository: string, number: number): string {
     const key = `${repository}#${number}`;
     if (!this.issues.has(key) && !this.pullRequests.has(key)) throw notFound();
@@ -463,6 +477,19 @@ export class GitHubFake {
     this.comments.set(id, comment);
     return comment;
   }
+}
+
+// The REST issue object, which marks a pull request with `pull_request`.
+function restIssue(issue: FakeIssue | FakePullRequest): Json {
+  const pull = "headRefOid" in issue;
+  const kind = pull ? "pull" : "issues";
+  return {
+    number: issue.number,
+    state: issue.state === "OPEN" ? "open" : "closed",
+    title: issue.title,
+    html_url: `https://github.com/${issue.repository}/${kind}/${issue.number}`,
+    ...(pull ? { pull_request: { html_url: `https://github.com/${issue.repository}/pull/${issue.number}` } } : {}),
+  };
 }
 
 function publicComment({ key: _key, ...comment }: Json & { key: string }): Json {

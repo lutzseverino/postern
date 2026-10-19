@@ -92,6 +92,14 @@ export interface IssueTrackerCapabilities {
   readonly botMarking?: true;
 }
 
+/**
+ * An issue tracker. A number names an issue: where pull requests share the
+ * issue number space, as on GitHub, `issue` and `closeIssue` fail with
+ * `notFound` for a pull request's number, and `closeIssue` fails before
+ * writing. Label, label-change and comment operations act on whatever the
+ * platform records under the number, which on such a platform includes a pull
+ * request's labels and conversation comments.
+ */
 export interface IssueTracker {
   readonly capabilities: IssueTrackerCapabilities;
   /** Issues in a state, by default open, optionally only those with a label. */
@@ -221,7 +229,10 @@ export interface ReleaseSource {
   readonly capabilities: ReleaseSourceCapabilities;
   /** Every release the platform lists, across all pages. */
   releases(): Promise<Release[]>;
-  /** The commit SHA a tag points to, peeling annotated tags. */
+  /**
+   * The commit SHA a tag points to, peeling annotated tags. A chain of tag
+   * objects that leads back to one it passed fails with `invalidResponse`.
+   */
   tagCommit(tag: string): Promise<string>;
 }
 

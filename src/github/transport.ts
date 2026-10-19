@@ -350,20 +350,39 @@ function statusError(status: number, headers: Headers, data: unknown, request: s
   });
 }
 
+// What a failing status says, read against the error reasons. A request the
+// platform could answer later, such as one that timed out (408), reached the
+// wrong server (421) or came too early (425), is `unavailable` like a server
+// error. A resource withheld for legal reasons (451) is invisible, so
+// `notFound`, and a failed precondition (412) is a write that lost a race. Any
+// other client error is a request refused as invalid.
 function statusReason(status: number, headers: Headers, message: string): PlatformErrorReason {
-  if (status === 401) return "unauthenticated";
-  if (status === 429) return "rateLimited";
-  if (status === 403) {
-    const exhausted =
-      headers.get("x-ratelimit-remaining") === "0" ||
-      headers.has("retry-after") ||
-      /rate limit/i.test(message);
-    return exhausted ? "rateLimited" : "forbidden";
+  switch (status) {
+    case 401:
+      return "unauthenticated";
+    case 403: {
+      const exhausted =
+        headers.get("x-ratelimit-remaining") === "0" ||
+        headers.has("retry-after") ||
+        /rate limit/i.test(message);
+      return exhausted ? "rateLimited" : "forbidden";
+    }
+    case 404:
+    case 410:
+    case 451:
+      return "notFound";
+    case 409:
+    case 412:
+      return "conflict";
+    case 429:
+      return "rateLimited";
+    case 408:
+    case 421:
+    case 425:
+      return "unavailable";
+    default:
+      return status >= 500 ? "unavailable" : "rejected";
   }
-  if (status === 404 || status === 410) return "notFound";
-  if (status === 409) return "conflict";
-  if (status >= 500) return "unavailable";
-  return "rejected";
 }
 
 // The latest time a Date can hold, in milliseconds.

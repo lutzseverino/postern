@@ -19,6 +19,10 @@ adapter; Forgejo shaped the ports, and GitLab Free checked them.
   merge rules differ too much across platforms to share an interface;
   `Access.request` gives authenticated transport for such platform-specific
   work. No port method is named `release`, which reads as a verb.
+  `IssueTracker` numbers name issues: where pull requests share the issue
+  number space, reading or closing a pull request's number as an issue fails
+  with `notFound`, so no issue operation changes a pull request's state.
+  Labels and comments there belong to the shared number and stay reachable.
 - **A repository is a platform plus a path.** Detection works from the Git
   remote, and the path is never split into an owner and a name, because
   GitLab nests groups.

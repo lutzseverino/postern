@@ -293,6 +293,15 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         await platform.connect().issueTracker.closeIssue(number);
         assert.equal(platform.issueState(number), "closed");
       });
+
+      it("fails with notFound to read or close a pull request's number as an issue, leaving it open", async () => {
+        const platform = harness.start();
+        const number = platform.addPullRequest({ headBranch: "feature", headCommit: "a".repeat(40) });
+        const tracker = platform.connect().issueTracker;
+        await assert.rejects(tracker.issue(number), isReason("notFound"));
+        await assert.rejects(tracker.closeIssue(number), isReason("notFound"));
+        assert.equal(platform.pullRequestState(number), "open");
+      });
     });
 
     group("accounts", () => {

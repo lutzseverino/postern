@@ -33,8 +33,7 @@ describe("GitHub response mapping", () => {
   const resetEpoch = 1_900_000_000;
   const resetAt = new Date(resetEpoch * 1000).toISOString();
   const cases: [string, Injected, PlatformErrorReason, ((error: PlatformError) => void)?][] = [
-    ["401", { status: 401, body: '{"message":"Bad credentials"}' }, "unauthenticated"],
-    ["403", { status: 403, body: '{"message":"Must have admin rights"}' }, "forbidden"],
+    ["403 for a missing permission", { status: 403, body: '{"message":"Must have admin rights"}' }, "forbidden"],
     [
       "403 with an exhausted primary quota",
       { status: 403, headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": String(resetEpoch) }, body: '{"message":"API rate limit exceeded"}' },
@@ -68,12 +67,6 @@ describe("GitHub response mapping", () => {
       "rateLimited",
       (error) => assert.equal(error.retryAt, undefined),
     ],
-    ["404", { status: 404, body: '{"message":"Not Found"}' }, "notFound"],
-    ["410", { status: 410, body: '{"message":"Issues are disabled"}' }, "notFound"],
-    ["409", { status: 409, body: '{"message":"Conflict"}' }, "conflict"],
-    ["422", { status: 422, body: '{"message":"Validation Failed"}' }, "rejected"],
-    ["400", { status: 400, body: '{"message":"Problems parsing JSON"}' }, "rejected"],
-    ["500", { status: 500, body: "" }, "unavailable"],
     ["503 with an HTML body", { status: 503, body: "<html>Unicorn!</html>" }, "unavailable"],
     ["a network failure", { network: true }, "unavailable"],
     ["unreadable JSON", { status: 200, body: "{not json" }, "invalidResponse"],
@@ -84,6 +77,47 @@ describe("GitHub response mapping", () => {
       const { fake, connection } = setup();
       fake.inject(response);
       await assert.rejects(connection.releaseSource.releases(), failure(reason, check));
+    });
+  }
+
+  // Every failing status by what it says against the error reasons: a
+  // credential, a permission, an absent resource, a lost race, a quota, a
+  // request that may succeed when retried, or a request refused as invalid.
+  const statuses: [number, PlatformErrorReason][] = [
+    [400, "rejected"],
+    [401, "unauthenticated"],
+    [403, "forbidden"],
+    [404, "notFound"],
+    [405, "rejected"],
+    [406, "rejected"],
+    [408, "unavailable"],
+    [409, "conflict"],
+    [410, "notFound"],
+    [411, "rejected"],
+    [412, "conflict"],
+    [413, "rejected"],
+    [415, "rejected"],
+    [421, "unavailable"],
+    [422, "rejected"],
+    [423, "rejected"],
+    [425, "unavailable"],
+    [428, "rejected"],
+    [429, "rateLimited"],
+    [431, "rejected"],
+    [451, "notFound"],
+    [499, "rejected"],
+    [500, "unavailable"],
+    [501, "unavailable"],
+    [502, "unavailable"],
+    [503, "unavailable"],
+    [504, "unavailable"],
+    [599, "unavailable"],
+  ];
+  for (const [status, reason] of statuses) {
+    it(`maps the status ${status} to ${reason}`, async () => {
+      const { fake, connection } = setup();
+      fake.inject({ status, body: '{"message":"Something"}' });
+      await assert.rejects(connection.releaseSource.releases(), failure(reason, (error) => assert.equal(error.status, status)));
     });
   }
 
@@ -320,6 +354,83 @@ describe("GitHub tag peeling", () => {
     await assert.rejects(connection.releaseSource.tagCommit("v1.0.0"), failure("invalidResponse"));
     assert.equal(fake.requests.length, 1);
   });
+
+  // A chain of annotated tags, each pointing to the next, the last to the commit.
+  const chain = (fake: GitHubFake, length: number, commit: string) => {
+    const shas = Array.from({ length }, (_, index) => `e${(index + 1).toString(16).padStart(39, "0")}`);
+    fake.tagRefs.set("v1.0.0", { type: "tag", sha: shas[0]! });
+    shas.forEach((sha, index) => fake.tagObjects.set(sha, index + 1 < length ? { type: "tag", sha: shas[index + 1]! } : { type: "commit", sha: commit }));
+    return shas;
+  };
+
+  it("peels a chain of many annotated tags", async () => {
+    const { fake, connection } = setup();
+    chain(fake, 50, "c".repeat(40));
+    assert.equal(await connection.releaseSource.tagCommit("v1.0.0"), "c".repeat(40));
+    assert.equal(fake.requests.length, 51);
+  });
+
+  it("fails with invalidResponse and the status for a chain that leads back to a tag it followed, following each tag once", async () => {
+    const { fake, connection } = setup();
+    const [first, , third] = chain(fake, 3, "c".repeat(40));
+    fake.tagObjects.set(third!, { type: "tag", sha: first!.toUpperCase() });
+    await assert.rejects(connection.releaseSource.tagCommit("v1.0.0"), failure("invalidResponse", (error) => assert.equal(error.status, 200)));
+    assert.equal(fake.requests.length, 4);
+  });
+
+  it("fails with invalidResponse for a tag that points to itself", async () => {
+    const { fake, connection } = setup();
+    const [only] = chain(fake, 1, "c".repeat(40));
+    fake.tagObjects.set(only!, { type: "tag", sha: only! });
+    await assert.rejects(connection.releaseSource.tagCommit("v1.0.0"), failure("invalidResponse"));
+    assert.equal(fake.requests.length, 2);
+  });
+
+  it("follows at most 1000 tag objects", async () => {
+    const { fake, connection } = setup();
+    chain(fake, 1000, "c".repeat(40));
+    assert.equal(await connection.releaseSource.tagCommit("v1.0.0"), "c".repeat(40));
+    fake.requests.length = 0;
+    chain(fake, 1001, "c".repeat(40));
+    await assert.rejects(connection.releaseSource.tagCommit("v1.0.0"), failure("invalidResponse"));
+    assert.equal(fake.requests.length, 1001);
+  });
+});
+
+describe("GitHub issue numbers", () => {
+  const head = "a".repeat(40);
+
+  it("close no pull request: closeIssue reads what the number names and sends no write for a pull request", async () => {
+    const { platform, fake } = startGitHub();
+    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+    await assert.rejects(platform.connect().issueTracker.closeIssue(number), failure("notFound", (error) => assert.equal(error.status, 200)));
+    assert.deepEqual(fake.requests.map((request) => request.method), ["GET"]);
+  });
+
+  it("fail closeIssue with invalidResponse, without writing, when GitHub's issue object cannot tell", async () => {
+    for (const body of ["[]", JSON.stringify({ number: 1, pull_request: "yes" })]) {
+      const { platform, fake } = startGitHub();
+      const number = platform.addIssue();
+      fake.inject({ status: 200, body });
+      await assert.rejects(platform.connect().issueTracker.closeIssue(number), failure("invalidResponse"));
+      assert.equal(fake.requests.length, 1);
+      assert.equal(platform.issueState(number), "open");
+    }
+  });
+
+  it("reach a pull request's labels, label changes and comments, which it shares with issues", async () => {
+    const { platform, fake } = startGitHub();
+    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+    const tracker = platform.connect().issueTracker;
+    await tracker.addLabels(number, ["bug", "ready"]);
+    await tracker.removeLabel(number, "bug");
+    assert.deepEqual(fake.pullRequests.get(`${path}#${number}`)?.labels, ["ready"]);
+    const comment = await tracker.createComment(number, "First");
+    await tracker.updateComment(comment.id, "Second");
+    assert.deepEqual((await tracker.comments(number)).map((read) => read.body), ["Second"]);
+    assert.deepEqual(await tracker.labelChanges(number), []);
+    assert.equal(platform.pullRequestState(number), "open");
+  });
 });
 
 describe("GitHub numeric IDs", () => {
@@ -381,6 +492,8 @@ describe("GitHub numeric IDs", () => {
       threads: [],
       isMergeQueueEnabled: false,
       merge: null,
+      labels: [],
+      events: [],
     });
     assert.equal((await connection.issueTracker.issue(1)).id, issueId);
     assert.deepEqual((await connection.issueTracker.issues()).map((issue) => issue.id), [issueId]);
