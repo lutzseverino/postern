@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createConnection } from "../src/connection.ts";
-import type { AdapterContext, AdapterPorts } from "../src/connection.ts";
+import type { AdapterContext, AdapterPorts, PlatformAdapter } from "../src/connection.ts";
 import { PlatformError, connect } from "../src/index.ts";
 import type { Issue, IssueTrackerCapabilities } from "../src/index.ts";
 
@@ -456,5 +456,194 @@ describe("the shared port layer", () => {
       assert.equal(error.cause instanceof Error && error.cause.message, "viewer failed for token <REDACTED>");
       return true;
     });
+  });
+});
+
+describe("reading what callers pass", () => {
+  // A Proxy whose fields each pass the checks on their first read and fail
+  // them on any later one. It records every field's reads in `reads`.
+  const fickle = <T extends object>(target: T, reads: Map<PropertyKey, number>[]): T => {
+    const counts = new Map<PropertyKey, number>();
+    reads.push(counts);
+    return new Proxy(target, {
+      get(object, key) {
+        const count = (counts.get(key) ?? 0) + 1;
+        counts.set(key, count);
+        return count === 1 ? Reflect.get(object, key) : Symbol("changed");
+      },
+    });
+  };
+  const readOnce = (reads: Map<PropertyKey, number>[]) => {
+    for (const counts of reads) {
+      for (const [key, count] of counts) assert.equal(count, 1, `${String(key)} was read ${count} times`);
+    }
+  };
+  const boom = () => {
+    throw new TypeError("unreadable");
+  };
+  // A Proxy every inspection of which throws, and a revoked one.
+  const hostile = () =>
+    new Proxy({}, { get: boom, has: boom, ownKeys: boom, getOwnPropertyDescriptor: boom, getPrototypeOf: boom });
+  const revoked = () => {
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+    return proxy;
+  };
+
+  // A test double that records the arguments every operation receives.
+  function recordingAdapter(calls: unknown[][]): PlatformAdapter {
+    return (context) => {
+      const ports = doubleAdapter({ nativeParent: true, nativeBlockers: true }, [])(context);
+      const record =
+        <T>(result: T) =>
+        async (...args: unknown[]) => (calls.push(args), structuredClone(result));
+      return {
+        issueTracker: {
+          ...ports.issueTracker,
+          capabilities: { nativeParent: true, nativeBlockers: true },
+          issues: record([]),
+          addLabels: record(undefined),
+          createLabel: record({ name: "bug", color: "ededed", description: "" }),
+        },
+        pullRequests: {
+          ...ports.pullRequests,
+          capabilities: { closingReferences: true },
+          squashMerge: record("c0ffee"),
+        },
+        releaseSource: ports.releaseSource,
+        access: { ...ports.access, request: record({ status: 200, headers: {}, data: null }) },
+      };
+    };
+  }
+
+  it("reads a repository identity once and uses what it read", () => {
+    const reads: Map<PropertyKey, number>[] = [];
+    const connection = connect(fickle({ platform: "github", host: "GitHub.com", path: "octo/hello" } as const, reads));
+    assert.deepEqual(connection.repository, repository);
+    readOnce(reads);
+  });
+
+  it("reads the connection options once and uses what it read", async () => {
+    const reads: Map<PropertyKey, number>[] = [];
+    const seen: AdapterContext[] = [];
+    const fetch = async () => new Response("{}");
+    const options = () =>
+      fickle(
+        {
+          credential: "t0ken-value",
+          relationshipSections: fickle({ parent: "Parent", blockedBy: "Blocked by" }, reads),
+          fetch,
+          timeoutMs: 1000,
+        },
+        reads,
+      );
+    assert.doesNotThrow(() => connect(repository, options()));
+    createConnection(repository, doubleAdapter({}, seen), options());
+    assert.deepEqual(seen[0]?.relationshipSections, { parent: "Parent", blockedBy: "Blocked by" });
+    assert.equal(seen[0]?.fetch, fetch);
+    assert.equal(seen[0]?.timeoutMs, 1000);
+    assert.equal(await seen[0]?.credentials.token(), "t0ken-value");
+    readOnce(reads);
+  });
+
+  it("reads every argument object of every operation once and passes on what it read", async () => {
+    const reads: Map<PropertyKey, number>[] = [];
+    const calls: unknown[][] = [];
+    const connection = createConnection(repository, recordingAdapter(calls), {});
+    await connection.issueTracker.issues(fickle({ state: "closed", label: "bug" } as const, reads));
+    await connection.issueTracker.addLabels(7, fickle(["bug", "help"], reads));
+    await connection.issueTracker.createLabel(fickle({ name: "bug", color: "ededed", description: "" }, reads));
+    await connection.pullRequests.squashMerge(7, fickle({ expectedHead: "abc", title: "t", body: "b" }, reads));
+    await connection.access.request(
+      fickle(
+        {
+          path: "/user",
+          method: "post",
+          query: fickle({ page: 2 }, reads),
+          headers: fickle({ "x-a": "1" }, reads),
+          body: fickle({ items: fickle([1, fickle({ n: "x" }, reads)], reads) }, reads),
+        },
+        reads,
+      ),
+    );
+    assert.deepEqual(calls, [
+      [{ state: "closed", label: "bug" }],
+      [7, ["bug", "help"]],
+      [{ name: "bug", color: "ededed", description: "" }],
+      [7, { expectedHead: "abc", title: "t", body: "b" }],
+      [{ path: "/user", method: "POST", query: { page: 2 }, headers: { "x-a": "1" }, body: { items: [1, { n: "x" }] } }],
+    ]);
+    readOnce(reads);
+  });
+
+  for (const [name, unreadable] of [
+    ["a Proxy that throws", hostile],
+    ["a revoked Proxy", revoked],
+  ] as const) {
+    it(`fails connect with rejected for ${name}`, () => {
+      assert.throws(() => connect(unreadable() as never), isReason("rejected"));
+      assert.throws(() => connect(repository, unreadable() as never), isReason("rejected"));
+      assert.throws(
+        () => connect(repository, { relationshipSections: unreadable() } as never),
+        isReason("rejected"),
+      );
+    });
+
+    it(`fails every operation with rejected for ${name} in any argument`, async () => {
+      const calls: unknown[][] = [];
+      const connection = createConnection(repository, recordingAdapter(calls), {});
+      const { issueTracker: issues, pullRequests: pulls, releaseSource: releases, access } = connection;
+      const value = unreadable as () => never;
+      const operations: [string, () => Promise<unknown>][] = [
+        ["issues", () => issues.issues(value())],
+        ["issue", () => issues.issue(value())],
+        ["labelChanges", () => issues.labelChanges(value())],
+        ["comments", () => issues.comments(value())],
+        ["addLabels number", () => issues.addLabels(value(), ["bug"])],
+        ["addLabels labels", () => issues.addLabels(1, value())],
+        ["addLabels label", () => issues.addLabels(1, [value()])],
+        ["removeLabel number", () => issues.removeLabel(value(), "bug")],
+        ["removeLabel label", () => issues.removeLabel(1, value())],
+        ["createLabel", () => issues.createLabel(value())],
+        ["createComment number", () => issues.createComment(value(), "x")],
+        ["createComment body", () => issues.createComment(1, value())],
+        ["updateComment id", () => issues.updateComment(value(), "x")],
+        ["updateComment body", () => issues.updateComment(1, value())],
+        ["closeIssue", () => issues.closeIssue(value())],
+        ["byHeadBranch", () => pulls.byHeadBranch(value())],
+        ["closing", () => pulls.closing(value())],
+        ["pullRequest", () => pulls.pullRequest(value())],
+        ["reviews", () => pulls.reviews(value())],
+        ["reviewThreads", () => pulls.reviewThreads(value())],
+        ["checks", () => pulls.checks(value())],
+        ["mergesThroughQueue", () => pulls.mergesThroughQueue(value())],
+        ["comment number", () => pulls.comment(value(), "x")],
+        ["comment body", () => pulls.comment(1, value())],
+        ["squashMerge number", () => pulls.squashMerge(value(), { expectedHead: "a", title: "t", body: "" })],
+        ["squashMerge merge", () => pulls.squashMerge(1, value())],
+        ["tagCommit", () => releases.tagCommit(value())],
+        ["role", () => access.role(value())],
+        ["request", () => access.request(value())],
+        ["request query", () => access.request({ path: "/user", query: value() })],
+        ["request headers", () => access.request({ path: "/user", headers: value() })],
+        ["request body", () => access.request({ path: "/user", method: "POST", body: value() })],
+        ["request body item", () => access.request({ path: "/user", method: "POST", body: [value()] })],
+        ["request body field", () => access.request({ path: "/user", method: "POST", body: { a: value() } })],
+      ];
+      for (const [operation, call] of operations) {
+        await assert.rejects(call(), isReason("rejected"), operation);
+      }
+      assert.deepEqual(calls, []);
+    });
+  }
+
+  it("reads the options of a PlatformError once", () => {
+    const reads: Map<PropertyKey, number>[] = [];
+    const cause = new Error("inner");
+    const error = new PlatformError("rateLimited", "slow down", fickle({ retryAt: "2030-01-01T00:00:00Z", status: 429, cause }, reads));
+    assert.equal(error.retryAt, "2030-01-01T00:00:00Z");
+    assert.equal(error.status, 429);
+    assert.equal(error.cause, cause);
+    readOnce(reads);
   });
 });

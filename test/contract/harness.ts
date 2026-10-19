@@ -49,6 +49,17 @@ export interface Failure {
   echo?: string;
 }
 
+/** A way a successful response can be malformed, so the adapter cannot read it. */
+export type Malformation =
+  /** Every field the operation reads is missing. */
+  | "missingFields"
+  /** Every field the operation reads has the wrong type, such as an identifier that is not one. */
+  | "wrongTypes"
+  /** Every list in the response is something else. */
+  | "brokenLists"
+  /** The response claims another page but gives no way to reach it. */
+  | "pageWithoutCursor";
+
 export interface ContractPlatform {
   /** The connected repository's Git remote URL. */
   readonly remote: string;
@@ -100,6 +111,11 @@ export interface ContractPlatform {
 
   /** Makes the next request fail the way the platform fails for this reason. */
   failNext(failure: Failure): void;
+  /**
+   * Makes the next request succeed with its response malformed this way.
+   * Returns the HTTP status the malformed response carries.
+   */
+  malformNext(malformation: Malformation): number;
 }
 
 export interface AdapterHarness {

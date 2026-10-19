@@ -54,6 +54,7 @@ src/
 ├── ports.ts         # the four port types, their facts and capability flags
 ├── errors.ts        # PlatformError and its reasons
 ├── secrets.ts       # credential sources and redaction
+├── snapshot.ts      # reading each object a caller passes in once
 └── github/          # the GitHub adapter and its transport
 test/
 ├── contract/        # the adapter contract suite and its harness

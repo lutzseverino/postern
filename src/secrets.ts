@@ -61,7 +61,7 @@ export class Secrets {
 
   /** The error as a `PlatformError` whose message, cause and fields hold no credential. */
   sanitize(error: unknown): PlatformError {
-    if (error instanceof PlatformError) {
+    if (isPlatformError(error)) {
       return new PlatformError(error.reason, this.redactText(error.message), {
         ...(error.retryAt === undefined ? {} : { retryAt: error.retryAt }),
         ...(error.status === undefined ? {} : { status: error.status }),
@@ -73,11 +73,30 @@ export class Secrets {
     });
   }
 
+  // A foreign cause, such as what a `fetch` threw, is read once, and one that
+  // cannot be read is described without any of it.
   #sanitizeCause(cause: unknown): Error {
-    if (cause instanceof PlatformError) return this.sanitize(cause);
-    const sanitized = new Error(this.redactText(cause instanceof Error ? cause.message : String(cause)));
-    if (cause instanceof Error) sanitized.name = this.redactText(String(cause.name));
+    if (isPlatformError(cause)) return this.sanitize(cause);
+    let message: string;
+    let name: string | undefined;
+    try {
+      const error = cause instanceof Error;
+      message = String(error ? cause.message : cause);
+      name = error ? String(cause.name) : undefined;
+    } catch {
+      return new Error("An error that could not be read.");
+    }
+    const sanitized = new Error(this.redactText(message));
+    if (name !== undefined) sanitized.name = this.redactText(name);
     return sanitized;
+  }
+}
+
+function isPlatformError(value: unknown): value is PlatformError {
+  try {
+    return value instanceof PlatformError;
+  } catch {
+    return false;
   }
 }
 

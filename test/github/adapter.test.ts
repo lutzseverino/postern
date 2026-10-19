@@ -127,6 +127,53 @@ describe("GitHub response mapping", () => {
     await assert.rejects(connection.releaseSource.releases(), failure("invalidResponse", (error) => assert.equal(error.status, 200)));
   });
 
+  it("reads a fetch response's status, headers and body once", async () => {
+    const reads = new Map<string, number>();
+    const once = <T>(key: string, value: T, later: unknown) => () => {
+      reads.set(key, (reads.get(key) ?? 0) + 1);
+      return reads.get(key) === 1 ? value : later;
+    };
+    const status = once("status", 200, 500);
+    const headers = once("headers", new Headers({ link: "" }), new Headers({ link: '<https://elsewhere.example/>; rel="next"' }));
+    const text = once("text", async () => "[]", async () => "{not json");
+    const fetch = async () => ({
+      get status() {
+        return status();
+      },
+      get headers() {
+        return headers();
+      },
+      get text() {
+        return text();
+      },
+    });
+    const connection = connect(`https://github.com/${path}`, { fetch: fetch as never });
+    assert.deepEqual(await connection.releaseSource.releases(), []);
+    assert.deepEqual(Object.fromEntries(reads), { status: 1, headers: 1, text: 1 });
+  });
+
+  it("fails with unavailable when fetch throws a value that cannot be read", async () => {
+    const boom = () => {
+      throw new TypeError("unreadable");
+    };
+    const unreadable = new Proxy({}, { get: boom, getPrototypeOf: boom, has: boom, ownKeys: boom });
+    const fetch = async () => {
+      throw unreadable;
+    };
+    const connection = connect(`https://github.com/${path}`, { fetch });
+    await assert.rejects(connection.releaseSource.releases(), failure("unavailable"));
+  });
+
+  it("reports the HTTP status on a GraphQL page without its nodes or its cursor", async () => {
+    const { fake, connection } = setup();
+    const page = (pageInfo: unknown, nodes: unknown = []) =>
+      JSON.stringify({ data: { repository: { pullRequests: { nodes, pageInfo } } } });
+    fake.inject({ status: 200, body: page({ hasNextPage: false }, null) });
+    await assert.rejects(connection.pullRequests.byHeadBranch("main"), failure("invalidResponse", (error) => assert.equal(error.status, 200)));
+    fake.inject({ status: 200, body: page({ hasNextPage: true, endCursor: null }) });
+    await assert.rejects(connection.pullRequests.byHeadBranch("main"), failure("invalidResponse", (error) => assert.equal(error.status, 200)));
+  });
+
   it("fails GraphQL-backed reads with unauthenticated on an anonymous connection", async () => {
     const fake = new GitHubFake(path);
     const connection = connect(`https://github.com/${path}`, { fetch: fake.fetch });

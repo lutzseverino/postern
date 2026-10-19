@@ -24,6 +24,13 @@ export interface RawResponse {
 
 type Json = Record<string, unknown>;
 
+/**
+ * GitHub's REST and GraphQL APIs. Each method hands the caller's `read` a
+ * response to map, and runs it in that response's scope: every failure the
+ * mapping raises, such as a missing field, an unreadable ID or a page without
+ * its cursor, is a `PlatformError` carrying the response's HTTP status. No
+ * response leaves the transport except through a scope.
+ */
 export class GitHubTransport {
   readonly #context: AdapterContext;
 
@@ -32,55 +39,83 @@ export class GitHubTransport {
   }
 
   /** One REST request; a failing status rejects with its platform error. */
-  async rest(path: string, options: RestOptions = {}): Promise<RawResponse> {
-    return this.#send(apiUrl(path, options.query), options);
+  async rest<T>(path: string, options: RestOptions, read: (response: RawResponse) => T | Promise<T>): Promise<T> {
+    const response = await this.#send(path, options);
+    return scope(response, () => read(response));
   }
 
-  /** Every item across the pages of a REST list, following `Link: rel="next"`. */
-  async restPages<T>(path: string, options: { query?: RestOptions["query"]; items?: string } = {}): Promise<T[]> {
-    const items: T[] = [];
-    let url: URL | null = apiUrl(path, { per_page: 100, ...options.query });
-    while (url) {
-      const response = await this.#send(url, {});
-      const page = options.items ? (response.data as Json | null)?.[options.items] : response.data;
-      if (!Array.isArray(page)) throw invalid(`GitHub returned no list for ${url.pathname}.`, response.status);
-      items.push(...(page as T[]));
-      url = nextPage(response.headers.get("link"));
+  /** Every item across the pages of a REST list, following `Link: rel="next"`, each read in its page's scope. */
+  async restPages<T>(
+    path: string,
+    options: { query?: RestOptions["query"]; items?: string },
+    read: (item: unknown) => T,
+  ): Promise<T[]> {
+    const results: T[] = [];
+    let target: string | URL | null = path;
+    let query: RestOptions["query"] = { per_page: 100, ...options.query };
+    while (target) {
+      const response = await this.#send(target, { query });
+      query = undefined;
+      target = await scope(response, () => {
+        const page = options.items ? (response.data as Json | null)?.[options.items] : response.data;
+        if (!Array.isArray(page)) throw invalid(`GitHub returned no list for ${path}.`);
+        for (const item of page) results.push(read(item));
+        return nextPage(response.headers.get("link"));
+      });
     }
-    return items;
+    return results;
   }
 
-  /** One GraphQL query; GraphQL errors reject with their platform error. */
-  async graphql<T = Json>(query: string, variables: Json): Promise<T> {
-    const response = await this.#send(apiUrl("/graphql"), { method: "POST", body: { query, variables } });
-    const result = response.data as { data?: unknown; errors?: unknown } | null;
-    if (!result || typeof result !== "object") throw invalid("GitHub returned no GraphQL result.", response.status);
-    if (Array.isArray(result.errors) && result.errors.length > 0) {
-      throw graphqlError(result.errors, response.status, response.headers);
-    }
-    if (!result.data || typeof result.data !== "object") throw invalid("GitHub returned no GraphQL data.", response.status);
-    return result.data as T;
+  /** One GraphQL query, its data read in the response's scope; GraphQL errors reject with their platform error. */
+  async graphql<T>(query: string, variables: Json, read: (data: Json) => T | Promise<T>): Promise<T> {
+    const response = await this.#send("/graphql", { method: "POST", body: { query, variables } });
+    return scope(response, () => {
+      const result = response.data as { data?: unknown; errors?: unknown } | null;
+      if (!result || typeof result !== "object") throw invalid("GitHub returned no GraphQL result.");
+      if (Array.isArray(result.errors) && result.errors.length > 0) {
+        throw graphqlError(result.errors, response.status, response.headers);
+      }
+      if (!result.data || typeof result.data !== "object") throw invalid("GitHub returned no GraphQL data.");
+      return read(result.data as Json);
+    });
   }
 
-  /** Every node across the pages of a GraphQL connection. */
+  /** Every node across the pages of a GraphQL connection, each read in its page's scope. */
   async graphqlPages<T>(
     query: string,
     variables: Json,
-    connection: (data: Json) => { nodes?: unknown; pageInfo?: { hasNextPage?: unknown; endCursor?: unknown } } | null | undefined,
+    connection: (data: Json) => unknown,
+    read: (node: unknown) => T | Promise<T>,
   ): Promise<T[]> {
-    const nodes: T[] = [];
+    const results: T[] = [];
     let after: string | null = null;
-    for (;;) {
-      const page = connection(await this.graphql<Json>(query, { ...variables, after }));
-      if (!page || !Array.isArray(page.nodes) || !page.pageInfo) throw invalid("GitHub returned an unreadable page.");
-      nodes.push(...(page.nodes as T[]));
-      if (page.pageInfo.hasNextPage !== true) return nodes;
-      if (typeof page.pageInfo.endCursor !== "string") throw invalid("GitHub returned a page without its cursor.");
-      after = page.pageInfo.endCursor;
+    do {
+      after = await this.graphql(query, { ...variables, after }, async (data) => {
+        const page = connection(data) as { nodes?: unknown; pageInfo?: { hasNextPage?: unknown; endCursor?: unknown } } | null;
+        if (!page || !Array.isArray(page.nodes) || !page.pageInfo || typeof page.pageInfo !== "object") {
+          throw invalid("GitHub returned an unreadable page.");
+        }
+        for (const node of page.nodes) results.push(await read(node));
+        if (page.pageInfo.hasNextPage !== true) return null;
+        if (typeof page.pageInfo.endCursor !== "string") throw invalid("GitHub returned a page without its cursor.");
+        return page.pageInfo.endCursor;
+      });
+    } while (after !== null);
+    return results;
+  }
+
+  // A failure here is the request's own, so an enclosing scope leaves it as it is.
+  async #send(target: string | URL, options: RestOptions): Promise<RawResponse> {
+    try {
+      return await this.#exchange(target, options);
+    } catch (error) {
+      if (error instanceof PlatformError) settled.add(error);
+      throw error;
     }
   }
 
-  async #send(url: URL, options: RestOptions): Promise<RawResponse> {
+  async #exchange(target: string | URL, options: RestOptions): Promise<RawResponse> {
+    const url = typeof target === "string" ? apiUrl(target, options.query) : target;
     const token = await this.#context.credentials.token();
     const headers: Record<string, string> = {
       accept: "application/vnd.github+json",
@@ -95,30 +130,73 @@ export class GitHubTransport {
     if (token) headers.authorization = `Bearer ${token}`;
     if (options.body !== undefined) headers["content-type"] = "application/json";
     const method = (options.method ?? "GET").toUpperCase();
-    let response: Response;
+    // What `fetch` returns is read once: its status, headers and body.
+    let status: unknown;
+    let responseHeaders: Headers;
     let text: string;
     try {
-      response = await this.#context.fetch(url, {
+      const response = await this.#context.fetch(url, {
         method,
         headers,
         ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
         signal: AbortSignal.timeout(this.#context.timeoutMs),
       });
-      text = await response.text();
+      status = response.status;
+      responseHeaders = new Headers(response.headers);
+      text = String(await response.text());
     } catch (error) {
-      const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
       throw new PlatformError(
         "unavailable",
-        timedOut
+        timedOut(error)
           ? `GitHub did not answer ${method} ${url.pathname} within ${this.#context.timeoutMs} ms.`
           : `GitHub could not be reached for ${method} ${url.pathname}.`,
         { cause: error },
       );
     }
-    const data = parseBody(text, response);
-    if (response.status >= 400) throw statusError(response, data, `${method} ${url.pathname}`);
-    if (data === undefined) throw invalid(`GitHub returned unreadable JSON for ${method} ${url.pathname}.`, response.status);
-    return { status: response.status, headers: response.headers, data };
+    if (typeof status !== "number" || !Number.isInteger(status) || status < 200 || status > 599) {
+      throw invalid(`GitHub answered ${method} ${url.pathname} without a readable status.`);
+    }
+    const data = parseBody(text, status);
+    if (status >= 400) throw statusError(status, responseHeaders, data, `${method} ${url.pathname}`);
+    if (data === undefined) throw invalid(`GitHub returned unreadable JSON for ${method} ${url.pathname}.`, status);
+    return { status, headers: responseHeaders, data };
+  }
+}
+
+// Failures tied to their own request: raised before it had a response, or
+// already carrying the status of the response that caused them.
+const settled = new WeakSet<PlatformError>();
+
+// Runs `read` over one response. A failure it raises that no inner request
+// settled gets the response's status, and any other error becomes
+// `invalidResponse` with that status.
+async function scope<T>(response: RawResponse, read: () => T | Promise<T>): Promise<T> {
+  try {
+    return await read();
+  } catch (error) {
+    let failure: PlatformError;
+    if (!(error instanceof PlatformError)) {
+      failure = invalid("GitHub returned a response the adapter could not read.", response.status, error);
+    } else if (settled.has(error) || error.status !== undefined) {
+      failure = error;
+    } else {
+      failure = new PlatformError(error.reason, error.message, {
+        status: response.status,
+        ...(error.retryAt === undefined ? {} : { retryAt: error.retryAt }),
+        ...(error.cause === undefined ? {} : { cause: error.cause }),
+      });
+    }
+    settled.add(failure);
+    throw failure;
+  }
+}
+
+function timedOut(error: unknown): boolean {
+  try {
+    const name = error instanceof Error ? error.name : undefined;
+    return name === "TimeoutError" || name === "AbortError";
+  } catch {
+    return false;
   }
 }
 
@@ -131,11 +209,13 @@ function apiUrl(path: string, query?: RestOptions["query"]): URL {
   return url;
 }
 
+// The next page's URL. A next link without one would end the list early.
 function nextPage(link: string | null): URL | null {
   for (const part of link?.split(",") ?? []) {
-    const match = /<([^>]+)>\s*;\s*rel="?next"?/.exec(part);
-    if (!match) continue;
-    const url = new URL(match[1]!);
+    if (!/;\s*rel="?next"?\s*(;|$)/.test(part)) continue;
+    const target = /^\s*<([^>]+)>/.exec(part)?.[1];
+    if (target === undefined || !URL.canParse(target)) throw invalid("GitHub returned a next page link without its URL.");
+    const url = new URL(target);
     // A next link that leaves GitHub's API would carry the credential elsewhere.
     if (url.origin !== apiOrigin) throw invalid("GitHub returned a next page on another origin.");
     return url;
@@ -144,21 +224,20 @@ function nextPage(link: string | null): URL | null {
 }
 
 // `null` for an empty body, `undefined` for one that is not JSON.
-function parseBody(text: string, response: Response): unknown {
+function parseBody(text: string, status: number): unknown {
   if (text.trim() === "") return null;
   try {
     return JSON.parse(text);
   } catch {
-    return response.status >= 400 ? null : undefined;
+    return status >= 400 ? null : undefined;
   }
 }
 
-function statusError(response: Response, data: unknown, request: string): PlatformError {
-  const status = response.status;
+function statusError(status: number, headers: Headers, data: unknown, request: string): PlatformError {
   const message = (data as { message?: unknown } | null)?.message;
   const detail = typeof message === "string" && message ? `: ${message}` : "";
-  const reason = statusReason(status, response.headers, typeof message === "string" ? message : "");
-  const retryAt = reason === "rateLimited" ? retryTime(response.headers) : undefined;
+  const reason = statusReason(status, headers, typeof message === "string" ? message : "");
+  const retryAt = reason === "rateLimited" ? retryTime(headers) : undefined;
   return new PlatformError(reason, `GitHub answered ${request} with ${status}${detail}`, {
     status,
     ...(retryAt === undefined ? {} : { retryAt }),
@@ -215,6 +294,10 @@ function graphqlError(errors: unknown[], status: number, headers: Headers): Plat
   });
 }
 
-export function invalid(message: string, status?: number): PlatformError {
-  return new PlatformError("invalidResponse", message, status === undefined ? {} : { status });
+/** An unreadable response. Within a scope, the scope supplies the status. */
+export function invalid(message: string, status?: number, cause?: unknown): PlatformError {
+  return new PlatformError("invalidResponse", message, {
+    ...(status === undefined ? {} : { status }),
+    ...(cause === undefined ? {} : { cause }),
+  });
 }

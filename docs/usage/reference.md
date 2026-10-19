@@ -32,6 +32,11 @@ Invalid options and arguments fail with `rejected` before any request. On
 GitHub, a label, login, commit or tag path segment of `.` or `..` is also
 `rejected`, because GitHub's API cannot address it in a request path.
 
+Postern reads each field of every object passed in once, whether an
+identity, the options, an argument or a request, and checks and uses only
+what it read. A getter or `Proxy` therefore cannot pass a check and then
+give another value, and one that throws when read fails with `rejected`.
+
 ### Credentials
 
 Without `credential` the connection is anonymous. A credential function that
@@ -164,8 +169,11 @@ platform. A failing status rejects with
 | `invalidResponse` | A response the adapter cannot read.                                  |
 | `unsupported`     | A platform or capability that is not offered.                        |
 
-`platformErrorReasons` lists them. An error also carries the platform's HTTP
-`status` when a response caused it.
+`platformErrorReasons` lists them. Every error raised while reading a
+response carries that response's HTTP `status`: a failing status, a GraphQL
+error, and any part of the response the adapter cannot read, such as a missing
+field, an unreadable identifier or a page without its cursor, on every page
+of a list.
 
 ## GitHub adapter
 

@@ -129,6 +129,7 @@ const sectionedHarness: AdapterHarness = {
       pullRequestState: unused,
       mergeOf: unused,
       failNext: unused,
+      malformNext: unused,
     };
   },
 };

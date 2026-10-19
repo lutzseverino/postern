@@ -8,7 +8,7 @@ import { describe, it } from "node:test";
 
 import { PlatformError, capabilityFlags } from "../../src/index.ts";
 import type { Account, Connection, PlatformErrorReason } from "../../src/index.ts";
-import type { AdapterHarness, ContractPlatform } from "./harness.ts";
+import type { AdapterHarness, ContractPlatform, Malformation } from "./harness.ts";
 
 const mona: Account = { login: "mona", bot: false };
 const robot: Account = { login: "helper[bot]", bot: true };
@@ -32,6 +32,7 @@ export type ContractGroup =
   | "access"
   | "anonymous connections"
   | "errors"
+  | "malformed responses"
   | "credentials";
 
 /**
@@ -577,6 +578,115 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
             await assert.rejects(operation(platform.connect()), (error) => {
               isReason(reason)(error);
               if (reason === "rateLimited") assert.equal((error as PlatformError).retryAt, "2030-01-01T00:00:00.000Z");
+              return true;
+            });
+          });
+        }
+      }
+    });
+
+    group("malformed responses", () => {
+      const head = "a".repeat(40);
+      // Every operation that reads a response, as a call prepared on a seeded
+      // platform, and whether it reads a list across pages.
+      type Prepared = (platform: ContractPlatform, connection: Connection) => Promise<() => Promise<unknown>>;
+      const reads: [name: string, list: boolean, prepare: Prepared][] = [
+        ["issues", true, async (platform, { issueTracker }) => (platform.addIssue(), () => issueTracker.issues())],
+        ["issue", false, async (platform, { issueTracker }) => {
+          const number = platform.addIssue({ labels: ["bug"] });
+          return () => issueTracker.issue(number);
+        }],
+        ["labelChanges", true, async (platform, { issueTracker }) => {
+          const number = platform.addIssue();
+          platform.addLabelChange(number, { action: "added", label: "bug", actor: mona, time: "2026-01-02T00:00:00Z" });
+          return () => issueTracker.labelChanges(number);
+        }],
+        ["comments", true, async (platform, { issueTracker }) => {
+          const number = platform.addIssue();
+          platform.addComment(number, { author: mona, body: "hi", createdAt: "2026-01-02T00:00:00Z" });
+          return () => issueTracker.comments(number);
+        }],
+        ["createLabel", false, async (_platform, { issueTracker }) => () =>
+          issueTracker.createLabel({ name: "bug", color: "ededed", description: "" })],
+        ["createComment", false, async (platform, { issueTracker }) => {
+          const number = platform.addIssue();
+          return () => issueTracker.createComment(number, "hi");
+        }],
+        ["updateComment", false, async (platform, { issueTracker }) => {
+          const number = platform.addIssue();
+          platform.addComment(number, { author: mona, body: "hi", createdAt: "2026-01-02T00:00:00Z" });
+          const [comment] = await issueTracker.comments(number);
+          return () => issueTracker.updateComment(comment!.id, "edited");
+        }],
+        ["byHeadBranch", true, async (platform, { pullRequests }) => {
+          platform.addPullRequest({ headBranch: "feature", headCommit: head });
+          return () => pullRequests.byHeadBranch("feature");
+        }],
+        ["closing", true, async (platform, { pullRequests }) => {
+          const issue = platform.addIssue();
+          platform.addPullRequest({ headBranch: "feature", headCommit: head, closes: [issue] });
+          return () => pullRequests.closing(issue);
+        }],
+        ["pullRequest", false, async (platform, { pullRequests }) => {
+          const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+          return () => pullRequests.pullRequest(number);
+        }],
+        ["reviews", true, async (platform, { pullRequests }) => {
+          const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+          platform.addReview(number, { author: mona, state: platform.words.approvedReview, commit: head, submittedAt: "2026-01-02T00:00:00Z" });
+          return () => pullRequests.reviews(number);
+        }],
+        ["reviewThreads", true, async (platform, { pullRequests }) => {
+          const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+          platform.addReviewThread(number, { resolved: false, outdated: false, path: "a.ts", author: mona });
+          return () => pullRequests.reviewThreads(number);
+        }],
+        ["checks", true, async (platform, { pullRequests }) => {
+          const { status, conclusion } = platform.words.finishedCheck;
+          platform.addCheck(head, { name: "Test", status, conclusion, completedAt: "2026-01-02T00:00:00Z" });
+          return () => pullRequests.checks(head);
+        }],
+        ["mergesThroughQueue", false, async (platform, { pullRequests }) => {
+          const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+          return () => pullRequests.mergesThroughQueue(number);
+        }],
+        ["comment", false, async (platform, { pullRequests }) => {
+          const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+          return () => pullRequests.comment(number, "hi");
+        }],
+        ["squashMerge", false, async (platform, { pullRequests }) => {
+          const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+          return () => pullRequests.squashMerge(number, { expectedHead: head, title: "t", body: "b" });
+        }],
+        ["releases", true, async (platform, { releaseSource }) => {
+          platform.addRelease({ tag: "v1.0.0", name: "1.0.0", draft: false, prerelease: false, publishedAt: "2026-01-02T00:00:00Z" });
+          return () => releaseSource.releases();
+        }],
+        ["tagCommit of a lightweight tag", false, async (platform, { releaseSource }) => {
+          platform.addTag("v1.0.0", head);
+          return () => releaseSource.tagCommit("v1.0.0");
+        }],
+        ["tagCommit of an annotated tag", false, async (platform, { releaseSource }) => {
+          platform.addTag("v1.0.0", head, { annotated: true });
+          return () => releaseSource.tagCommit("v1.0.0");
+        }],
+        ["viewer", false, async (_platform, { access }) => () => access.viewer()],
+        ["role", false, async (platform, { access }) => {
+          platform.setRole("mona", platform.words.role);
+          return () => access.role("mona");
+        }],
+      ];
+      const every: Malformation[] = ["missingFields", "wrongTypes"];
+      const lists: Malformation[] = ["brokenLists", "pageWithoutCursor"];
+      for (const [name, list, prepare] of reads) {
+        for (const malformation of list ? [...every, ...lists] : every) {
+          it(`fails ${name} with invalidResponse and the response's status for ${malformation}`, async () => {
+            const platform = harness.start();
+            const call = await prepare(platform, platform.connect());
+            const status = platform.malformNext(malformation);
+            await assert.rejects(call(), (error) => {
+              isReason("invalidResponse")(error);
+              assert.equal((error as PlatformError).status, status);
               return true;
             });
           });

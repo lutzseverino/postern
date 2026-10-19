@@ -1,6 +1,8 @@
 // Opening a connection: option validation, platform selection, and the shared
 // layer every adapter's ports pass through. That layer checks arguments,
 // enforces capability flags, and keeps credentials out of errors and results.
+// Every object a caller passes in is read once through `snapshot.ts`, and only
+// that copy is checked and used.
 
 import { detectPlatform, githubHost, isGitHubRepositoryPath } from "./detect.ts";
 import type { PlatformName, RepositoryIdentity } from "./detect.ts";
@@ -22,6 +24,7 @@ import type {
 } from "./ports.ts";
 import { Secrets, credentialsFrom } from "./secrets.ts";
 import type { CredentialSource, Credentials } from "./secrets.ts";
+import { entries, fields, items, shape } from "./snapshot.ts";
 
 /** The body section names an adapter without native links reads relationships from. */
 export interface RelationshipSections {
@@ -204,7 +207,7 @@ function guardIssueTracker(
     addLabels: (number: number, labels: readonly string[]) =>
       guard(async () => {
         checkNumber(number, "issue number");
-        const names: string[] = Array.isArray(labels) ? [...labels] : [];
+        const names = items(labels, "Name at least one label to add.") as string[];
         if (names.length === 0) reject("Name at least one label to add.");
         for (const name of names) checkText(name, "label");
         await port.addLabels(number, names);
@@ -217,8 +220,11 @@ function guardIssueTracker(
       }),
     createLabel: (label: Label) =>
       guard(async () => {
-        if (!label || typeof label !== "object") reject("A label needs a name, color and description.");
-        const { name, color, description } = label;
+        const { name, color, description } = fields(
+          label,
+          ["name", "color", "description"],
+          "A label needs a name, color and description.",
+        );
         checkText(name, "label name");
         if (typeof color !== "string" || !/^[0-9a-fA-F]{6}$/.test(color)) {
           reject("A label color is six hexadecimal digits without '#'.");
@@ -303,8 +309,11 @@ function guardPullRequests(port: PullRequests, { guard, account }: Layer): PullR
     squashMerge: (number: number, merge: SquashMerge) =>
       guard(async () => {
         checkNumber(number, "pull request number");
-        if (!merge || typeof merge !== "object") reject("A squash merge needs its expected head, title and body.");
-        const { expectedHead, title, body } = merge;
+        const { expectedHead, title, body } = fields(
+          merge,
+          ["expectedHead", "title", "body"],
+          "A squash merge needs its expected head, title and body.",
+        );
         checkText(expectedHead, "expected head commit");
         checkText(title, "merge title");
         if (typeof body !== "string") reject("A merge body is a string.");
@@ -346,35 +355,41 @@ function guardAccess(port: Access, { guard, account }: Layer): Access {
   });
 }
 
+// The identity's fields, read once, checked by its platform's rules.
 function checkIdentity(identity: RepositoryIdentity): RepositoryIdentity {
-  if (!identity || typeof identity !== "object" || !Object.hasOwn(identityChecks, identity.platform)) {
+  if (identity === null || typeof identity !== "object") {
     throw new PlatformError("unsupported", "No platform adapter serves this repository identity.");
   }
-  checkOption(typeof identity.host === "string" && identity.host !== "", "A repository identity needs its host.");
+  const { platform, host, path } = fields(identity, ["platform", "host", "path"], "A repository identity is an object.");
+  if (typeof platform !== "string" || !Object.hasOwn(identityChecks, platform)) {
+    throw new PlatformError("unsupported", "No platform adapter serves this repository identity.");
+  }
+  checkOption(typeof host === "string" && host !== "", "A repository identity needs its host.");
   checkOption(
-    typeof identity.path === "string" && /^[^/\s]+(\/[^/\s]+)+$/.test(identity.path),
+    typeof path === "string" && /^[^/\s]+(\/[^/\s]+)+$/.test(path),
     "A repository identity needs its full path, such as owner/name.",
   );
-  return identityChecks[identity.platform](identity.host, identity.path);
+  return identityChecks[platform as PlatformName](host, path);
 }
 
-// A copy of the options, with copied section names: every field is read once
-// into the copy and checked there, so the connection uses exactly what was
-// checked, even when the options are getters or a Proxy.
+// A copy of the options, with copied section names, checked as read.
 function checkOptions(options: ConnectOptions): ConnectOptions {
-  checkOption(options !== null && typeof options === "object", "Connection options are an object.");
-  const { credential, relationshipSections, fetch, timeoutMs } = options;
+  const { credential, relationshipSections, fetch, timeoutMs } = fields(
+    options,
+    ["credential", "relationshipSections", "fetch", "timeoutMs"],
+    "Connection options are an object.",
+  );
   checkOption(
     credential === undefined || (typeof credential === "string" && credential !== "") || typeof credential === "function",
     "A credential is a non-empty token or a function returning one.",
   );
   let sections: RelationshipSections | undefined;
   if (relationshipSections !== undefined) {
-    checkOption(
-      relationshipSections !== null && typeof relationshipSections === "object",
+    const { parent, blockedBy } = fields(
+      relationshipSections,
+      ["parent", "blockedBy"],
       "relationshipSections needs non-empty parent and blockedBy section names.",
     );
-    const { parent, blockedBy } = relationshipSections as Partial<Record<keyof RelationshipSections, unknown>>;
     checkOption(
       isName(parent) && isName(blockedBy),
       "relationshipSections needs non-empty parent and blockedBy section names.",
@@ -383,13 +398,14 @@ function checkOptions(options: ConnectOptions): ConnectOptions {
   }
   checkOption(fetch === undefined || typeof fetch === "function", "fetch is a function.");
   checkOption(
-    timeoutMs === undefined || (Number.isInteger(timeoutMs) && timeoutMs >= 1 && timeoutMs <= maxTimeoutMs),
+    timeoutMs === undefined ||
+      (typeof timeoutMs === "number" && Number.isInteger(timeoutMs) && timeoutMs >= 1 && timeoutMs <= maxTimeoutMs),
     `timeoutMs is a whole number of milliseconds from 1 to ${maxTimeoutMs}.`,
   );
   return {
-    ...(credential === undefined ? {} : { credential }),
+    ...(credential === undefined ? {} : { credential: credential as CredentialSource }),
     ...(sections === undefined ? {} : { relationshipSections: sections }),
-    ...(fetch === undefined ? {} : { fetch }),
+    ...(fetch === undefined ? {} : { fetch: fetch as typeof globalThis.fetch }),
     ...(timeoutMs === undefined ? {} : { timeoutMs }),
   };
 }
@@ -401,12 +417,15 @@ function checkOption(condition: boolean, message: string): asserts condition {
 }
 
 // A copy of the request, with its method in upper case, that the transport can
-// send as given: every field is read once into the copy and checked there, so
-// no malformed value reaches `fetch` and fails as a retryable `unavailable`,
-// and what is sent is exactly what was checked.
+// send as given: every field is checked as read, so no malformed value reaches
+// `fetch` and fails as a retryable `unavailable`, and what is sent is exactly
+// what was checked.
 function checkTransportRequest(request: TransportRequest): TransportRequest {
-  if (!request || typeof request !== "object") reject("A request needs a path.");
-  const { path, method = "GET", query, body, headers } = request;
+  const { path, method = "GET", query, body, headers } = fields(
+    request,
+    ["path", "method", "query", "body", "headers"],
+    "A request needs a path.",
+  );
   if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) {
     reject("A request path starts with a single '/' and stays on the platform's API.");
   }
@@ -414,25 +433,25 @@ function checkTransportRequest(request: TransportRequest): TransportRequest {
   if (!transportMethods.has(verb)) reject(`A request method is one of ${[...transportMethods].join(", ")}.`);
   let queryCopy: Record<string, string | number | boolean> | undefined;
   if (query !== undefined) {
-    if (!isPlainObject(query)) reject("A request query is a plain object.");
-    queryCopy = Object.fromEntries(Object.entries(query)) as Record<string, string | number | boolean>;
-    for (const value of Object.values(queryCopy)) {
+    const pairs = entries(query, "A request query is a plain object.");
+    for (const [, value] of pairs) {
       const scalar = typeof value === "string" || typeof value === "boolean" || Number.isFinite(value);
       if (!scalar) reject("A request query value is a string, a finite number or a boolean.");
     }
+    queryCopy = Object.fromEntries(pairs) as Record<string, string | number | boolean>;
   }
   let headersCopy: Record<string, string> | undefined;
   if (headers !== undefined) {
-    if (!isPlainObject(headers)) reject("Request headers are a plain object.");
-    headersCopy = Object.fromEntries(Object.entries(headers)) as Record<string, string>;
-    for (const value of Object.values(headersCopy)) {
+    const pairs = entries(headers, "Request headers are a plain object.");
+    for (const [, value] of pairs) {
       if (typeof value !== "string") reject("A request header value is a string.");
     }
     try {
-      new Headers(Object.entries(headersCopy));
+      new Headers(pairs as [string, string][]);
     } catch {
       reject("A request header has an invalid name or value.");
     }
+    headersCopy = Object.fromEntries(pairs) as Record<string, string>;
   }
   let bodyCopy: unknown;
   if (body !== undefined) {
@@ -465,32 +484,20 @@ function jsonCopy(value: unknown, ancestors: Set<object>): unknown {
   if (ancestors.has(value)) reject("A request body has no cycles.");
   ancestors.add(value);
   try {
-    if (Array.isArray(value)) {
-      if (Object.getPrototypeOf(value) !== Array.prototype || Object.keys(value).length !== value.length) {
-        reject(jsonRule);
-      }
-      return Array.from(value, (item) => jsonCopy(item, ancestors));
+    const kind = shape(value);
+    if (kind === "array") return items(value, jsonRule).map((item) => jsonCopy(item, ancestors));
+    if (kind === "object") {
+      return Object.fromEntries(entries(value, jsonRule).map(([key, item]) => [key, jsonCopy(item, ancestors)]));
     }
-    if (!isPlainObject(value)) reject(jsonRule);
-    if (Object.getOwnPropertySymbols(value).some((key) => Object.prototype.propertyIsEnumerable.call(value, key))) {
-      reject(jsonRule);
-    }
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, jsonCopy(item, ancestors)]));
+    reject(jsonRule);
   } finally {
     ancestors.delete(value);
   }
 }
 
-const isPlainObject = (value: unknown): value is Record<string, unknown> => {
-  if (value === null || typeof value !== "object") return false;
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-};
-
 // The filter's known fields, each read once and checked.
 function checkIssueFilter(filter: IssueFilter): IssueFilter {
-  if (!filter || typeof filter !== "object") reject("An issue filter is an object.");
-  const { state, label } = filter;
+  const { state, label } = fields(filter, ["state", "label"], "An issue filter is an object.");
   if (state !== undefined && state !== "open" && state !== "closed") {
     reject("An issue filter's state is open or closed.");
   }
@@ -502,7 +509,7 @@ function checkNumber(value: number, what: string): void {
   if (!Number.isSafeInteger(value) || value < 1) reject(`The ${what} is a positive integer.`);
 }
 
-function checkText(value: string, what: string): void {
+function checkText(value: unknown, what: string): asserts value is string {
   if (typeof value !== "string" || value === "") reject(`The ${what} is a non-empty string.`);
 }
 

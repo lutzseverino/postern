@@ -2,9 +2,9 @@
 
 import { connect } from "../../src/index.ts";
 import type { Account, ConnectOptions, Connection } from "../../src/index.ts";
-import type { AdapterHarness, ContractPlatform, Failure, SeedReference } from "../contract/harness.ts";
+import type { AdapterHarness, ContractPlatform, Failure, Malformation, SeedReference } from "../contract/harness.ts";
 import { GitHubFake } from "./fake.ts";
-import type { FakeUser, Injected } from "./fake.ts";
+import type { FakeUser, Injected, Malformed } from "./fake.ts";
 
 const path = "octo/hello";
 const token = "ghp_contractToken0123456789";
@@ -40,6 +40,47 @@ function githubFailure({ reason, retryAt, echo = "" }: Failure): Injected {
       return { status: 200, body: `<html>${echo}</html>` };
   }
 }
+
+// Fields a malformation leaves alone, so the adapter still reaches the facts
+// it reads: an event's or Git object's kind, an account's type, and a
+// connection's pagination.
+const structural = new Set(["event", "type", "__typename", "hasNextPage", "endCursor"]);
+
+// Every scalar field outside the structural ones, in every object of a
+// response, changed; a change to `undefined` drops the field.
+function everyScalar(value: unknown, change: (scalar: unknown) => unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => everyScalar(item, change));
+  if (value === null || typeof value !== "object") return value;
+  const result: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) {
+    const next =
+      item !== null && typeof item === "object" ? everyScalar(item, change) : structural.has(key) ? item : change(item);
+    if (next !== undefined) result[key] = next;
+  }
+  return result;
+}
+
+function everyList(value: unknown): unknown {
+  if (Array.isArray(value)) return {};
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, everyList(item)]));
+}
+
+function withoutCursors(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutCursors);
+  if (value === null || typeof value !== "object") return value;
+  const result = Object.fromEntries(Object.entries(value).map(([key, item]) => [key, withoutCursors(item)]));
+  return "hasNextPage" in result ? { ...result, hasNextPage: true, endCursor: null } : result;
+}
+
+// How GitHub's responses are malformed. A REST list without a cursor has a
+// next-page link with no URL.
+const malformations: Record<Malformation, Omit<Malformed, "status">> = {
+  missingFields: { body: (json) => everyScalar(json, () => undefined) },
+  wrongTypes: { body: (json) => everyScalar(json, (scalar) => (typeof scalar === "string" ? 0 : "x")) },
+  brokenLists: { body: everyList },
+  pageWithoutCursor: { headers: { link: '; rel="next"' }, body: withoutCursors },
+};
 
 /** Opens a connection the way `connect` does. */
 export type Opener = (remote: string, options: ConnectOptions) => Connection;
@@ -247,6 +288,12 @@ export const harnessOver = (name: string, open: Opener = connect): AdapterHarnes
       },
       failNext(failure) {
         fake.inject(githubFailure(failure));
+      },
+      malformNext(malformation) {
+        // A success status GitHub's API does not use, so the error shows it came from this response.
+        const status = 203;
+        fake.malformNext({ status, ...malformations[malformation] });
+        return status;
       },
     };
   },

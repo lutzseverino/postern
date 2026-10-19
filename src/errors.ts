@@ -29,7 +29,7 @@ export const platformErrorReasons: readonly PlatformErrorReason[] = Object.freez
 export interface PlatformErrorOptions {
   /** When a `rateLimited` quota resets, as an ISO 8601 time, when the platform states it. */
   retryAt?: string;
-  /** The platform's HTTP status, when a response caused the failure. */
+  /** The HTTP status of the response whose reading raised the failure, when one did. */
   status?: number;
   cause?: unknown;
 }
@@ -42,12 +42,13 @@ export class PlatformError extends Error {
   readonly status?: number;
 
   constructor(reason: PlatformErrorReason, message: string, options: PlatformErrorOptions = {}) {
-    super(message, options.cause === undefined ? undefined : { cause: options.cause });
+    const { retryAt, status, cause } = options;
+    super(message, cause === undefined ? undefined : { cause });
     if (!platformErrorReasons.includes(reason)) {
       throw new TypeError(`Unknown platform error reason: ${String(reason)}`);
     }
     this.reason = reason;
-    if (options.retryAt !== undefined) this.retryAt = options.retryAt;
-    if (options.status !== undefined) this.status = options.status;
+    if (retryAt !== undefined) this.retryAt = retryAt;
+    if (status !== undefined) this.status = status;
   }
 }

@@ -57,6 +57,13 @@ export type Injected =
   | { network: true }
   | { hang: true };
 
+/** A change to the response the fake would send. */
+export interface Malformed {
+  status: number;
+  headers?: Record<string, string>;
+  body(json: unknown): unknown;
+}
+
 export interface FakeRequest {
   method: string;
   url: URL;
@@ -83,6 +90,7 @@ export class GitHubFake {
   /** The largest page the fake serves, whatever size a request asks for. */
   maxPageSize = 100;
   readonly #injected: Injected[] = [];
+  readonly #malformations: Malformed[] = [];
   readonly #numbers = new Map<string, number>();
   // Past the 32-bit range, as GitHub's newer IDs are.
   #ids = 2 ** 32;
@@ -108,6 +116,11 @@ export class GitHubFake {
     this.#injected.push(response);
   }
 
+  /** Answers the next request with its own response, changed this way. */
+  malformNext(change: Malformed): void {
+    this.#malformations.push(change);
+  }
+
   readonly fetch = async (input: string | URL | Request, init: RequestInit = {}): Promise<Response> => {
     const url = new URL(String(input instanceof Request ? input.url : input));
     const headers = new Headers(init.headers);
@@ -123,12 +136,19 @@ export class GitHubFake {
       viewer = this.tokens.get(authorization.replace(/^Bearer /, "")) ?? null;
       if (!viewer) return json(401, { message: "Bad credentials" });
     }
+    let response: Response;
     try {
-      return this.#route(method, url, body, viewer);
+      response = this.#route(method, url, body, viewer);
     } catch (error) {
-      if (error instanceof Response) return error;
-      throw error;
+      if (!(error instanceof Response)) throw error;
+      response = error;
     }
+    const change = this.#malformations.shift();
+    if (!change) return response;
+    return new Response(JSON.stringify(change.body(await response.json())), {
+      status: change.status,
+      headers: { ...Object.fromEntries(response.headers), ...change.headers },
+    });
   };
 
   async #injectedResponse(injected: Injected, signal: AbortSignal | undefined): Promise<Response> {

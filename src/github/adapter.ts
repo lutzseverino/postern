@@ -1,7 +1,8 @@
 // The GitHub adapter: the four ports over GitHub's REST and GraphQL APIs.
 // Reads that need GraphQL-only facts use GraphQL, which GitHub serves only to
 // authenticated callers; everything else uses REST, which also serves
-// anonymous reads of public repositories.
+// anonymous reads of public repositories. Every response is mapped inside the
+// `read` the transport runs in that response's scope.
 
 import type { AdapterContext, AdapterPorts } from "../connection.ts";
 import { PlatformError } from "../errors.ts";
@@ -77,77 +78,89 @@ const issueConnectionQueries = {
 }`,
 };
 
+// Whether a connection the issue holds has pages beyond its first.
+const morePages = (connection: unknown) =>
+  (connection as { pageInfo?: { hasNextPage?: unknown } } | null)?.pageInfo?.hasNextPage === true;
+
+const ignore = () => undefined;
+
 function issueTracker(transport: GitHubTransport, repo: string, coordinates: Json): IssueTracker {
-  // The remaining pages of an issue's nested connections, when it has more than one.
-  const complete = async (node: Json): Promise<Issue> => {
-    for (const key of ["labels", "subIssues", "blockedBy"] as const) {
-      const connection = node[key] as { nodes?: unknown[]; pageInfo?: { hasNextPage?: boolean; endCursor?: string } } | null;
-      if (!connection?.pageInfo?.hasNextPage) continue;
-      const rest = await transport.graphqlPages<unknown>(
+  // An issue with every page of its nested connections. A follow-up query
+  // starts from the first page again and replaces what the issue held.
+  const complete = async (value: unknown): Promise<Issue> => {
+    const node = object(value);
+    const issue = mapIssue(node);
+    const rest = <T>(key: keyof typeof issueConnectionQueries, read: (node: unknown) => T) =>
+      transport.graphqlPages(
         issueConnectionQueries[key],
-        { id: node.id },
-        (data) => (data.node as Json | null)?.connection as never,
+        { id: issue.nodeId },
+        (data) => (data.node as Json | null)?.connection,
+        read,
       );
-      // The first page is already held; the follow-up query starts from it again.
-      node[key] = { nodes: rest, pageInfo: { hasNextPage: false } };
-    }
-    return mapIssue(node);
+    if (morePages(node.labels)) issue.labels = await rest("labels", labelName);
+    if (morePages(node.subIssues)) issue.subIssues = await rest("subIssues", mapReference);
+    if (morePages(node.blockedBy)) issue.blockedBy = await rest("blockedBy", mapReference);
+    return issue;
   };
   return {
     capabilities: { nativeParent: true, nativeBlockers: true, bodyEditTime: true, linkTime: true, botMarking: true },
     async issues(filter = {}) {
-      const nodes = await transport.graphqlPages<Json>(
+      return transport.graphqlPages(
         issuesQuery,
         {
           ...coordinates,
           states: [(filter.state ?? "open").toUpperCase()],
           labels: filter.label === undefined ? null : [filter.label],
         },
-        (data) => (data.repository as Json | null)?.issues as never,
+        (data) => (data.repository as Json | null)?.issues,
+        complete,
       );
-      const issues: Issue[] = [];
-      for (const node of nodes) issues.push(await complete(node));
-      return issues;
     },
     async issue(number) {
-      const data = await transport.graphql<Json>(issueQuery, { ...coordinates, number });
-      const node = (data.repository as Json | null)?.issue as Json | null | undefined;
-      if (!node) throw new PlatformError("notFound", `Issue #${number} was not found.`);
-      return complete(node);
+      return transport.graphql(issueQuery, { ...coordinates, number }, (data) => {
+        const node = (data.repository as Json | null)?.issue;
+        if (!node) throw new PlatformError("notFound", `Issue #${number} was not found.`);
+        return complete(node);
+      });
     },
     async labelChanges(number) {
-      const events = await transport.restPages<Json>(`${repo}/issues/${number}/events`);
-      return events
-        .filter((event) => event.event === "labeled" || event.event === "unlabeled")
-        .map((event): LabelChange => ({
+      const changes = await transport.restPages(`${repo}/issues/${number}/events`, {}, (value): LabelChange | null => {
+        const event = object(value);
+        if (event.event !== "labeled" && event.event !== "unlabeled") return null;
+        return {
           id: integer(event.id),
           action: event.event === "labeled" ? "added" : "removed",
           label: text((event.label as Json | null)?.name),
           actor: restAccount(event.actor),
           time: text(event.created_at),
-        }));
+        };
+      });
+      return changes.filter((change) => change !== null);
     },
     async comments(number) {
-      return (await transport.restPages<Json>(`${repo}/issues/${number}/comments`)).map(mapComment);
+      return transport.restPages(`${repo}/issues/${number}/comments`, {}, mapComment);
     },
     async addLabels(number, labels) {
-      await transport.rest(`${repo}/issues/${number}/labels`, { method: "POST", body: { labels } });
+      await transport.rest(`${repo}/issues/${number}/labels`, { method: "POST", body: { labels } }, ignore);
     },
     async removeLabel(number, label) {
-      await transport.rest(`${repo}/issues/${number}/labels/${segment(label)}`, { method: "DELETE" });
+      await transport.rest(`${repo}/issues/${number}/labels/${segment(label)}`, { method: "DELETE" }, ignore);
     },
     async createLabel(label) {
-      const response = await transport.rest(`${repo}/labels`, { method: "POST", body: label });
-      return mapLabel(response.data);
+      return transport.rest(`${repo}/labels`, { method: "POST", body: label }, ({ data }) => mapLabel(data));
     },
     async createComment(number, body) {
-      return mapComment((await transport.rest(`${repo}/issues/${number}/comments`, { method: "POST", body: { body } })).data);
+      return transport.rest(`${repo}/issues/${number}/comments`, { method: "POST", body: { body } }, ({ data }) =>
+        mapComment(data),
+      );
     },
     async updateComment(id, body) {
-      return mapComment((await transport.rest(`${repo}/issues/comments/${id}`, { method: "PATCH", body: { body } })).data);
+      return transport.rest(`${repo}/issues/comments/${id}`, { method: "PATCH", body: { body } }, ({ data }) =>
+        mapComment(data),
+      );
     },
     async closeIssue(number) {
-      await transport.rest(`${repo}/issues/${number}`, { method: "PATCH", body: { state: "closed" } });
+      await transport.rest(`${repo}/issues/${number}`, { method: "PATCH", body: { state: "closed" } }, ignore);
     },
   };
 }
@@ -163,7 +176,7 @@ function mapIssue(node: Json): Issue {
     title: text(node.title),
     body: text(node.body),
     author: graphqlAccount(node.author),
-    labels: nodes(node.labels).map((label) => text(label.name)),
+    labels: nodes(node.labels).map(labelName),
     createdAt: text(node.createdAt),
     parent: node.parent ? mapReference(node.parent as Json) : null,
     subIssues: nodes(node.subIssues).map(mapReference),
@@ -173,7 +186,8 @@ function mapIssue(node: Json): Issue {
   };
 }
 
-function mapReference(node: Json): IssueReference {
+function mapReference(value: unknown): IssueReference {
+  const node = object(value);
   return {
     repository: text((node.repository as Json | null)?.nameWithOwner),
     number: integer(node.number),
@@ -193,6 +207,8 @@ function mapComment(value: unknown): Comment {
     updatedAt: text(comment.updated_at),
   };
 }
+
+const labelName = (value: unknown) => text(object(value).name);
 
 function mapLabel(value: unknown): Label {
   const label = object(value);
@@ -247,95 +263,113 @@ const mergeQueueQuery = `query PosternMergeQueue($owner: String!, $name: String!
 }`;
 
 function pullRequests(transport: GitHubTransport, repo: string, coordinates: Json): PullRequests {
-  const pullRequestNode = async (query: string, number: number): Promise<Json> => {
-    const data = await transport.graphql<Json>(query, { ...coordinates, number });
-    const node = (data.repository as Json | null)?.pullRequest as Json | null | undefined;
-    if (!node) throw new PlatformError("notFound", `Pull request #${number} was not found.`);
-    return node;
-  };
+  const readPullRequest = <T>(query: string, number: number, read: (node: Json) => T) =>
+    transport.graphql(query, { ...coordinates, number }, (data) => {
+      const node = (data.repository as Json | null)?.pullRequest;
+      if (!node) throw new PlatformError("notFound", `Pull request #${number} was not found.`);
+      return read(object(node));
+    });
   return {
     capabilities: { closingReferences: true, reviewCommits: true },
     async byHeadBranch(branch) {
-      const found = await transport.graphqlPages<Json>(
+      return transport.graphqlPages(
         byHeadQuery,
         { ...coordinates, branch },
-        (data) => (data.repository as Json | null)?.pullRequests as never,
+        (data) => (data.repository as Json | null)?.pullRequests,
+        mapPullRequest,
       );
-      return found.map(mapPullRequest);
     },
     async closing(issueNumber) {
-      const found = await transport.graphqlPages<Json>(closingQuery, { ...coordinates, number: issueNumber }, (data) => {
-        const issue = (data.repository as Json | null)?.issue as Json | null | undefined;
-        if (!issue) throw new PlatformError("notFound", `Issue #${issueNumber} was not found.`);
-        return issue.closedByPullRequestsReferences as never;
-      });
-      return found.map(mapPullRequest);
+      return transport.graphqlPages(
+        closingQuery,
+        { ...coordinates, number: issueNumber },
+        (data) => {
+          const issue = (data.repository as Json | null)?.issue as Json | null | undefined;
+          if (!issue) throw new PlatformError("notFound", `Issue #${issueNumber} was not found.`);
+          return issue.closedByPullRequestsReferences;
+        },
+        mapPullRequest,
+      );
     },
     async pullRequest(number) {
-      return mapPullRequest(await pullRequestNode(pullRequestQuery, number));
+      return readPullRequest(pullRequestQuery, number, mapPullRequest);
     },
     async reviews(number) {
-      return (await transport.restPages<Json>(`${repo}/pulls/${number}/reviews`)).map((review): Review => ({
-        id: integer(review.id),
-        author: restAccount(review.user),
-        state: text(review.state),
-        body: text(review.body ?? ""),
-        commit: optionalText(review.commit_id),
-        submittedAt: optionalText(review.submitted_at),
-      }));
+      return transport.restPages(`${repo}/pulls/${number}/reviews`, {}, (value): Review => {
+        const review = object(value);
+        return {
+          id: integer(review.id),
+          author: restAccount(review.user),
+          state: text(review.state),
+          body: text(review.body ?? ""),
+          commit: optionalText(review.commit_id),
+          submittedAt: optionalText(review.submitted_at),
+        };
+      });
     },
     async reviewThreads(number) {
-      const threads = await transport.graphqlPages<Json>(reviewThreadsQuery, { ...coordinates, number }, (data) => {
-        const pull = (data.repository as Json | null)?.pullRequest as Json | null | undefined;
-        if (!pull) throw new PlatformError("notFound", `Pull request #${number} was not found.`);
-        return pull.reviewThreads as never;
-      });
-      return threads.map((thread): ReviewThread => ({
-        id: text(thread.id),
-        resolved: boolean(thread.isResolved),
-        outdated: boolean(thread.isOutdated),
-        path: text(thread.path),
-        author: graphqlAccount(nodes(thread.comments)[0]?.author),
-      }));
+      return transport.graphqlPages(
+        reviewThreadsQuery,
+        { ...coordinates, number },
+        (data) => {
+          const pull = (data.repository as Json | null)?.pullRequest as Json | null | undefined;
+          if (!pull) throw new PlatformError("notFound", `Pull request #${number} was not found.`);
+          return pull.reviewThreads;
+        },
+        (value): ReviewThread => {
+          const thread = object(value);
+          return {
+            id: text(thread.id),
+            resolved: boolean(thread.isResolved),
+            outdated: boolean(thread.isOutdated),
+            path: text(thread.path),
+            author: graphqlAccount(nodes(thread.comments)[0]?.author),
+          };
+        },
+      );
     },
     async checks(commit) {
       const ref = segment(commit);
       const [runs, statuses] = await Promise.all([
-        transport.restPages<Json>(`${repo}/commits/${ref}/check-runs`, { items: "check_runs" }),
-        transport.restPages<Json>(`${repo}/commits/${ref}/status`, { items: "statuses" }),
+        transport.restPages(`${repo}/commits/${ref}/check-runs`, { items: "check_runs" }, (value): CheckResult => {
+          const run = object(value);
+          return {
+            name: text(run.name),
+            status: text(run.status),
+            conclusion: optionalText(run.conclusion),
+            completedAt: optionalText(run.completed_at),
+          };
+        }),
+        transport.restPages(`${repo}/commits/${ref}/status`, { items: "statuses" }, (value): CheckResult => {
+          const status = object(value);
+          return { name: text(status.context), status: text(status.state), conclusion: null, completedAt: null };
+        }),
       ]);
-      return [
-        ...runs.map((run): CheckResult => ({
-          name: text(run.name),
-          status: text(run.status),
-          conclusion: optionalText(run.conclusion),
-          completedAt: optionalText(run.completed_at),
-        })),
-        ...statuses.map((status): CheckResult => ({
-          name: text(status.context),
-          status: text(status.state),
-          conclusion: null,
-          completedAt: null,
-        })),
-      ];
+      return [...runs, ...statuses];
     },
     async mergesThroughQueue(number) {
-      return boolean((await pullRequestNode(mergeQueueQuery, number)).isMergeQueueEnabled);
+      return readPullRequest(mergeQueueQuery, number, (node) => boolean(node.isMergeQueueEnabled));
     },
     async comment(number, body) {
-      return mapComment((await transport.rest(`${repo}/issues/${number}/comments`, { method: "POST", body: { body } })).data);
+      return transport.rest(`${repo}/issues/${number}/comments`, { method: "POST", body: { body } }, ({ data }) =>
+        mapComment(data),
+      );
     },
     async squashMerge(number, merge) {
-      const response = await transport.rest(`${repo}/pulls/${number}/merge`, {
-        method: "PUT",
-        body: { merge_method: "squash", sha: merge.expectedHead, commit_title: merge.title, commit_message: merge.body },
-      });
-      return text(object(response.data).sha);
+      return transport.rest(
+        `${repo}/pulls/${number}/merge`,
+        {
+          method: "PUT",
+          body: { merge_method: "squash", sha: merge.expectedHead, commit_title: merge.title, commit_message: merge.body },
+        },
+        ({ data }) => text(object(data).sha),
+      );
     },
   };
 }
 
-function mapPullRequest(node: Json): PullRequest {
+function mapPullRequest(value: unknown): PullRequest {
+  const node = object(value);
   return {
     repository: text((node.repository as Json | null)?.nameWithOwner),
     number: integer(node.number),
@@ -360,26 +394,31 @@ function releaseSource(transport: GitHubTransport, repo: string): ReleaseSource 
   return {
     capabilities: { drafts: true, prereleases: true },
     async releases() {
-      return (await transport.restPages<Json>(`${repo}/releases`)).map((release): Release => ({
-        id: integer(release.id),
-        tag: text(release.tag_name),
-        name: text(release.name ?? ""),
-        draft: boolean(release.draft),
-        prerelease: boolean(release.prerelease),
-        publishedAt: optionalText(release.published_at),
-      }));
+      return transport.restPages(`${repo}/releases`, {}, (value): Release => {
+        const release = object(value);
+        return {
+          id: integer(release.id),
+          tag: text(release.tag_name),
+          name: text(release.name ?? ""),
+          draft: boolean(release.draft),
+          prerelease: boolean(release.prerelease),
+          publishedAt: optionalText(release.published_at),
+        };
+      });
     },
     async tagCommit(tag) {
-      let target = object(object((await transport.rest(`${repo}/git/ref/tags/${encodeTag(tag)}`)).data).object);
       // An annotated tag points to a tag object, which may itself point to another tag.
-      for (let depth = 0; target.type === "tag"; depth++) {
-        if (depth === 10) throw invalid(`Tag ${tag} nests too many annotated tags.`);
-        target = object(object((await transport.rest(`${repo}/git/tags/${sha(target.sha)}`)).data).object);
-      }
-      if (target.type !== "commit") {
-        throw new PlatformError("notFound", `Tag ${tag} points to a ${String(target.type)}, not a commit.`);
-      }
-      return text(target.sha);
+      const peel = (path: string, depth: number): Promise<string> =>
+        transport.rest(path, {}, ({ data }) => {
+          const target = object(object(data).object);
+          if (target.type === "commit") return text(target.sha);
+          if (target.type !== "tag") {
+            throw new PlatformError("notFound", `Tag ${tag} points to a ${String(target.type)}, not a commit.`);
+          }
+          if (depth === 10) throw invalid(`Tag ${tag} nests too many annotated tags.`);
+          return peel(`${repo}/git/tags/${sha(target.sha)}`, depth + 1);
+        });
+      return peel(`${repo}/git/ref/tags/${encodeTag(tag)}`, 0);
     },
   };
 }
@@ -402,25 +441,20 @@ function access(transport: GitHubTransport, context: AdapterContext, repo: strin
     capabilities: {},
     async viewer() {
       if (context.credentials.anonymous) return null;
-      return restAccount((await transport.rest("/user")).data);
+      return transport.rest("/user", {}, ({ data }) => restAccount(data));
     },
     async role(login) {
-      const response = await transport.rest(`${repo}/collaborators/${segment(login)}/permission`);
-      const permission = object(response.data);
-      return permission.permission === "none" ? null : text(permission.role_name);
+      return transport.rest(`${repo}/collaborators/${segment(login)}/permission`, {}, ({ data }) => {
+        const permission = object(data);
+        return permission.permission === "none" ? null : text(permission.role_name);
+      });
     },
     async request(request) {
-      const response = await transport.rest(request.path, {
-        method: request.method ?? "GET",
-        query: request.query,
-        body: request.body,
-        headers: request.headers,
-      });
-      return {
-        status: response.status,
-        headers: Object.fromEntries(response.headers),
-        data: response.data,
-      };
+      return transport.rest(
+        request.path,
+        { method: request.method ?? "GET", query: request.query, body: request.body, headers: request.headers },
+        (response) => ({ status: response.status, headers: Object.fromEntries(response.headers), data: response.data }),
+      );
     },
   };
 }
