@@ -21,7 +21,10 @@ export interface IssueReference {
 
 export interface Issue {
   number: number;
-  /** The platform's stable numeric identifier. */
+  /**
+   * The platform's stable numeric identifier. Like every numeric `id`, a safe
+   * integer: a read that meets a larger one fails with `invalidResponse`.
+   */
   id: number;
   /** The platform's global API identifier, such as GitHub's node ID, where it has one. */
   nodeId: string | null;

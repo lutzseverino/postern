@@ -96,7 +96,8 @@ the same host, so links may cross repositories.
 An issue is `{ number, id, nodeId, url, state, title, body, author, labels,
 createdAt, parent, subIssues, blockedBy, bodyEditTime, linkTime }`. `id` is
 the platform's stable numeric identifier and `nodeId` its global API
-identifier where it has one. `bodyEditTime` is when the body was last edited
+identifier where it has one. Every numeric `id` is a safe integer; a read that
+meets a larger one fails with `invalidResponse`. `bodyEditTime` is when the body was last edited
 and `linkTime` when the latest sub-issue was linked; each is `null` when that
 never happened. A comment is `{ id, nodeId, url, author, body, createdAt,
 updatedAt }`.

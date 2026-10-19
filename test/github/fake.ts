@@ -84,7 +84,8 @@ export class GitHubFake {
   maxPageSize = 100;
   readonly #injected: Injected[] = [];
   readonly #numbers = new Map<string, number>();
-  #ids = 1000;
+  // Past the 32-bit range, as GitHub's newer IDs are.
+  #ids = 2 ** 32;
 
   readonly repository: string;
 
@@ -371,7 +372,7 @@ export class GitHubFake {
     const children = [...this.issues.values()].filter((candidate) => candidate.parent === key);
     return {
       number: issue.number,
-      databaseId: issue.databaseId,
+      ...graphqlDatabaseIds(issue.databaseId),
       id: issue.nodeId,
       url: `https://github.com/${issue.repository}/issues/${issue.number}`,
       state: issue.state,
@@ -391,7 +392,7 @@ export class GitHubFake {
   #pullNode(pull: FakePullRequest): Json {
     return {
       number: pull.number,
-      databaseId: pull.databaseId,
+      ...graphqlDatabaseIds(pull.databaseId),
       id: pull.nodeId,
       url: `https://github.com/${pull.repository}/pull/${pull.number}`,
       state: pull.state,
@@ -449,6 +450,12 @@ function publicComment({ key: _key, ...comment }: Json & { key: string }): Json 
 
 export function user(account: FakeUser): Json {
   return { login: account.login, id: account.login.length, type: account.type };
+}
+
+// GraphQL's `databaseId` is a 32-bit `Int`, null for a larger ID;
+// `fullDatabaseId` is a `BigInt`, which GitHub sends as a string.
+function graphqlDatabaseIds(id: number): Json {
+  return { databaseId: id < 2 ** 31 ? id : null, fullDatabaseId: String(id) };
 }
 
 function graphqlUser(account: FakeUser | null): Json | null {

@@ -44,7 +44,7 @@ export function githubAdapter(context: AdapterContext): AdapterPorts {
 const referenceFields = "number state repository { nameWithOwner }";
 
 const issueFields = `
-  number databaseId id url state title body createdAt lastEditedAt
+  number fullDatabaseId id url state title body createdAt lastEditedAt
   author { __typename login }
   labels(first: 100) { nodes { name } pageInfo { hasNextPage endCursor } }
   parent { ${referenceFields} }
@@ -156,7 +156,7 @@ function mapIssue(node: Json): Issue {
   const timeline = (node.timelineItems as { nodes?: Json[] } | null)?.nodes ?? [];
   return {
     number: integer(node.number),
-    id: integer(node.databaseId),
+    id: bigInteger(node.fullDatabaseId),
     nodeId: text(node.id),
     url: text(node.url),
     state: issueState(node.state),
@@ -202,7 +202,7 @@ function mapLabel(value: unknown): Label {
 // Pull requests
 
 const pullRequestFields = `
-  number databaseId id url state title body createdAt
+  number fullDatabaseId id url state title body createdAt
   author { __typename login }
   headRefName headRefOid baseRefName isCrossRepository
   repository { nameWithOwner }`;
@@ -339,7 +339,7 @@ function mapPullRequest(node: Json): PullRequest {
   return {
     repository: text((node.repository as Json | null)?.nameWithOwner),
     number: integer(node.number),
-    id: integer(node.databaseId),
+    id: bigInteger(node.fullDatabaseId),
     nodeId: text(node.id),
     url: text(node.url),
     state: pullRequestState(node.state),
@@ -485,6 +485,16 @@ function optionalText(value: unknown): string | null {
 function integer(value: unknown): number {
   if (!Number.isSafeInteger(value)) throw invalid("GitHub returned a missing or unreadable number.");
   return value as number;
+}
+
+// A GraphQL `BigInt`, which GitHub sends as a decimal string. Postern reports
+// IDs as numbers, so one past `Number.MAX_SAFE_INTEGER` is unreadable, as it
+// already is from REST, whose JSON numbers lose digits beyond that bound.
+function bigInteger(value: unknown): number {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)$/.test(value)) {
+    throw invalid("GitHub returned a missing or unreadable number.");
+  }
+  return integer(Number(value));
 }
 
 function boolean(value: unknown): boolean {

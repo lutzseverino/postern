@@ -255,3 +255,105 @@ describe("GitHub tag peeling", () => {
     assert.equal(fake.requests.length, 1);
   });
 });
+
+describe("GitHub numeric IDs", () => {
+  const pullNode = (fullDatabaseId: unknown) => ({
+    number: 3,
+    databaseId: null,
+    fullDatabaseId,
+    id: "PR_3",
+    url: `https://github.com/${path}/pull/3`,
+    state: "OPEN",
+    title: "Three",
+    body: "",
+    createdAt: "2026-01-01T00:00:00Z",
+    author: { __typename: "User", login: "mona" },
+    headRefName: "feature",
+    headRefOid: "a".repeat(40),
+    baseRefName: "main",
+    isCrossRepository: false,
+    repository: { nameWithOwner: path },
+  });
+
+  it("read issue and pull request IDs past 32 bits from fullDatabaseId", async () => {
+    const { fake, connection } = setup();
+    const issueId = 2 ** 31;
+    const pullId = 2 ** 40 + 7;
+    fake.issues.set(`${path}#1`, {
+      repository: path,
+      number: 1,
+      databaseId: issueId,
+      nodeId: "I_1",
+      state: "OPEN",
+      title: "One",
+      body: "",
+      author: null,
+      labels: [],
+      createdAt: "2026-01-01T00:00:00Z",
+      lastEditedAt: null,
+      parent: null,
+      blockedBy: [],
+      subIssueAddedAt: [],
+      events: [],
+    });
+    fake.pullRequests.set(`${path}#2`, {
+      repository: path,
+      number: 2,
+      databaseId: pullId,
+      nodeId: "PR_2",
+      state: "OPEN",
+      title: "Two",
+      body: "",
+      author: null,
+      createdAt: "2026-01-01T00:00:00Z",
+      headRefName: "feature",
+      headRefOid: "a".repeat(40),
+      baseRefName: "main",
+      isCrossRepository: false,
+      closes: [`${path}#1`],
+      reviews: [],
+      threads: [],
+      isMergeQueueEnabled: false,
+      merge: null,
+    });
+    assert.equal((await connection.issueTracker.issue(1)).id, issueId);
+    assert.deepEqual((await connection.issueTracker.issues()).map((issue) => issue.id), [issueId]);
+    assert.equal((await connection.pullRequests.pullRequest(2)).id, pullId);
+    assert.deepEqual((await connection.pullRequests.byHeadBranch("feature")).map((pull) => pull.id), [pullId]);
+    assert.deepEqual((await connection.pullRequests.closing(1)).map((pull) => pull.id), [pullId]);
+  });
+
+  it("ask GraphQL for fullDatabaseId, not the 32-bit databaseId", async () => {
+    const { fake, connection } = setup();
+    fake.inject({ status: 200, body: JSON.stringify({ data: { repository: { pullRequest: pullNode("3") } } }) });
+    await connection.pullRequests.pullRequest(3);
+    const query = String((fake.requests[0]?.body as { query?: unknown }).query);
+    assert.match(query, /\bfullDatabaseId\b/);
+    assert.doesNotMatch(query, /(?<!full)databaseId/i);
+  });
+
+  // A JSON number past 2^53 has already lost digits when parsed, so REST IDs
+  // fail at the same bound as GraphQL's string IDs.
+  it("fail with invalidResponse for a GraphQL ID past Number.MAX_SAFE_INTEGER", async () => {
+    const { fake, connection } = setup();
+    fake.inject({ status: 200, body: JSON.stringify({ data: { repository: { pullRequest: pullNode("9007199254740993") } } }) });
+    await assert.rejects(connection.pullRequests.pullRequest(3), failure("invalidResponse"));
+  });
+
+  it("fail with invalidResponse for a REST ID past Number.MAX_SAFE_INTEGER", async () => {
+    const { fake, connection } = setup();
+    fake.inject({
+      status: 200,
+      body: '[{"id":9007199254740993,"tag_name":"v1.0.0","name":"","draft":false,"prerelease":false,"published_at":null}]',
+    });
+    await assert.rejects(connection.releaseSource.releases(), failure("invalidResponse"));
+  });
+
+  for (const fullDatabaseId of [null, undefined, 3, "", "-3", "3.0", "1e3", "0x3", "03", " 3"]) {
+    it(`fail with invalidResponse for the GraphQL ID ${JSON.stringify(fullDatabaseId) ?? "undefined"}`, async () => {
+      const { fake, connection } = setup();
+      fake.inject({ status: 200, body: JSON.stringify({ data: { repository: { pullRequest: pullNode(fullDatabaseId) } } }) });
+      await assert.rejects(connection.pullRequests.pullRequest(3), failure("invalidResponse"));
+    });
+  }
+});
