@@ -43,7 +43,7 @@ export class GitHubTransport {
     while (url) {
       const response = await this.#send(url, {});
       const page = options.items ? (response.data as Json | null)?.[options.items] : response.data;
-      if (!Array.isArray(page)) throw invalid(`GitHub returned no list for ${url.pathname}.`);
+      if (!Array.isArray(page)) throw invalid(`GitHub returned no list for ${url.pathname}.`, response.status);
       items.push(...(page as T[]));
       url = nextPage(response.headers.get("link"));
     }
@@ -54,11 +54,11 @@ export class GitHubTransport {
   async graphql<T = Json>(query: string, variables: Json): Promise<T> {
     const response = await this.#send(apiUrl("/graphql"), { method: "POST", body: { query, variables } });
     const result = response.data as { data?: unknown; errors?: unknown } | null;
-    if (!result || typeof result !== "object") throw invalid("GitHub returned no GraphQL result.");
+    if (!result || typeof result !== "object") throw invalid("GitHub returned no GraphQL result.", response.status);
     if (Array.isArray(result.errors) && result.errors.length > 0) {
-      throw graphqlError(result.errors, response.headers);
+      throw graphqlError(result.errors, response.status, response.headers);
     }
-    if (!result.data || typeof result.data !== "object") throw invalid("GitHub returned no GraphQL data.");
+    if (!result.data || typeof result.data !== "object") throw invalid("GitHub returned no GraphQL data.", response.status);
     return result.data as T;
   }
 
@@ -203,13 +203,14 @@ const graphqlReasons: Record<string, PlatformErrorReason> = {
   RATE_LIMIT: "rateLimited",
 };
 
-function graphqlError(errors: unknown[], headers: Headers): PlatformError {
+function graphqlError(errors: unknown[], status: number, headers: Headers): PlatformError {
   const first = errors[0] as { type?: unknown; message?: unknown } | null;
   const type = typeof first?.type === "string" ? first.type : "";
   const reason = graphqlReasons[type] ?? "rejected";
   const message = typeof first?.message === "string" ? first.message : "GraphQL query failed";
   const retryAt = reason === "rateLimited" ? retryTime(headers) : undefined;
   return new PlatformError(reason, `GitHub's GraphQL API answered: ${message}`, {
+    status,
     ...(retryAt === undefined ? {} : { retryAt }),
   });
 }

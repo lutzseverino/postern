@@ -111,6 +111,22 @@ describe("GitHub response mapping", () => {
     });
   }
 
+  it("reports the HTTP status on a GraphQL error", async () => {
+    const { fake, connection } = setup();
+    fake.inject({ status: 200, body: JSON.stringify({ data: null, errors: [{ type: "NOT_FOUND", message: "nope" }] }) });
+    await assert.rejects(connection.issueTracker.issue(1), failure("notFound", (error) => assert.equal(error.status, 200)));
+  });
+
+  it("reports the HTTP status on an unreadable GraphQL or REST list result", async () => {
+    const { fake, connection } = setup();
+    fake.inject({ status: 200, body: "{}" });
+    await assert.rejects(connection.issueTracker.issue(1), failure("invalidResponse", (error) => assert.equal(error.status, 200)));
+    fake.inject({ status: 200, body: "[]" });
+    await assert.rejects(connection.issueTracker.issue(1), failure("invalidResponse", (error) => assert.equal(error.status, 200)));
+    fake.inject({ status: 200, body: "{}" });
+    await assert.rejects(connection.releaseSource.releases(), failure("invalidResponse", (error) => assert.equal(error.status, 200)));
+  });
+
   it("fails GraphQL-backed reads with unauthenticated on an anonymous connection", async () => {
     const fake = new GitHubFake(path);
     const connection = connect(`https://github.com/${path}`, { fetch: fake.fetch });
