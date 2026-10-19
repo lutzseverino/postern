@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    name: Node.js ${{ matrix.node }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [24, 26]
+    runs-on: ${{ vars.REPO_CANON_RUNS_ON && fromJSON(vars.REPO_CANON_RUNS_ON) || 'ubuntu-latest' }}
+    steps:
+      - name: Check out the revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - name: Install development dependencies
+        run: npm ci --ignore-scripts
+      - name: Type-check, build and test
+        run: npm run validate
+
+  # One stable check for the required-checks ruleset, whatever the matrix holds.
+  test:
+    name: Test
+    needs: node
+    if: ${{ always() }}
+    runs-on: ${{ vars.REPO_CANON_RUNS_ON && fromJSON(vars.REPO_CANON_RUNS_ON) || 'ubuntu-latest' }}
+    steps:
+      - name: Require every Node.js job to pass
+        env:
+          RESULT: ${{ needs.node.result }}
+        run: |
+          if [ "$RESULT" != success ]; then
+            echo "The Node.js jobs finished with result: $RESULT" >&2
+            exit 1
+          fi

@@ -1,28 +1,47 @@
 # Development
 
-This guide describes setup and validation for changes to Postern.
+This guide describes how to set up and validate changes to Postern.
 
 ## Setup and validation
 
-Postern currently has a repository scaffold with no product implementation,
-application dependencies, build command, or product test suite.
-
-Use stable Node.js 24 or 26 for the installed standards checks and delivery
-scripts, Git 2.18.0 or newer, and GitHub CLI 2.57.0 or newer for authenticated
-GitHub operations. Clone the repository and work on a branch. For a fresh
-checkout, install the pinned standards runtime:
+Use stable Node.js 24 or 26 with its bundled npm, Git 2.18.0 or newer, and
+GitHub CLI 2.57.0 or newer for authenticated GitHub operations. Clone the
+repository and work on a branch. In a fresh checkout, install the development
+dependencies and the pinned standards runtime:
 
 ```sh
+npm ci --ignore-scripts
 npm ci --prefix .repo-standards/runtime
 ```
 
-Before requesting review, run the installed standards checks and check the
-whole change for whitespace errors:
+Before requesting review, type-check, build and test the package, run the
+installed standards checks, and check the whole change for whitespace errors:
 
 ```sh
+npm run validate
 .repo-standards/runtime/node_modules/.bin/repo-standards check
 git diff --check origin/main...HEAD
 ```
+
+`npm run validate` runs `npm run typecheck`, `npm run build` and `npm test`.
+The tests run the TypeScript sources directly through Node.js type stripping,
+so the sources use only erasable TypeScript syntax. The package tests need the
+build, so run `npm run build` before running `npm test` alone. No test reaches
+the network: each adapter is tested against a local fake of its platform API.
+CI runs the same validation on Node.js 24 and 26 and reports it as the `Test`
+check.
+
+The property tests in `test/property/` generate caller inputs and changed
+GitHub responses from a seed. They use a fixed seed, so every run, CI's
+included, tests the same cases. To explore other cases, set
+`POSTERN_PROPERTY_SEED` to a number or to `random`, and optionally
+`POSTERN_PROPERTY_RUNS` to the number of cases per property (200 by default):
+
+```sh
+POSTERN_PROPERTY_SEED=random POSTERN_PROPERTY_RUNS=1000 node --test "test/property/*.test.ts"
+```
+
+A failing case names its seed and case number. Rerun it with that seed.
 
 For an adoption or update, also verify that the pinned CLI's `status` reports
 the run ready to commit. Use its `adopt` command to continue incomplete work.
@@ -39,4 +58,5 @@ The pull-request sandbox-image workflow also builds changed images.
 
 ## Index
 
-There are no additional development documents yet.
+- [Source layout](source-layout.md): Where the shared layer, the ports, each adapter and the contract suite live.
+- [Release procedure](release.md): Publishing a version to npm with provenance, including the first publication, and recovering a failed publication.

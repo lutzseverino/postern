@@ -1,0 +1,46 @@
+{
+  "name": "@lutzseverino/postern",
+  "version": "1.0.0",
+  "description": "Facts-only ports to code hosting platforms: issues, pull requests, releases and access.",
+  "keywords": [
+    "github",
+    "issues",
+    "pull-requests",
+    "releases",
+    "hosting-platform"
+  ],
+  "homepage": "https://github.com/lutzseverino/postern#readme",
+  "bugs": "https://github.com/lutzseverino/postern/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lutzseverino/postern.git"
+  },
+  "license": "MIT",
+  "author": "Jasper Lutz Severino",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/postern.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/postern.mjs",
+    "dist/types/"
+  ],
+  "engines": {
+    "node": "^24.0.0 || ^26.0.0"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "validate": "npm run typecheck && npm run build && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}
