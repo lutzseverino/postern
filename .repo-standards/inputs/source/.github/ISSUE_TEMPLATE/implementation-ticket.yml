@@ -1,0 +1,30 @@
+name: Implementation ticket
+description: Define a bounded change with observable acceptance criteria.
+labels: [needs-triage]
+body:
+  - type: input
+    id: parent
+    attributes:
+      label: Parent
+      description: Link the parent specification or planning issue, if applicable.
+  - type: textarea
+    id: scope
+    attributes:
+      label: What to build
+      description: Describe the change and its boundaries using the project's terminology.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List observable outcomes that demonstrate completion.
+    validations:
+      required: true
+  - type: textarea
+    id: blockers
+    attributes:
+      label: Blocked by
+      description: Link blocking issues, or explicitly write None. Keep native dependencies consistent.
+    validations:
+      required: true

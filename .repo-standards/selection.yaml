@@ -1,0 +1,8 @@
+cli:
+  package: "@lutzseverino/repo-standards"
+  version: 8.0.0
+standards:
+  repository: https://github.com/lutzseverino/repo-canon
+  version: v0.16.0
+  commit: 7f16041b8626a8119281b2e872f539b782fd83b8
+profile: factory
