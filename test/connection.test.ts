@@ -204,6 +204,45 @@ describe("the shared port layer", () => {
     assert.deepEqual(issue?.blockedBy, sampleIssue.blockedBy);
   });
 
+  it("builds the connection from the options it validated, reading each once", async () => {
+    const seen: AdapterContext[] = [];
+    const reads = new Map<PropertyKey, number>();
+    // Every option, and every section name, passes the checks on its first
+    // read and would not on any later one.
+    const onceValid = (values: Record<string, unknown>) =>
+      new Proxy(values, {
+        get(target, key) {
+          const count = (reads.get(key) ?? 0) + 1;
+          reads.set(key, count);
+          return count === 1 ? target[key as string] : 0;
+        },
+      });
+    const fetch = async () => new Response("{}");
+    createConnection(
+      repository,
+      doubleAdapter({}, seen),
+      onceValid({
+        credential: "t0ken-value",
+        relationshipSections: onceValid({ parent: "Parent", blockedBy: "Blocked by" }),
+        fetch,
+        timeoutMs: 1000,
+      }),
+    );
+    const [context] = seen;
+    assert.deepEqual(context?.relationshipSections, { parent: "Parent", blockedBy: "Blocked by" });
+    assert.equal(context?.fetch, fetch);
+    assert.equal(context?.timeoutMs, 1000);
+    assert.equal(await context?.credentials.token(), "t0ken-value");
+    assert.deepEqual(Object.fromEntries(reads), {
+      credential: 1,
+      relationshipSections: 1,
+      fetch: 1,
+      timeoutMs: 1,
+      parent: 1,
+      blockedBy: 1,
+    });
+  });
+
   it("reports null for times and bot marking whose flags are absent", async () => {
     const connection = createConnection(repository, doubleAdapter({ nativeParent: true }), {});
     const issue = await connection.issueTracker.issue(7);

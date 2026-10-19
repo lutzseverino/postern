@@ -115,7 +115,7 @@ export function createConnection(
   const context: AdapterContext = {
     repository: { ...repository },
     credentials: credentialsFrom(checked.credential, secrets),
-    relationshipSections: checked.relationshipSections ? { ...checked.relationshipSections } : null,
+    relationshipSections: checked.relationshipSections ?? null,
     fetch: checked.fetch ?? globalThis.fetch,
     timeoutMs: checked.timeoutMs ?? defaultTimeoutMs,
   };
@@ -358,6 +358,9 @@ function checkIdentity(identity: RepositoryIdentity): RepositoryIdentity {
   return identityChecks[identity.platform](identity.host, identity.path);
 }
 
+// A copy of the options, with copied section names: every field is read once
+// into the copy and checked there, so the connection uses exactly what was
+// checked, even when the options are getters or a Proxy.
 function checkOptions(options: ConnectOptions): ConnectOptions {
   checkOption(options !== null && typeof options === "object", "Connection options are an object.");
   const { credential, relationshipSections, fetch, timeoutMs } = options;
@@ -365,22 +368,30 @@ function checkOptions(options: ConnectOptions): ConnectOptions {
     credential === undefined || (typeof credential === "string" && credential !== "") || typeof credential === "function",
     "A credential is a non-empty token or a function returning one.",
   );
+  let sections: RelationshipSections | undefined;
   if (relationshipSections !== undefined) {
-    const sections = relationshipSections as Partial<Record<keyof RelationshipSections, unknown>> | null;
     checkOption(
-      sections !== null &&
-        typeof sections === "object" &&
-        isName(sections.parent) &&
-        isName(sections.blockedBy),
+      relationshipSections !== null && typeof relationshipSections === "object",
       "relationshipSections needs non-empty parent and blockedBy section names.",
     );
+    const { parent, blockedBy } = relationshipSections as Partial<Record<keyof RelationshipSections, unknown>>;
+    checkOption(
+      isName(parent) && isName(blockedBy),
+      "relationshipSections needs non-empty parent and blockedBy section names.",
+    );
+    sections = { parent, blockedBy };
   }
   checkOption(fetch === undefined || typeof fetch === "function", "fetch is a function.");
   checkOption(
     timeoutMs === undefined || (Number.isInteger(timeoutMs) && timeoutMs >= 1 && timeoutMs <= maxTimeoutMs),
     `timeoutMs is a whole number of milliseconds from 1 to ${maxTimeoutMs}.`,
   );
-  return options;
+  return {
+    ...(credential === undefined ? {} : { credential }),
+    ...(sections === undefined ? {} : { relationshipSections: sections }),
+    ...(fetch === undefined ? {} : { fetch }),
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+  };
 }
 
 const isName = (value: unknown): value is string => typeof value === "string" && value.trim() !== "";
