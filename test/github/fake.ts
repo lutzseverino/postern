@@ -90,7 +90,7 @@ export class GitHubFake {
   /** The largest page the fake serves, whatever size a request asks for. */
   maxPageSize = 100;
   readonly #injected: Injected[] = [];
-  readonly #malformations: Malformed[] = [];
+  readonly #malformations: (Malformed | null)[] = [];
   readonly #numbers = new Map<string, number>();
   // Past the 32-bit range, as GitHub's newer IDs are.
   #ids = 2 ** 32;
@@ -116,8 +116,9 @@ export class GitHubFake {
     this.#injected.push(response);
   }
 
-  /** Answers the next request with its own response, changed this way. */
-  malformNext(change: Malformed): void {
+  /** Answers the next request, or the one after `skip` others, with its own response, changed this way. */
+  malformNext(change: Malformed, skip = 0): void {
+    for (let skipped = 0; skipped < skip; skipped++) this.#malformations.push(null);
     this.#malformations.push(change);
   }
 

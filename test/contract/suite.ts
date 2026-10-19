@@ -588,11 +588,12 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
     group("malformed responses", () => {
       const head = "a".repeat(40);
       // Every operation that reads a response, as a call prepared on a seeded
-      // platform, and whether it reads a list across pages.
+      // platform, and whether it reads pages: a list across pages, or a
+      // resource holding lists that span pages of their own.
       type Prepared = (platform: ContractPlatform, connection: Connection) => Promise<() => Promise<unknown>>;
-      const reads: [name: string, list: boolean, prepare: Prepared][] = [
+      const reads: [name: string, paged: boolean, prepare: Prepared][] = [
         ["issues", true, async (platform, { issueTracker }) => (platform.addIssue(), () => issueTracker.issues())],
-        ["issue", false, async (platform, { issueTracker }) => {
+        ["issue", true, async (platform, { issueTracker }) => {
           const number = platform.addIssue({ labels: ["bug"] });
           return () => issueTracker.issue(number);
         }],
@@ -677,9 +678,9 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         }],
       ];
       const every: Malformation[] = ["missingFields", "wrongTypes"];
-      const lists: Malformation[] = ["brokenLists", "pageWithoutCursor"];
-      for (const [name, list, prepare] of reads) {
-        for (const malformation of list ? [...every, ...lists] : every) {
+      const pages: Malformation[] = ["brokenLists", "pageWithoutCursor", "pageFlagMissing", "pageFlagNull", "pageFlagWrongType"];
+      for (const [name, paged, prepare] of reads) {
+        for (const malformation of paged ? [...every, ...pages] : every) {
           it(`fails ${name} with invalidResponse and the response's status for ${malformation}`, async () => {
             const platform = harness.start();
             const call = await prepare(platform, platform.connect());

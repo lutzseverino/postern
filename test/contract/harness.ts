@@ -58,7 +58,13 @@ export type Malformation =
   /** Every list in the response is something else. */
   | "brokenLists"
   /** The response claims another page but gives no way to reach it. */
-  | "pageWithoutCursor";
+  | "pageWithoutCursor"
+  /** Every page in the response, nested ones included, omits whether another page follows. */
+  | "pageFlagMissing"
+  /** Every page in the response, nested ones included, states null for whether another page follows. */
+  | "pageFlagNull"
+  /** Every page in the response, nested ones included, states whether another page follows as something other than yes or no. */
+  | "pageFlagWrongType";
 
 export interface ContractPlatform {
   /** The connected repository's Git remote URL. */

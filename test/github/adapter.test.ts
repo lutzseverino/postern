@@ -5,9 +5,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { PlatformError, connect } from "../../src/index.ts";
-import type { Connection, PlatformErrorReason } from "../../src/index.ts";
+import type { Comment, Connection, PlatformErrorReason, Release } from "../../src/index.ts";
+import { githubAdapter } from "../../src/github/adapter.ts";
+import type { ContractPlatform } from "../contract/harness.ts";
 import { GitHubFake } from "./fake.ts";
 import type { Injected } from "./fake.ts";
+import { startGitHub } from "./harness.ts";
 
 const path = "octo/hello";
 const token = "ghp_adapterToken0123456789";
@@ -419,4 +422,380 @@ describe("GitHub numeric IDs", () => {
       await assert.rejects(connection.pullRequests.pullRequest(3), failure("invalidResponse"));
     });
   }
+});
+
+describe("GitHub response reading after the status", () => {
+  // A fetch whose response has a readable status, and whose headers or body are as given.
+  const answering =
+    (status: number, response: { headers?: () => unknown; text?: () => unknown }) => async () => ({
+      status,
+      get headers() {
+        return response.headers ? response.headers() : new Headers();
+      },
+      text: response.text ?? (async () => "[]"),
+    });
+  const unreadable = () => {
+    throw new TypeError("unreadable");
+  };
+  const cases: [string, ReturnType<typeof answering>, PlatformErrorReason, number][] = [
+    ["a body that fails to arrive", answering(200, { text: async () => unreadable() }), "unavailable", 200],
+    ["an error body that fails to arrive", answering(502, { text: async () => unreadable() }), "unavailable", 502],
+    ["headers that cannot be read", answering(200, { headers: unreadable }), "invalidResponse", 200],
+    ["headers that are no headers", answering(200, { headers: () => 42 }), "invalidResponse", 200],
+    ["a body that is no text", answering(200, { text: async () => ({ toString: unreadable }) }), "invalidResponse", 200],
+  ];
+  for (const [name, fetch, reason, status] of cases) {
+    it(`fails with ${reason} and the status for ${name}`, async () => {
+      const connection = connect(`https://github.com/${path}`, { fetch: fetch as never });
+      await assert.rejects(connection.releaseSource.releases(), failure(reason, (error) => assert.equal(error.status, status)));
+    });
+  }
+
+  it("keeps the status of a timeout while the body arrives", async () => {
+    const fetch = async (_: unknown, init: RequestInit) => ({
+      status: 200,
+      headers: new Headers(),
+      text: () =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+        }),
+    });
+    const connection = connect(`https://github.com/${path}`, { fetch: fetch as never, timeoutMs: 20 });
+    await assert.rejects(
+      connection.releaseSource.releases(),
+      failure("unavailable", (error) => {
+        assert.equal(error.status, 200);
+        assert.match(error.message, /20 ms/);
+      }),
+    );
+  });
+
+  for (const [name, headers] of [
+    ["a quota reset past the last date", { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "99999999999999" }],
+    ["a retry delay past the last date", { "retry-after": "99999999999999" }],
+  ] as const) {
+    it(`keeps rateLimited and the status for ${name}`, async () => {
+      const { fake, connection } = setup();
+      fake.inject({ status: 403, headers, body: '{"message":"API rate limit exceeded"}' });
+      await assert.rejects(
+        connection.releaseSource.releases(),
+        failure("rateLimited", (error) => {
+          assert.equal(error.status, 403);
+          assert.equal(error.retryAt, undefined);
+        }),
+      );
+    });
+  }
+
+  for (const errors of ["boom", {}, 1]) {
+    it(`fails with invalidResponse and the status for GraphQL errors given as ${JSON.stringify(errors)}`, async () => {
+      const { fake, connection } = setup();
+      fake.inject({ status: 200, body: JSON.stringify({ data: { repository: { pullRequest: null } }, errors }) });
+      await assert.rejects(connection.pullRequests.pullRequest(1), failure("invalidResponse", (error) => assert.equal(error.status, 200)));
+    });
+  }
+});
+
+describe("GitHub page metadata", () => {
+  const mona = { login: "mona", bot: false };
+  // Changes every `pageInfo` in a response.
+  const everyPageInfo = (change: (pageInfo: Record<string, unknown>) => Record<string, unknown>) =>
+    function walk(value: unknown): unknown {
+      if (Array.isArray(value)) return value.map(walk);
+      if (value === null || typeof value !== "object") return value;
+      const result = Object.fromEntries(Object.entries(value).map(([key, item]) => [key, walk(item)]));
+      return "pageInfo" in result ? { ...result, pageInfo: change(result.pageInfo as Record<string, unknown>) } : result;
+    };
+  const flags: [string, (pageInfo: Record<string, unknown>) => Record<string, unknown>][] = [
+    ["no flag", ({ hasNextPage: _, ...rest }) => rest],
+    ["a null flag", (pageInfo) => ({ ...pageInfo, hasNextPage: null })],
+    ['the flag "true"', (pageInfo) => ({ ...pageInfo, hasNextPage: "true" })],
+    ["the flag 1", (pageInfo) => ({ ...pageInfo, hasNextPage: 1 })],
+    ["an empty cursor", (pageInfo) => ({ ...pageInfo, hasNextPage: true, endCursor: "" })],
+  ];
+  // An issue whose labels, sub-issues and blockers each span two pages, read
+  // one page at a time, so each list needs follow-up requests.
+  const connections: [string, (platform: ContractPlatform) => number, number][] = [
+    ["labels", (platform) => platform.addIssue({ labels: ["a", "b"] }), 1],
+    [
+      "sub-issues",
+      (platform) => {
+        const parent = platform.addIssue();
+        platform.addIssue({ parent });
+        platform.addIssue({ parent });
+        return parent;
+      },
+      1,
+    ],
+    [
+      "blockers",
+      (platform) => {
+        const blockers = [platform.addIssue(), platform.addIssue()];
+        return platform.addIssue({ blockedBy: blockers });
+      },
+      1,
+    ],
+  ];
+  for (const [list, seed, skip] of connections) {
+    for (const [flag, change] of flags) {
+      it(`fails with invalidResponse and the status for a follow-up page of an issue's ${list} with ${flag}`, async () => {
+        const { platform, fake } = startGitHub();
+        const number = seed(platform);
+        platform.pageSize(1);
+        fake.malformNext({ status: 203, body: everyPageInfo(change) }, skip);
+        await assert.rejects(
+          platform.connect().issueTracker.issue(number),
+          failure("invalidResponse", (error) => assert.equal(error.status, 203)),
+        );
+      });
+    }
+  }
+
+  it("fails with invalidResponse for a GraphQL page whose cursor repeats one it already followed", async () => {
+    const { platform, fake } = startGitHub();
+    const head = "a".repeat(40);
+    for (let index = 0; index < 3; index++) platform.addPullRequest({ headBranch: "feature", headCommit: head });
+    platform.pageSize(1);
+    fake.malformNext({ status: 203, body: everyPageInfo((pageInfo) => ({ ...pageInfo, endCursor: "1" })) }, 1);
+    await assert.rejects(platform.connect().pullRequests.byHeadBranch("feature"), failure("invalidResponse"));
+    assert.equal(fake.requests.length, 2);
+  });
+
+  it("fails with invalidResponse for a REST page whose next link repeats one it already followed", async () => {
+    const { platform, fake } = startGitHub();
+    const number = platform.addIssue();
+    for (const body of ["a", "b", "c"]) platform.addComment(number, { author: mona, body, createdAt: "2026-01-02T00:00:00Z" });
+    platform.pageSize(1);
+    const again = `https://api.github.com/repos/${platform.path}/issues/${number}/comments?per_page=100&page=2`;
+    fake.malformNext({ status: 203, headers: { link: `<${again}>; rel="next"` }, body: (json) => json }, 1);
+    await assert.rejects(platform.connect().issueTracker.comments(number), failure("invalidResponse"));
+    assert.equal(fake.requests.length, 2);
+  });
+
+  for (const [name, link] of [
+    ["two next links", '<https://api.github.com/a?page=2>; rel="next", <https://api.github.com/b?page=2>; rel="next"'],
+    ["a link without its relation", "<https://api.github.com/a?page=2>"],
+    ["a value that is no link", "next"],
+  ] as const) {
+    it(`fails with invalidResponse and the status for a REST Link header with ${name}`, async () => {
+      const { fake, connection } = setup();
+      fake.inject({ status: 200, headers: { link }, body: "[]" });
+      await assert.rejects(connection.releaseSource.releases(), failure("invalidResponse", (error) => assert.equal(error.status, 200)));
+    });
+  }
+
+  for (const [name, link] of [
+    ["only first and previous links", '<https://api.github.com/a?page=1>; rel="first", <https://api.github.com/a?page=1>; rel="prev"'],
+    ["empty list elements", ' , <https://api.github.com/a?page=1>; rel="prev" ,'],
+    ["an empty value", ""],
+  ] as const) {
+    it(`reads a REST Link header with ${name} as the last page`, async () => {
+      const { fake, connection } = setup();
+      fake.inject({ status: 200, headers: { link }, body: "[]" });
+      assert.deepEqual(await connection.releaseSource.releases(), []);
+    });
+  }
+
+  it("follows a REST next link among several relations in one link", async () => {
+    const { platform, fake } = startGitHub();
+    platform.addRelease({ tag: "v1.0.0", name: "", draft: false, prerelease: false, publishedAt: null });
+    const next = `https://api.github.com/repos/${platform.path}/releases?per_page=100&page=2`;
+    fake.inject({ status: 200, headers: { link: `<${next}>; rel="next last"` }, body: "[]" });
+    const releases = await platform.connect().releaseSource.releases();
+    assert.equal(fake.requests[1]?.url.href, next);
+    assert.deepEqual(releases, []);
+  });
+});
+
+describe("GitHub response values", () => {
+  const head = "a".repeat(40);
+  const mona = { login: "mona", bot: false };
+  // Every value under `key`, anywhere in a response, changed; a change to `undefined` drops it.
+  const everyKey = (key: string, change: (value: unknown) => unknown) =>
+    function walk(value: unknown): unknown {
+      if (Array.isArray(value)) return value.map(walk);
+      if (value === null || typeof value !== "object") return value;
+      const result: Record<string, unknown> = {};
+      for (const [name, item] of Object.entries(value)) {
+        const next = name === key ? change(item) : walk(item);
+        if (next !== undefined) result[name] = next;
+      }
+      return result;
+    };
+  type Read = (platform: ContractPlatform, connection: Connection) => () => Promise<unknown>;
+  const issue: Read = (platform, { issueTracker }) => {
+    const parent = platform.addIssue();
+    const number = platform.addIssue({ parent, labels: ["bug"], blockedBy: [parent] });
+    platform.addIssue({ parent: number });
+    return () => issueTracker.issue(number);
+  };
+  const labelChanges: Read = (platform, { issueTracker }) => {
+    const number = platform.addIssue();
+    platform.addLabelChange(number, { action: "added", label: "bug", actor: mona, time: "2026-01-02T00:00:00Z" });
+    return () => issueTracker.labelChanges(number);
+  };
+  const comments: Read = (platform, { issueTracker }) => {
+    const number = platform.addIssue();
+    platform.addComment(number, { author: mona, body: "hi", createdAt: "2026-01-02T00:00:00Z" });
+    return () => issueTracker.comments(number);
+  };
+  const pullRequest: Read = (platform, { pullRequests }) => {
+    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+    return () => pullRequests.pullRequest(number);
+  };
+  const reviews: Read = (platform, { pullRequests }) => {
+    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+    platform.addReview(number, { author: mona, state: "APPROVED", commit: head, submittedAt: "2026-01-02T00:00:00Z" });
+    return () => pullRequests.reviews(number);
+  };
+  const reviewThreads: Read = (platform, { pullRequests }) => {
+    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+    platform.addReviewThread(number, { resolved: false, outdated: false, path: "a.ts", author: mona });
+    return () => pullRequests.reviewThreads(number);
+  };
+  const checks: Read = (platform, { pullRequests }) => {
+    platform.addCheck(head, { name: "Test", status: "completed", conclusion: "success", completedAt: "2026-01-02T00:00:00Z" });
+    return () => pullRequests.checks(head);
+  };
+  const releases: Read = (platform, { releaseSource }) => {
+    platform.addRelease({ tag: "v1.0.0", name: "1.0.0", draft: false, prerelease: false, publishedAt: "2026-01-02T00:00:00Z" });
+    return () => releaseSource.releases();
+  };
+  const tagCommit: Read = (platform, { releaseSource }) => {
+    platform.addTag("v1.0.0", head);
+    return () => releaseSource.tagCommit("v1.0.0");
+  };
+  const role: Read = (platform, { access }) => {
+    platform.setRole("mona", "maintain");
+    return () => access.role("mona");
+  };
+  const squashMerge: Read = (platform, { pullRequests }) => {
+    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+    return () => pullRequests.squashMerge(number, { expectedHead: head, title: "t", body: "b" });
+  };
+  const createLabel: Read = (_platform, { issueTracker }) => () =>
+    issueTracker.createLabel({ name: "bug", color: "ededed", description: "" });
+  const drop = () => undefined;
+  const cases: [name: string, read: Read, key: string, change: (value: unknown) => unknown][] = [
+    ["an issue result without its repository", issue, "repository", drop],
+    ["an issue without its sub-issue link events", issue, "timelineItems", drop],
+    ["an issue sub-issue link event without its time", issue, "timelineItems", () => ({ nodes: [{}] })],
+    ["an issue without its parent field", issue, "parent", drop],
+    ["an issue without its author field", issue, "author", drop],
+    ["an issue without its edit time field", issue, "lastEditedAt", drop],
+    ["an issue edit time that is no time", issue, "lastEditedAt", () => "yesterday"],
+    ["an issue number of 0", issue, "number", () => 0],
+    ["an empty issue node ID", issue, "id", () => ""],
+    ["an issue URL that is no URL", issue, "url", () => "issue 1"],
+    ["an issue creation time that is no time", issue, "createdAt", () => "2026-13-45"],
+    ["a linked issue repository that is no owner and name", issue, "nameWithOwner", () => "nobody"],
+    ["an author without its kind", issue, "__typename", drop],
+    ["an empty author login", issue, "login", () => ""],
+    ["an empty label name", issue, "name", () => ""],
+    ["a label change without its kind", labelChanges, "event", drop],
+    ["an actor without its kind", labelChanges, "type", drop],
+    ["a negative label change ID", labelChanges, "id", () => -1],
+    ["a label change time that is no time", labelChanges, "created_at", () => "now"],
+    ["a comment without its body", comments, "body", drop],
+    ["a comment without its author field", comments, "user", drop],
+    ["a comment update time that is no time", comments, "updated_at", () => "later"],
+    ["a comment URL that is no URL", comments, "html_url", () => "comment"],
+    ["an empty comment node ID", comments, "node_id", () => ""],
+    ["a head commit that is no commit", pullRequest, "headRefOid", () => "abc"],
+    ["an empty head branch", pullRequest, "headRefName", () => ""],
+    ["an empty review state", reviews, "state", () => ""],
+    ["a review commit that is no commit", reviews, "commit_id", () => "abc"],
+    ["a submitted review without its submission time", reviews, "submitted_at", drop],
+    ["a review without its body", reviews, "body", drop],
+    ["an empty review thread ID", reviewThreads, "id", () => ""],
+    ["an empty review thread path", reviewThreads, "path", () => ""],
+    ["an empty check name", checks, "name", () => ""],
+    ["an empty check status", checks, "status", () => ""],
+    ["a check completion time that is no time", checks, "completed_at", () => "soon"],
+    ["an empty release tag", releases, "tag_name", () => ""],
+    ["a release without its name field", releases, "name", drop],
+    ["a release publish time that is no time", releases, "published_at", () => "today"],
+    ["a release ID of 0", releases, "id", () => 0],
+    ["a tag target without its kind", tagCommit, "type", drop],
+    ["a tag commit that is no commit", tagCommit, "sha", () => "abc"],
+    ["a role without its permission", role, "permission", drop],
+    ["an empty role name", role, "role_name", () => ""],
+    ["a merge commit that is no commit", squashMerge, "sha", () => "merged"],
+    ["a label color that is no color", createLabel, "color", () => "red"],
+    ["a label without its description field", createLabel, "description", drop],
+  ];
+  for (const [name, body] of [
+    ["an unmerged result", { sha: head, merged: false, message: "Pull Request is not mergeable" }],
+    ["a result that does not say it merged", { sha: head, message: "Pull Request successfully merged" }],
+  ] as const) {
+    it(`fails a squash merge with invalidResponse and the status for ${name}`, async () => {
+      const { fake, connection } = setup();
+      fake.inject({ status: 200, body: JSON.stringify(body) });
+      const merge = { expectedHead: head, title: "t", body: "b" };
+      await assert.rejects(connection.pullRequests.squashMerge(1, merge), failure("invalidResponse", (error) => assert.equal(error.status, 200)));
+    });
+  }
+
+  it("fails the viewer with invalidResponse and the status for a null account", async () => {
+    const { fake, connection } = setup();
+    fake.inject({ status: 200, body: "null" });
+    await assert.rejects(connection.access.viewer(), failure("invalidResponse", (error) => assert.equal(error.status, 200)));
+  });
+
+  for (const [name, read, key, change] of cases) {
+    it(`fails with invalidResponse and the status for ${name}`, async () => {
+      const { platform, fake } = startGitHub();
+      const call = read(platform, platform.connect());
+      fake.malformNext({ status: 203, body: everyKey(key, change) });
+      await assert.rejects(call(), failure("invalidResponse", (error) => assert.equal(error.status, 203)));
+    });
+  }
+
+  it("reads a pending review, which GitHub sends without a submission time", async () => {
+    const { platform, fake } = startGitHub();
+    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+    platform.addReview(number, { author: mona, state: "PENDING", commit: head, submittedAt: "2026-01-02T00:00:00Z" });
+    fake.malformNext({ status: 200, body: everyKey("submitted_at", drop) });
+    const [review] = await platform.connect().pullRequests.reviews(number);
+    assert.equal(review?.submittedAt, null);
+  });
+
+  it("reads null as an empty comment body or release name, and as a deleted account", async () => {
+    const { platform, fake } = startGitHub();
+    const connection = platform.connect();
+    const comment = comments(platform, connection);
+    fake.malformNext({ status: 200, body: (json) => everyKey("user", () => null)(everyKey("body", () => null)(json)) });
+    const [read] = (await comment()) as Comment[];
+    assert.equal(read?.body, "");
+    assert.equal(read?.author, null);
+    const release = releases(platform, connection);
+    fake.malformNext({ status: 200, body: everyKey("name", () => null) });
+    assert.equal(((await release()) as Release[])[0]?.name, "");
+  });
+});
+
+describe("GitHub request path encoding", () => {
+  it("rejects a value that cannot be encoded, without sending a request", async () => {
+    const fake = new GitHubFake(path);
+    const credentials = { anonymous: true, token: async () => null };
+    const ports = githubAdapter({
+      repository: { platform: "github", host: "github.com", path },
+      credentials,
+      relationshipSections: null,
+      fetch: fake.fetch,
+      timeoutMs: 1000,
+    });
+    for (const call of [
+      () => ports.issueTracker.removeLabel(1, "\uD800"),
+      () => ports.pullRequests.checks("a\uDC00"),
+      () => ports.releaseSource.tagCommit("v1/\uD800"),
+      () => ports.access.role("\uDFFF"),
+      () => ports.access.request({ path: "/\uD800", method: "GET" }),
+      () => ports.access.request({ path: "/user", method: "GET", query: { q: "\uD800" } }),
+      () => ports.access.request({ path: "/user", method: "GET", query: { "\uD800": "x" } }),
+    ]) {
+      await assert.rejects(call(), failure("rejected"));
+    }
+    assert.equal(fake.requests.length, 0);
+  });
 });

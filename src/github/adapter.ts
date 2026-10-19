@@ -5,6 +5,7 @@
 // `read` the transport runs in that response's scope.
 
 import type { AdapterContext, AdapterPorts } from "../connection.ts";
+import { isGitHubRepositoryPath } from "../detect.ts";
 import { PlatformError } from "../errors.ts";
 import type {
   Access,
@@ -23,7 +24,7 @@ import type {
   Review,
   ReviewThread,
 } from "../ports.ts";
-import { GitHubTransport, invalid } from "./transport.ts";
+import { GitHubTransport, connectionPage, invalid } from "./transport.ts";
 
 type Json = Record<string, unknown>;
 
@@ -78,28 +79,23 @@ const issueConnectionQueries = {
 }`,
 };
 
-// Whether a connection the issue holds has pages beyond its first.
-const morePages = (connection: unknown) =>
-  (connection as { pageInfo?: { hasNextPage?: unknown } } | null)?.pageInfo?.hasNextPage === true;
-
 const ignore = () => undefined;
 
 function issueTracker(transport: GitHubTransport, repo: string, coordinates: Json): IssueTracker {
   // An issue with every page of its nested connections. A follow-up query
   // starts from the first page again and replaces what the issue held.
   const complete = async (value: unknown): Promise<Issue> => {
-    const node = object(value);
-    const issue = mapIssue(node);
+    const { issue, more } = mapIssue(object(value));
     const rest = <T>(key: keyof typeof issueConnectionQueries, read: (node: unknown) => T) =>
       transport.graphqlPages(
         issueConnectionQueries[key],
         { id: issue.nodeId },
-        (data) => (data.node as Json | null)?.connection,
+        (data) => object(data.node).connection,
         read,
       );
-    if (morePages(node.labels)) issue.labels = await rest("labels", labelName);
-    if (morePages(node.subIssues)) issue.subIssues = await rest("subIssues", mapReference);
-    if (morePages(node.blockedBy)) issue.blockedBy = await rest("blockedBy", mapReference);
+    if (more.labels) issue.labels = await rest("labels", labelName);
+    if (more.subIssues) issue.subIssues = await rest("subIssues", mapReference);
+    if (more.blockedBy) issue.blockedBy = await rest("blockedBy", mapReference);
     return issue;
   };
   return {
@@ -118,21 +114,21 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
     },
     async issue(number) {
       return transport.graphql(issueQuery, { ...coordinates, number }, (data) => {
-        const node = (data.repository as Json | null)?.issue;
-        if (!node) throw new PlatformError("notFound", `Issue #${number} was not found.`);
+        const node = found(object(data.repository).issue, `Issue #${number} was not found.`);
         return complete(node);
       });
     },
     async labelChanges(number) {
       const changes = await transport.restPages(`${repo}/issues/${number}/events`, {}, (value): LabelChange | null => {
         const event = object(value);
-        if (event.event !== "labeled" && event.event !== "unlabeled") return null;
+        const kind = word(event.event);
+        if (kind !== "labeled" && kind !== "unlabeled") return null;
         return {
-          id: integer(event.id),
-          action: event.event === "labeled" ? "added" : "removed",
-          label: text((event.label as Json | null)?.name),
+          id: id(event.id),
+          action: kind === "labeled" ? "added" : "removed",
+          label: word(object(event.label).name),
           actor: restAccount(event.actor),
-          time: text(event.created_at),
+          time: time(event.created_at),
         };
       });
       return changes.filter((change) => change !== null);
@@ -165,32 +161,39 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
   };
 }
 
-function mapIssue(node: Json): Issue {
-  const timeline = (node.timelineItems as { nodes?: Json[] } | null)?.nodes ?? [];
-  return {
-    number: integer(node.number),
+// An issue with the first page of each nested connection, and which of them
+// have more pages.
+function mapIssue(node: Json): { issue: Issue; more: Record<keyof typeof issueConnectionQueries, boolean> } {
+  const labels = connectionPage(node.labels);
+  const subIssues = connectionPage(node.subIssues);
+  const blockedBy = connectionPage(node.blockedBy);
+  const linked = nodes(node.timelineItems).at(-1);
+  const issue: Issue = {
+    number: id(node.number),
     id: bigInteger(node.fullDatabaseId),
-    nodeId: text(node.id),
-    url: text(node.url),
+    nodeId: word(node.id),
+    url: link(node.url),
     state: issueState(node.state),
     title: text(node.title),
     body: text(node.body),
     author: graphqlAccount(node.author),
-    labels: nodes(node.labels).map(labelName),
-    createdAt: text(node.createdAt),
-    parent: node.parent ? mapReference(node.parent as Json) : null,
-    subIssues: nodes(node.subIssues).map(mapReference),
-    blockedBy: nodes(node.blockedBy).map(mapReference),
-    bodyEditTime: optionalText(node.lastEditedAt),
-    linkTime: optionalText(timeline.at(-1)?.createdAt),
+    labels: labels.nodes.map(labelName),
+    createdAt: time(node.createdAt),
+    parent: nullable(node.parent, mapReference),
+    subIssues: subIssues.nodes.map(mapReference),
+    blockedBy: blockedBy.nodes.map(mapReference),
+    bodyEditTime: nullable(node.lastEditedAt, time),
+    linkTime: linked === undefined ? null : time(linked.createdAt),
   };
+  const more = { labels: labels.after !== null, subIssues: subIssues.after !== null, blockedBy: blockedBy.after !== null };
+  return { issue, more };
 }
 
 function mapReference(value: unknown): IssueReference {
   const node = object(value);
   return {
-    repository: text((node.repository as Json | null)?.nameWithOwner),
-    number: integer(node.number),
+    repository: repositoryPath(object(node.repository).nameWithOwner),
+    number: id(node.number),
     state: issueState(node.state),
   };
 }
@@ -198,21 +201,23 @@ function mapReference(value: unknown): IssueReference {
 function mapComment(value: unknown): Comment {
   const comment = object(value);
   return {
-    id: integer(comment.id),
-    nodeId: text(comment.node_id),
-    url: text(comment.html_url),
+    id: id(comment.id),
+    nodeId: word(comment.node_id),
+    url: link(comment.html_url),
     author: restAccount(comment.user),
-    body: text(comment.body ?? ""),
-    createdAt: text(comment.created_at),
-    updatedAt: text(comment.updated_at),
+    body: comment.body === null ? "" : text(comment.body),
+    createdAt: time(comment.created_at),
+    updatedAt: time(comment.updated_at),
   };
 }
 
-const labelName = (value: unknown) => text(object(value).name);
+const labelName = (value: unknown) => word(object(value).name);
 
 function mapLabel(value: unknown): Label {
   const label = object(value);
-  return { name: text(label.name), color: text(label.color), description: text(label.description ?? "") };
+  const color = text(label.color);
+  if (!/^[0-9a-fA-F]{6}$/.test(color)) throw invalid("GitHub returned an unreadable label color.");
+  return { name: word(label.name), color, description: label.description === null ? "" : text(label.description) };
 }
 
 // Pull requests
@@ -264,18 +269,16 @@ const mergeQueueQuery = `query PosternMergeQueue($owner: String!, $name: String!
 
 function pullRequests(transport: GitHubTransport, repo: string, coordinates: Json): PullRequests {
   const readPullRequest = <T>(query: string, number: number, read: (node: Json) => T) =>
-    transport.graphql(query, { ...coordinates, number }, (data) => {
-      const node = (data.repository as Json | null)?.pullRequest;
-      if (!node) throw new PlatformError("notFound", `Pull request #${number} was not found.`);
-      return read(object(node));
-    });
+    transport.graphql(query, { ...coordinates, number }, (data) =>
+      read(found(object(data.repository).pullRequest, `Pull request #${number} was not found.`)),
+    );
   return {
     capabilities: { closingReferences: true, reviewCommits: true },
     async byHeadBranch(branch) {
       return transport.graphqlPages(
         byHeadQuery,
         { ...coordinates, branch },
-        (data) => (data.repository as Json | null)?.pullRequests,
+        (data) => object(data.repository).pullRequests,
         mapPullRequest,
       );
     },
@@ -283,11 +286,7 @@ function pullRequests(transport: GitHubTransport, repo: string, coordinates: Jso
       return transport.graphqlPages(
         closingQuery,
         { ...coordinates, number: issueNumber },
-        (data) => {
-          const issue = (data.repository as Json | null)?.issue as Json | null | undefined;
-          if (!issue) throw new PlatformError("notFound", `Issue #${issueNumber} was not found.`);
-          return issue.closedByPullRequestsReferences;
-        },
+        (data) => found(object(data.repository).issue, `Issue #${issueNumber} was not found.`).closedByPullRequestsReferences,
         mapPullRequest,
       );
     },
@@ -297,13 +296,15 @@ function pullRequests(transport: GitHubTransport, repo: string, coordinates: Jso
     async reviews(number) {
       return transport.restPages(`${repo}/pulls/${number}/reviews`, {}, (value): Review => {
         const review = object(value);
+        const state = word(review.state);
         return {
-          id: integer(review.id),
+          id: id(review.id),
           author: restAccount(review.user),
-          state: text(review.state),
-          body: text(review.body ?? ""),
-          commit: optionalText(review.commit_id),
-          submittedAt: optionalText(review.submitted_at),
+          state,
+          body: review.body === null ? "" : text(review.body),
+          commit: nullable(review.commit_id, sha),
+          // A pending review is not yet submitted, and GitHub omits the field.
+          submittedAt: state === "PENDING" && review.submitted_at === undefined ? null : nullable(review.submitted_at, time),
         };
       });
     },
@@ -311,19 +312,16 @@ function pullRequests(transport: GitHubTransport, repo: string, coordinates: Jso
       return transport.graphqlPages(
         reviewThreadsQuery,
         { ...coordinates, number },
-        (data) => {
-          const pull = (data.repository as Json | null)?.pullRequest as Json | null | undefined;
-          if (!pull) throw new PlatformError("notFound", `Pull request #${number} was not found.`);
-          return pull.reviewThreads;
-        },
+        (data) => found(object(data.repository).pullRequest, `Pull request #${number} was not found.`).reviewThreads,
         (value): ReviewThread => {
           const thread = object(value);
+          const [first] = nodes(thread.comments);
           return {
-            id: text(thread.id),
+            id: word(thread.id),
             resolved: boolean(thread.isResolved),
             outdated: boolean(thread.isOutdated),
-            path: text(thread.path),
-            author: graphqlAccount(nodes(thread.comments)[0]?.author),
+            path: word(thread.path),
+            author: first === undefined ? null : graphqlAccount(first.author),
           };
         },
       );
@@ -334,15 +332,15 @@ function pullRequests(transport: GitHubTransport, repo: string, coordinates: Jso
         transport.restPages(`${repo}/commits/${ref}/check-runs`, { items: "check_runs" }, (value): CheckResult => {
           const run = object(value);
           return {
-            name: text(run.name),
-            status: text(run.status),
-            conclusion: optionalText(run.conclusion),
-            completedAt: optionalText(run.completed_at),
+            name: word(run.name),
+            status: word(run.status),
+            conclusion: nullable(run.conclusion, word),
+            completedAt: nullable(run.completed_at, time),
           };
         }),
         transport.restPages(`${repo}/commits/${ref}/status`, { items: "statuses" }, (value): CheckResult => {
           const status = object(value);
-          return { name: text(status.context), status: text(status.state), conclusion: null, completedAt: null };
+          return { name: word(status.context), status: word(status.state), conclusion: null, completedAt: null };
         }),
       ]);
       return [...runs, ...statuses];
@@ -362,7 +360,12 @@ function pullRequests(transport: GitHubTransport, repo: string, coordinates: Jso
           method: "PUT",
           body: { merge_method: "squash", sha: merge.expectedHead, commit_title: merge.title, commit_message: merge.body },
         },
-        ({ data }) => text(object(data).sha),
+        ({ data }) => {
+          const result = object(data);
+          // GitHub answers a merge it made with `merged: true`; anything else claims no merge.
+          if (boolean(result.merged) !== true) throw invalid("GitHub answered the merge without merging.");
+          return sha(result.sha);
+        },
       );
     },
   };
@@ -371,19 +374,19 @@ function pullRequests(transport: GitHubTransport, repo: string, coordinates: Jso
 function mapPullRequest(value: unknown): PullRequest {
   const node = object(value);
   return {
-    repository: text((node.repository as Json | null)?.nameWithOwner),
-    number: integer(node.number),
+    repository: repositoryPath(object(node.repository).nameWithOwner),
+    number: id(node.number),
     id: bigInteger(node.fullDatabaseId),
-    nodeId: text(node.id),
-    url: text(node.url),
+    nodeId: word(node.id),
+    url: link(node.url),
     state: pullRequestState(node.state),
     title: text(node.title),
     body: text(node.body),
     author: graphqlAccount(node.author),
-    createdAt: text(node.createdAt),
-    headBranch: text(node.headRefName),
-    headCommit: text(node.headRefOid),
-    baseBranch: text(node.baseRefName),
+    createdAt: time(node.createdAt),
+    headBranch: word(node.headRefName),
+    headCommit: sha(node.headRefOid),
+    baseBranch: word(node.baseRefName),
     crossRepository: boolean(node.isCrossRepository),
   };
 }
@@ -397,12 +400,12 @@ function releaseSource(transport: GitHubTransport, repo: string): ReleaseSource 
       return transport.restPages(`${repo}/releases`, {}, (value): Release => {
         const release = object(value);
         return {
-          id: integer(release.id),
-          tag: text(release.tag_name),
-          name: text(release.name ?? ""),
+          id: id(release.id),
+          tag: word(release.tag_name),
+          name: release.name === null ? "" : text(release.name),
           draft: boolean(release.draft),
           prerelease: boolean(release.prerelease),
-          publishedAt: optionalText(release.published_at),
+          publishedAt: nullable(release.published_at, time),
         };
       });
     },
@@ -411,10 +414,9 @@ function releaseSource(transport: GitHubTransport, repo: string): ReleaseSource 
       const peel = (path: string, depth: number): Promise<string> =>
         transport.rest(path, {}, ({ data }) => {
           const target = object(object(data).object);
-          if (target.type === "commit") return text(target.sha);
-          if (target.type !== "tag") {
-            throw new PlatformError("notFound", `Tag ${tag} points to a ${String(target.type)}, not a commit.`);
-          }
+          const type = word(target.type);
+          if (type === "commit") return sha(target.sha);
+          if (type !== "tag") throw new PlatformError("notFound", `Tag ${tag} points to a ${type}, not a commit.`);
           if (depth === 10) throw invalid(`Tag ${tag} nests too many annotated tags.`);
           return peel(`${repo}/git/tags/${sha(target.sha)}`, depth + 1);
         });
@@ -426,12 +428,17 @@ function releaseSource(transport: GitHubTransport, repo: string): ReleaseSource 
 const encodeTag = (tag: string) => tag.split("/").map(segment).join("/");
 
 // One request path segment. A URL resolves "." and "..", even percent-encoded,
-// against the path before it, which would send the request to another resource.
+// against the path before it, which would send the request to another resource,
+// and a value with an unpaired surrogate has no encoding at all.
 function segment(value: string): string {
   if (value === "." || value === "..") {
     throw new PlatformError("rejected", `GitHub's API cannot address "${value}" as a path segment.`);
   }
-  return encodeURIComponent(value);
+  try {
+    return encodeURIComponent(value);
+  } catch {
+    throw new PlatformError("rejected", "A request path segment holds text that cannot be encoded.");
+  }
 }
 
 // Access
@@ -441,12 +448,13 @@ function access(transport: GitHubTransport, context: AdapterContext, repo: strin
     capabilities: {},
     async viewer() {
       if (context.credentials.anonymous) return null;
-      return transport.rest("/user", {}, ({ data }) => restAccount(data));
+      // An authenticated request always has an account; `null` here would read as anonymous.
+      return transport.rest("/user", {}, ({ data }) => restAccount(object(data)));
     },
     async role(login) {
       return transport.rest(`${repo}/collaborators/${segment(login)}/permission`, {}, ({ data }) => {
         const permission = object(data);
-        return permission.permission === "none" ? null : text(permission.role_name);
+        return word(permission.permission) === "none" ? null : word(permission.role_name);
       });
     },
     async request(request) {
@@ -461,19 +469,29 @@ function access(transport: GitHubTransport, context: AdapterContext, repo: strin
 
 // Reading GitHub's values; anything unexpected is an unreadable response.
 
+// GitHub reports a deleted account as `null`.
 function restAccount(value: unknown): Account | null {
-  if (value === null || value === undefined) return null;
-  const account = object(value);
-  return { login: text(account.login), bot: account.type === "Bot" };
+  return nullable(value, (account) => {
+    const fields = object(account);
+    return { login: word(fields.login), bot: word(fields.type) === "Bot" };
+  });
 }
 
 // GraphQL names a bot without the `[bot]` suffix REST uses; Postern reports the REST login.
 function graphqlAccount(value: unknown): Account | null {
-  if (value === null || value === undefined) return null;
-  const account = object(value);
-  const bot = account.__typename === "Bot";
-  const login = text(account.login);
-  return { login: bot && !login.endsWith("[bot]") ? `${login}[bot]` : login, bot };
+  return nullable(value, (account) => {
+    const fields = object(account);
+    const bot = word(fields.__typename) === "Bot";
+    const login = word(fields.login);
+    return { login: bot && !login.endsWith("[bot]") ? `${login}[bot]` : login, bot };
+  });
+}
+
+// A resource a query looked up: `null` when GitHub found none. A missing field
+// is an unreadable response, not an absent resource.
+function found(value: unknown, message: string): Json {
+  if (value === null) throw new PlatformError("notFound", message);
+  return object(value);
 }
 
 function nodes(connection: unknown): Json[] {
@@ -505,19 +523,52 @@ function text(value: unknown): string {
   return value;
 }
 
-// A Git object ID GitHub returned, checked before it becomes part of a request path.
+// A name, login, identifier or platform word, which is never empty.
+function word(value: unknown): string {
+  const read = text(value);
+  if (read === "") throw invalid("GitHub returned an empty name or identifier.");
+  return read;
+}
+
+// A Git object ID, SHA-1 or SHA-256, checked before it becomes part of a request path.
 function sha(value: unknown): string {
-  const id = text(value);
-  if (!/^[0-9a-f]+$/i.test(id)) throw invalid("GitHub returned an unreadable object ID.");
-  return id;
+  const read = text(value);
+  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(read)) throw invalid("GitHub returned an unreadable object ID.");
+  return read;
 }
 
-function optionalText(value: unknown): string | null {
-  return value === null || value === undefined ? null : text(value);
+// An ISO 8601 time with its offset, as GitHub reports times.
+function time(value: unknown): string {
+  const read = text(value);
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(read) || Number.isNaN(Date.parse(read))) {
+    throw invalid("GitHub returned an unreadable time.");
+  }
+  return read;
 }
 
-function integer(value: unknown): number {
-  if (!Number.isSafeInteger(value)) throw invalid("GitHub returned a missing or unreadable number.");
+// A web URL GitHub reports for a resource.
+function link(value: unknown): string {
+  const read = text(value);
+  const protocol = URL.canParse(read) ? new URL(read).protocol : "";
+  if (protocol !== "https:" && protocol !== "http:") throw invalid("GitHub returned an unreadable URL.");
+  return read;
+}
+
+// A repository's owner and name.
+function repositoryPath(value: unknown): string {
+  const read = text(value);
+  if (!isGitHubRepositoryPath(read)) throw invalid("GitHub returned an unreadable repository name.");
+  return read;
+}
+
+// A field GitHub reports as `null` when it has no value; a missing field is unreadable.
+function nullable<T>(value: unknown, read: (value: unknown) => T): T | null {
+  return value === null ? null : read(value);
+}
+
+// An issue or pull request number, or a database ID: a positive integer.
+function id(value: unknown): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 1) throw invalid("GitHub returned a missing or unreadable number.");
   return value as number;
 }
 
@@ -528,7 +579,7 @@ function bigInteger(value: unknown): number {
   if (typeof value !== "string" || !/^(0|[1-9][0-9]*)$/.test(value)) {
     throw invalid("GitHub returned a missing or unreadable number.");
   }
-  return integer(Number(value));
+  return id(Number(value));
 }
 
 function boolean(value: unknown): boolean {

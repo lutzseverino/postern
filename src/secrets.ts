@@ -125,8 +125,25 @@ export function credentialsFrom(source: CredentialSource | undefined, secrets: S
       if (typeof token !== "string" || token === "") {
         throw new PlatformError("unauthenticated", "The credential source supplied no token.");
       }
+      if (!isSendableToken(token)) {
+        throw new PlatformError("rejected", "The credential source supplied a token that cannot be sent in a request header.");
+      }
       secrets.add(token);
       return token;
     },
   };
+}
+
+/**
+ * Whether a token can be sent in a request header as it is. One with an
+ * unpaired surrogate or a line break would make `fetch` refuse the request.
+ */
+export function isSendableToken(token: string): boolean {
+  if (!token.isWellFormed()) return false;
+  try {
+    new Headers({ authorization: `Bearer ${token}` });
+    return true;
+  } catch {
+    return false;
+  }
 }

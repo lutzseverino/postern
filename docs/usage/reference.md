@@ -28,9 +28,11 @@ any other path fails with `rejected`. Its options are:
 | `fetch`                | A `fetch`-compatible function. Defaults to the global `fetch`.                                                                        |
 | `timeoutMs`            | The time one request may take before it fails with `unavailable`: whole milliseconds from 1 to 2147483647. Defaults to 30000.         |
 
-Invalid options and arguments fail with `rejected` before any request. On
-GitHub, a label, login, commit or tag path segment of `.` or `..` is also
-`rejected`, because GitHub's API cannot address it in a request path.
+Invalid options and arguments fail with `rejected` before any request. So
+does any string Postern would send, in a path, query, header or body, that
+holds an unpaired surrogate, such as `"\uD800"`, because it has no UTF-8
+encoding. On GitHub, a label, login, commit or tag path segment of `.` or `..`
+is also `rejected`, because GitHub's API cannot address it in a request path.
 
 Postern reads each field of every object passed in once, whether an
 identity, the options, an argument or a request, and checks and uses only
@@ -41,7 +43,10 @@ give another value, and one that throws when read fails with `rejected`.
 
 Without `credential` the connection is anonymous. A credential function that
 throws, or returns nothing, fails the operation with `unauthenticated`; its
-own error is not kept, because it may describe the credential. Postern never
+own error is not kept, because it may describe the credential. A token that
+cannot be sent in a request header, such as one with a line break or an
+unpaired surrogate, fails with `rejected`: when `connect` is given it, or when
+a credential function returns it. Postern never
 reads environment variables, files or command-line tools for credentials.
 
 Every error message, cause and result is cleaned of every token the
@@ -169,11 +174,18 @@ platform. A failing status rejects with
 | `invalidResponse` | A response the adapter cannot read.                                  |
 | `unsupported`     | A platform or capability that is not offered.                        |
 
-`platformErrorReasons` lists them. Every error raised while reading a
-response carries that response's HTTP `status`: a failing status, a GraphQL
-error, and any part of the response the adapter cannot read, such as a missing
-field, an unreadable identifier or a page without its cursor, on every page
-of a list.
+`platformErrorReasons` lists them. Every error raised once a response has
+stated its HTTP status carries that `status`: a failing status, a GraphQL
+error, a body that fails to arrive (`unavailable`), and any part of the
+response the adapter cannot read, such as unreadable headers, a missing
+field, an unreadable identifier or time, or a page without its cursor, on
+every page of a list.
+
+A list continues only while a page says, exactly, that another page follows
+and gives its cursor, and ends only on a page that says, exactly, that none
+does. A page that does not say either way, or that leads back to a page
+already read, fails with `invalidResponse`, so a list is never cut short or
+read twice. This applies to every list, and to the lists an issue holds.
 
 ## GitHub adapter
 

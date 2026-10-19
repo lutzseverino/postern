@@ -22,7 +22,7 @@ import type {
   SquashMerge,
   TransportRequest,
 } from "./ports.ts";
-import { Secrets, credentialsFrom } from "./secrets.ts";
+import { Secrets, credentialsFrom, isSendableToken } from "./secrets.ts";
 import type { CredentialSource, Credentials } from "./secrets.ts";
 import { entries, fields, items, shape } from "./snapshot.ts";
 
@@ -229,7 +229,7 @@ function guardIssueTracker(
         if (typeof color !== "string" || !/^[0-9a-fA-F]{6}$/.test(color)) {
           reject("A label color is six hexadecimal digits without '#'.");
         }
-        if (typeof description !== "string") reject("A label description is a string.");
+        if (!isText(description)) reject("A label description is a string.");
         return port.createLabel({ name, color, description });
       }),
     createComment: (number: number, body: string) =>
@@ -316,7 +316,7 @@ function guardPullRequests(port: PullRequests, { guard, account }: Layer): PullR
         );
         checkText(expectedHead, "expected head commit");
         checkText(title, "merge title");
-        if (typeof body !== "string") reject("A merge body is a string.");
+        if (!isText(body)) reject("A merge body is a string.");
         return port.squashMerge(number, { expectedHead, title, body });
       }),
   });
@@ -383,6 +383,9 @@ function checkOptions(options: ConnectOptions): ConnectOptions {
     credential === undefined || (typeof credential === "string" && credential !== "") || typeof credential === "function",
     "A credential is a non-empty token or a function returning one.",
   );
+  if (typeof credential === "string" && !isSendableToken(credential)) {
+    reject("A credential holds text that cannot be sent in a request header.");
+  }
   let sections: RelationshipSections | undefined;
   if (relationshipSections !== undefined) {
     const { parent, blockedBy } = fields(
@@ -429,22 +432,25 @@ function checkTransportRequest(request: TransportRequest): TransportRequest {
   if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) {
     reject("A request path starts with a single '/' and stays on the platform's API.");
   }
+  if (!isText(path)) reject(unencodable);
   const verb = typeof method === "string" ? method.toUpperCase() : "";
   if (!transportMethods.has(verb)) reject(`A request method is one of ${[...transportMethods].join(", ")}.`);
   let queryCopy: Record<string, string | number | boolean> | undefined;
   if (query !== undefined) {
     const pairs = entries(query, "A request query is a plain object.");
-    for (const [, value] of pairs) {
+    for (const [key, value] of pairs) {
       const scalar = typeof value === "string" || typeof value === "boolean" || Number.isFinite(value);
       if (!scalar) reject("A request query value is a string, a finite number or a boolean.");
+      if (!isText(key) || (typeof value === "string" && !isText(value))) reject(unencodable);
     }
     queryCopy = Object.fromEntries(pairs) as Record<string, string | number | boolean>;
   }
   let headersCopy: Record<string, string> | undefined;
   if (headers !== undefined) {
     const pairs = entries(headers, "Request headers are a plain object.");
-    for (const [, value] of pairs) {
+    for (const [key, value] of pairs) {
       if (typeof value !== "string") reject("A request header value is a string.");
+      if (!isText(key) || !isText(value)) reject(unencodable);
     }
     try {
       new Headers(pairs as [string, string][]);
@@ -468,6 +474,7 @@ function checkTransportRequest(request: TransportRequest): TransportRequest {
 }
 
 const jsonRule = "A request body holds only plain objects, arrays, strings, finite numbers, booleans and null.";
+const unencodable = "A request holds text with an unpaired surrogate, which has no UTF-8 encoding.";
 
 // A copy of a JSON value that serializes exactly as the value read here.
 // Anything `JSON.stringify` would drop, coerce or refuse fails instead:
@@ -475,6 +482,7 @@ const jsonRule = "A request body holds only plain objects, arrays, strings, fini
 // objects other than plain ones, such as a Date or a Map, and cycles.
 // `ancestors` holds the objects enclosing `value`, so shared references pass.
 function jsonCopy(value: unknown, ancestors: Set<object>): unknown {
+  if (typeof value === "string" && !isText(value)) reject(unencodable);
   if (value === null || typeof value === "string" || typeof value === "boolean") return value;
   if (typeof value === "number") {
     if (!Number.isFinite(value)) reject(jsonRule);
@@ -487,7 +495,9 @@ function jsonCopy(value: unknown, ancestors: Set<object>): unknown {
     const kind = shape(value);
     if (kind === "array") return items(value, jsonRule).map((item) => jsonCopy(item, ancestors));
     if (kind === "object") {
-      return Object.fromEntries(entries(value, jsonRule).map(([key, item]) => [key, jsonCopy(item, ancestors)]));
+      return Object.fromEntries(
+        entries(value, jsonRule).map(([key, item]) => [isText(key) ? key : reject(unencodable), jsonCopy(item, ancestors)]),
+      );
     }
     reject(jsonRule);
   } finally {
@@ -511,6 +521,13 @@ function checkNumber(value: number, what: string): void {
 
 function checkText(value: unknown, what: string): asserts value is string {
   if (typeof value !== "string" || value === "") reject(`The ${what} is a non-empty string.`);
+  if (!isText(value)) reject(`The ${what} holds an unpaired surrogate, which has no UTF-8 encoding.`);
+}
+
+// A string every request can carry as it is: one with an unpaired surrogate
+// has no UTF-8 encoding, so a URL, header or JSON body would change or refuse it.
+function isText(value: unknown): value is string {
+  return typeof value === "string" && value.isWellFormed();
 }
 
 function reject(message: string): never {

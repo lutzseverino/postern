@@ -637,6 +637,58 @@ describe("reading what callers pass", () => {
     });
   }
 
+  // A string with an unpaired surrogate has no UTF-8 form, so a request
+  // carrying it in a path, query, header or body would change or refuse it.
+  for (const [where, lone] of [
+    ["a high", "\uD800"],
+    ["a low", "x\uDC00y"],
+    ["a reversed pair's", "\uDC00\uD800"],
+  ] as const) {
+    it(`fails every operation with rejected for ${where} unpaired surrogate in any string it sends`, async () => {
+      const calls: unknown[][] = [];
+      const connection = createConnection(repository, recordingAdapter(calls), {});
+      const { issueTracker: issues, pullRequests: pulls, releaseSource: releases, access } = connection;
+      const merge = { expectedHead: "a", title: "t", body: "" };
+      const operations: [string, () => Promise<unknown>][] = [
+        ["issues label", () => issues.issues({ label: lone })],
+        ["addLabels label", () => issues.addLabels(1, ["bug", lone])],
+        ["removeLabel label", () => issues.removeLabel(1, lone)],
+        ["createLabel name", () => issues.createLabel({ name: lone, color: "ededed", description: "" })],
+        ["createLabel description", () => issues.createLabel({ name: "bug", color: "ededed", description: lone })],
+        ["createComment body", () => issues.createComment(1, lone)],
+        ["updateComment body", () => issues.updateComment(1, lone)],
+        ["byHeadBranch", () => pulls.byHeadBranch(lone)],
+        ["checks", () => pulls.checks(lone)],
+        ["comment body", () => pulls.comment(1, lone)],
+        ["squashMerge expectedHead", () => pulls.squashMerge(1, { ...merge, expectedHead: lone })],
+        ["squashMerge title", () => pulls.squashMerge(1, { ...merge, title: lone })],
+        ["squashMerge body", () => pulls.squashMerge(1, { ...merge, body: lone })],
+        ["tagCommit", () => releases.tagCommit(lone)],
+        ["role", () => access.role(lone)],
+        ["request path", () => access.request({ path: `/${lone}` })],
+        ["request method", () => access.request({ path: "/user", method: `GET${lone}` })],
+        ["request query key", () => access.request({ path: "/user", query: { [lone]: "1" } })],
+        ["request query value", () => access.request({ path: "/user", query: { q: lone } })],
+        ["request header name", () => access.request({ path: "/user", headers: { [`x-${lone}`]: "1" } })],
+        ["request header value", () => access.request({ path: "/user", headers: { "x-a": lone } })],
+        ["request body string", () => access.request({ path: "/user", method: "POST", body: lone })],
+        ["request body key", () => access.request({ path: "/user", method: "POST", body: { [lone]: 1 } })],
+        ["request body item", () => access.request({ path: "/user", method: "POST", body: { a: [1, { b: lone }] } })],
+      ];
+      for (const [operation, call] of operations) {
+        await assert.rejects(call(), isReason("rejected"), operation);
+      }
+      assert.deepEqual(calls, []);
+    });
+
+    it(`fails with rejected for a credential with ${where} unpaired surrogate`, async () => {
+      assert.throws(() => connect(repository, { credential: `ghp_${lone}` }), isReason("rejected"));
+      const seen: AdapterContext[] = [];
+      createConnection(repository, doubleAdapter({}, seen), { credential: async () => `ghp_${lone}` });
+      await assert.rejects(seen[0]!.credentials.token(), isReason("rejected"));
+    });
+  }
+
   it("reads the options of a PlatformError once", () => {
     const reads: Map<PropertyKey, number>[] = [];
     const cause = new Error("inner");
