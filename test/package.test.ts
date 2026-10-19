@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
@@ -120,5 +120,24 @@ export const read = async (): Promise<Issue | string> => tracker.issue(1).catch(
       { cwd: consumer, encoding: "utf8" },
     );
     assert.equal(output.trim(), "a/b");
+  });
+});
+
+describe("the build script", () => {
+  it("builds in a checkout whose path a file URL percent-encodes", () => {
+    const work = mkdtempSync(join(tmpdir(), "postern-build-"));
+    try {
+      const checkout = join(work, "a checkout #1");
+      mkdirSync(checkout);
+      for (const entry of ["src", "scripts", "package.json", "tsconfig.json", "tsconfig.build.json"]) {
+        cpSync(join(root, entry), join(checkout, entry), { recursive: true });
+      }
+      symlinkSync(join(root, "node_modules"), join(checkout, "node_modules"), "dir");
+      execFileSync(process.execPath, [join(checkout, "scripts/build.mjs")], { cwd: checkout, stdio: "pipe" });
+      assert.ok(existsSync(join(checkout, "dist/postern.mjs")));
+      assert.ok(existsSync(join(checkout, "dist/types/index.d.ts")));
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
   });
 });
