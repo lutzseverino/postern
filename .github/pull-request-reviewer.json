@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "account": "chatgpt-codex-connector[bot]",
+  "request": {
+    "comment": "@codex review",
+    "onOpen": true
+  },
+  "finished": {
+    "commentMarker": "<!-- codex-pull-request-review-summary -->",
+    "line": "\\bCompleted\\b.*datetime=\"(?<at>[^\"]+)\".*`(?<sha>[0-9a-f]{7,40})`"
+  },
+  "unavailable": [
+    "create an environment for this repo",
+    "create a Codex account"
+  ],
+  "bounds": {
+    "responseMinutes": 5,
+    "reviewMinutes": 30,
+    "reviewRequests": 4
+  }
+}
