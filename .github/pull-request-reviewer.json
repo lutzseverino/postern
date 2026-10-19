@@ -7,7 +7,7 @@
   },
   "finished": {
     "commentMarker": "<!-- codex-pull-request-review-summary -->",
-    "line": "\\bCompleted\\b.*datetime=\"(?<at>[^\"]+)\".*`(?<sha>[0-9a-f]{7,40})`"
+    "line": "\\bCode Review\\b.*\\bCompleted\\b.*datetime=\"(?<at>[^\"]+)\".*`(?<sha>[0-9a-f]{7,40})`"
   },
   "unavailable": [
     "create an environment for this repo",
