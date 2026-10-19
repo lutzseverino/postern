@@ -48,7 +48,7 @@ try {
 
 - `credential`: a token, or a function returning one that Postern calls whenever it needs a token. Without it the connection is anonymous and public reads that the platform serves anonymously still work. Postern never reads environment variables, files or command-line tools for credentials, and no error or result contains a credential.
 - `relationshipSections`: `{ parent, blockedBy }`, the body section names to read relationships from on a platform without native links. There is no default; without it, such a platform reports `parent: null` and `blockedBy: []`. GitHub's links are native, so the GitHub adapter never reads body sections.
-- `fetch` and `timeoutMs`: the `fetch` implementation to use, and the per-request timeout (30 seconds by default).
+- `fetch` and `timeoutMs`: the `fetch` implementation to use, and the per-request timeout in whole milliseconds, from 1 to 2147483647 (30 seconds by default).
 
 ## Ports
 

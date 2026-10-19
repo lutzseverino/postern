@@ -18,10 +18,28 @@ export class Secrets {
     if (value) this.#values.add(value);
   }
 
+  // Finds every occurrence of every credential in the original text and
+  // replaces overlapping ones as one span, so no fragment of a credential that
+  // extends, contains or overlaps another survives.
   redactText(text: string): string {
-    let result = text;
-    for (const value of this.#values) result = result.split(value).join(replacement);
-    return result;
+    const spans: [start: number, end: number][] = [];
+    for (const value of this.#values) {
+      for (let at = text.indexOf(value); at !== -1; at = text.indexOf(value, at + 1)) {
+        spans.push([at, at + value.length]);
+      }
+    }
+    spans.sort((a, b) => a[0] - b[0]);
+    let result = "";
+    let cursor = 0;
+    for (const [start, end] of spans) {
+      if (start < cursor) {
+        cursor = Math.max(cursor, end);
+        continue;
+      }
+      result += text.slice(cursor, start) + replacement;
+      cursor = end;
+    }
+    return result + text.slice(cursor);
   }
 
   /** A copy of a JSON-like value with every credential replaced. */
@@ -58,7 +76,7 @@ export class Secrets {
   #sanitizeCause(cause: unknown): Error {
     if (cause instanceof PlatformError) return this.sanitize(cause);
     const sanitized = new Error(this.redactText(cause instanceof Error ? cause.message : String(cause)));
-    if (cause instanceof Error) sanitized.name = cause.name;
+    if (cause instanceof Error) sanitized.name = this.redactText(String(cause.name));
     return sanitized;
   }
 }

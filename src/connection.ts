@@ -2,8 +2,8 @@
 // layer every adapter's ports pass through. That layer checks arguments,
 // enforces capability flags, and keeps credentials out of errors and results.
 
-import { detectPlatform } from "./detect.ts";
-import type { RepositoryIdentity } from "./detect.ts";
+import { detectPlatform, githubHost, isGitHubRepositoryPath } from "./detect.ts";
+import type { PlatformName, RepositoryIdentity } from "./detect.ts";
 import { PlatformError } from "./errors.ts";
 import { githubAdapter } from "./github/adapter.ts";
 import type {
@@ -34,7 +34,10 @@ export interface ConnectOptions {
   relationshipSections?: RelationshipSections;
   /** The `fetch` implementation requests go through. Defaults to the global `fetch`. */
   fetch?: typeof globalThis.fetch;
-  /** How long one request may take before it fails with `unavailable`. Defaults to 30 seconds. */
+  /**
+   * How long one request may take before it fails with `unavailable`: a whole
+   * number of milliseconds from 1 to 2147483647. Defaults to 30 seconds.
+   */
   timeoutMs?: number;
 }
 
@@ -65,11 +68,28 @@ export interface AdapterPorts {
 
 export type PlatformAdapter = (context: AdapterContext) => AdapterPorts;
 
-const adapters: Record<RepositoryIdentity["platform"], PlatformAdapter> = {
+const adapters: Record<PlatformName, PlatformAdapter> = {
   github: githubAdapter,
 };
 
+// Each platform's own rules for a repository identity given directly, matching
+// what detection accepts from a remote.
+const identityChecks: Record<PlatformName, (host: string, path: string) => RepositoryIdentity> = {
+  github(host, path) {
+    if (host.toLowerCase() !== githubHost) {
+      throw new PlatformError("unsupported", "No platform adapter serves GitHub repositories on this host.");
+    }
+    checkOption(isGitHubRepositoryPath(path), "A GitHub repository path is exactly an owner and a name, such as owner/name.");
+    return { platform: "github", host: githubHost, path };
+  },
+};
+
 const defaultTimeoutMs = 30_000;
+// The longest delay a Node.js timer keeps; a longer one silently fires after 1 ms.
+const maxTimeoutMs = 2 ** 31 - 1;
+
+// The methods `fetch` sends; it refuses CONNECT, TRACE and TRACK.
+const transportMethods = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
 
 /**
  * Opens a connection to one repository, given its Git remote URL or identity.
@@ -286,14 +306,7 @@ function guardAccess(port: Access, guard: Guard): Access {
         checkText(login, "login");
         return port.role(login);
       }),
-    request: (request: TransportRequest) =>
-      guard(async () => {
-        if (!request || typeof request !== "object") reject("A request needs a path.");
-        if (typeof request.path !== "string" || !request.path.startsWith("/") || request.path.startsWith("//")) {
-          reject("A request path starts with a single '/' and stays on the platform's API.");
-        }
-        return port.request(request);
-      }),
+    request: (request: TransportRequest) => guard(async () => port.request(checkTransportRequest(request))),
   });
 }
 
@@ -302,7 +315,7 @@ function withBotMarking(account: Account | null, marked: boolean): Account | nul
 }
 
 function checkIdentity(identity: RepositoryIdentity): RepositoryIdentity {
-  if (!identity || typeof identity !== "object" || !(identity.platform in adapters)) {
+  if (!identity || typeof identity !== "object" || !Object.hasOwn(identityChecks, identity.platform)) {
     throw new PlatformError("unsupported", "No platform adapter serves this repository identity.");
   }
   checkOption(typeof identity.host === "string" && identity.host !== "", "A repository identity needs its host.");
@@ -310,7 +323,7 @@ function checkIdentity(identity: RepositoryIdentity): RepositoryIdentity {
     typeof identity.path === "string" && /^[^/\s]+(\/[^/\s]+)+$/.test(identity.path),
     "A repository identity needs its full path, such as owner/name.",
   );
-  return { platform: identity.platform, host: identity.host, path: identity.path };
+  return identityChecks[identity.platform](identity.host, identity.path);
 }
 
 function checkOptions(options: ConnectOptions): ConnectOptions {
@@ -332,8 +345,8 @@ function checkOptions(options: ConnectOptions): ConnectOptions {
   }
   checkOption(fetch === undefined || typeof fetch === "function", "fetch is a function.");
   checkOption(
-    timeoutMs === undefined || (Number.isFinite(timeoutMs) && timeoutMs > 0),
-    "timeoutMs is a positive number of milliseconds.",
+    timeoutMs === undefined || (Number.isInteger(timeoutMs) && timeoutMs >= 1 && timeoutMs <= maxTimeoutMs),
+    `timeoutMs is a whole number of milliseconds from 1 to ${maxTimeoutMs}.`,
   );
   return options;
 }
@@ -343,6 +356,57 @@ const isName = (value: unknown): value is string => typeof value === "string" &&
 function checkOption(condition: boolean, message: string): asserts condition {
   if (!condition) reject(message);
 }
+
+// A copy of the request, with its method in upper case, that the transport can
+// send as given: every field is checked here, so no malformed value reaches
+// `fetch` and fails as a retryable `unavailable`.
+function checkTransportRequest(request: TransportRequest): TransportRequest {
+  if (!request || typeof request !== "object") reject("A request needs a path.");
+  const { path, method = "GET", query, body, headers } = request;
+  if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) {
+    reject("A request path starts with a single '/' and stays on the platform's API.");
+  }
+  const verb = typeof method === "string" ? method.toUpperCase() : "";
+  if (!transportMethods.has(verb)) reject(`A request method is one of ${[...transportMethods].join(", ")}.`);
+  if (query !== undefined) {
+    if (!isRecord(query)) reject("A request query is an object.");
+    for (const value of Object.values(query)) {
+      const scalar = typeof value === "string" || typeof value === "boolean" || Number.isFinite(value);
+      if (!scalar) reject("A request query value is a string, a finite number or a boolean.");
+    }
+  }
+  if (headers !== undefined) {
+    if (!isRecord(headers)) reject("Request headers are an object.");
+    for (const value of Object.values(headers)) {
+      if (typeof value !== "string") reject("A request header value is a string.");
+    }
+    try {
+      new Headers(Object.entries(headers));
+    } catch {
+      reject("A request header has an invalid name or value.");
+    }
+  }
+  if (body !== undefined) {
+    if (verb === "GET" || verb === "HEAD") reject(`A ${verb} request has no body.`);
+    let json: string | undefined;
+    try {
+      json = JSON.stringify(body);
+    } catch {
+      reject("A request body is a JSON value.");
+    }
+    if (json === undefined) reject("A request body is a JSON value.");
+  }
+  return {
+    path,
+    method: verb,
+    ...(query === undefined ? {} : { query: { ...query } }),
+    ...(body === undefined ? {} : { body }),
+    ...(headers === undefined ? {} : { headers: { ...headers } }),
+  };
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
 
 function checkIssueFilter(filter: IssueFilter): void {
   if (!filter || typeof filter !== "object") reject("An issue filter is an object.");

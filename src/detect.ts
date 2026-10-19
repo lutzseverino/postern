@@ -13,7 +13,19 @@ export interface RepositoryIdentity {
   path: string;
 }
 
-const githubSshHosts = new Set(["github.com", "ssh.github.com"]);
+/** The one GitHub host Postern serves. */
+export const githubHost = "github.com";
+
+const githubSshHosts = new Set([githubHost, "ssh.github.com"]);
+
+/** Whether a path names one GitHub repository: exactly an owner and a name. */
+export function isGitHubRepositoryPath(path: string): boolean {
+  const segments = path.split("/");
+  return (
+    segments.length === 2 &&
+    segments.every((segment) => /^[A-Za-z0-9_.-]+$/.test(segment) && segment !== "." && segment !== "..")
+  );
+}
 
 /**
  * Identifies the hosting platform and repository path of a Git remote in HTTPS
@@ -24,15 +36,10 @@ export function detectPlatform(remote: string): RepositoryIdentity {
   if (location) {
     const host = location.host.toLowerCase();
     const isGitHub =
-      host === "github.com" || (location.ssh && githubSshHosts.has(host));
+      host === githubHost || (location.ssh && githubSshHosts.has(host));
     const path = location.path.replace(/^\/+/, "").replace(/\/+$/, "").replace(/\.git$/, "");
-    const segments = path.split("/");
-    if (
-      isGitHub &&
-      segments.length === 2 &&
-      segments.every((segment) => /^[A-Za-z0-9_.-]+$/.test(segment) && segment !== "." && segment !== "..")
-    ) {
-      return { platform: "github", host: "github.com", path };
+    if (isGitHub && isGitHubRepositoryPath(path)) {
+      return { platform: "github", host: githubHost, path };
     }
   }
   throw new PlatformError(
@@ -62,7 +69,14 @@ function parseRemote(remote: string): RemoteLocation | null {
   if (protocol !== "https:" && protocol !== "ssh:" && protocol !== "git+ssh:") return null;
   if (url.search || url.hash) return null;
   if (protocol === "https:" && url.port && url.port !== "443") return null;
-  return { host: url.hostname, path: decodeURIComponent(url.pathname), ssh: protocol !== "https:" };
+  let path: string;
+  try {
+    path = decodeURIComponent(url.pathname);
+  } catch {
+    // A malformed percent escape names no repository.
+    return null;
+  }
+  return { host: url.hostname, path, ssh: protocol !== "https:" };
 }
 
 // Names the remote by host and path only, so credentials in it never reach a message.

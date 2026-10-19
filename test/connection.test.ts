@@ -90,7 +90,7 @@ function doubleAdapter(
           throw new Error(`viewer failed for token ${token}`);
         },
         role: unexpected,
-        request: unexpected,
+        request: async (request) => ({ status: 200, headers: {}, data: { ...request } }),
       },
     };
   };
@@ -120,6 +120,38 @@ describe("connect", () => {
       () => connect({ platform: "gitlab", host: "gitlab.com", path: "a/b" } as never),
       isReason("unsupported"),
     );
+  });
+
+  for (const path of ["octo/hello/extra", "octo/hello/tree/main", "octo/..", "octo/hello world", "octo/he%llo"]) {
+    it(`rejects the GitHub repository path ${path}`, () => {
+      assert.throws(() => connect({ ...repository, path }), isReason("rejected"));
+    });
+  }
+
+  it("fails with unsupported for a GitHub identity on a host no adapter serves", () => {
+    for (const host of ["github.example.com", "gitlab.com"]) {
+      assert.throws(() => connect({ ...repository, host }), isReason("unsupported"));
+    }
+  });
+
+  it("reports a GitHub identity on its canonical host", () => {
+    assert.deepEqual(connect({ ...repository, host: "GitHub.com" }).repository, repository);
+  });
+
+  for (const platform of ["toString", "constructor", "__proto__", "hasOwnProperty"]) {
+    it(`fails with unsupported for the platform name ${platform}`, () => {
+      assert.throws(() => connect({ ...repository, platform } as never), isReason("unsupported"));
+    });
+  }
+
+  for (const timeoutMs of [1.5, 0, -1, Number.NaN, Number.POSITIVE_INFINITY, 2 ** 31, "1000"]) {
+    it(`rejects timeoutMs ${String(timeoutMs)}`, () => {
+      assert.throws(() => connect(repository, { timeoutMs } as never), isReason("rejected"));
+    });
+  }
+
+  it("accepts the longest timeout a timer supports", () => {
+    assert.doesNotThrow(() => connect(repository, { timeoutMs: 2 ** 31 - 1 }));
   });
 
   for (const relationshipSections of [
@@ -199,6 +231,43 @@ describe("the shared port layer", () => {
     await assert.rejects(connection.pullRequests.byHeadBranch(""), isReason("rejected"));
   });
 
+  for (const method of ["BAD METHOD", "CONNECT", "TRACE", "", 42]) {
+    it(`rejects the transport method ${JSON.stringify(method)} before calling the adapter`, async () => {
+      const connection = createConnection(repository, doubleAdapter({}), {});
+      await assert.rejects(connection.access.request({ path: "/user", method } as never), isReason("rejected"));
+    });
+  }
+
+  it("passes each supported transport method to the adapter in upper case", async () => {
+    const connection = createConnection(repository, doubleAdapter({}), {});
+    for (const method of ["get", "HEAD", "post", "PUT", "Patch", "DELETE", "OPTIONS"]) {
+      const response = await connection.access.request({ path: "/user", method });
+      assert.equal((response.data as { method: string }).method, method.toUpperCase());
+    }
+  });
+
+  const circular: Record<string, unknown> = {};
+  circular.self = circular;
+  for (const [name, request] of [
+    ["a body on a GET", { path: "/user", body: { a: 1 } }],
+    ["a body on a HEAD", { path: "/user", method: "HEAD", body: "x" }],
+    ["a circular body", { path: "/user", method: "POST", body: circular }],
+    ["a BigInt body", { path: "/user", method: "POST", body: { n: 1n } }],
+    ["a function body", { path: "/user", method: "POST", body: () => 1 }],
+    ["a string query", { path: "/user", query: "a=1" }],
+    ["an object query value", { path: "/user", query: { a: { b: 1 } } }],
+    ["a non-finite query value", { path: "/user", query: { a: Number.NaN } }],
+    ["an array of headers", { path: "/user", headers: [["x-a", "1"]] }],
+    ["a number header value", { path: "/user", headers: { "x-a": 1 } }],
+    ["an invalid header name", { path: "/user", headers: { "bad name": "1" } }],
+    ["a header value with a line break", { path: "/user", headers: { "x-a": "1\r\nx-b: 2" } }],
+  ] as const) {
+    it(`rejects a transport request with ${name} before calling the adapter`, async () => {
+      const connection = createConnection(repository, doubleAdapter({}), {});
+      await assert.rejects(connection.access.request(request as never), isReason("rejected"));
+    });
+  }
+
   it("turns an unexpected adapter failure into invalidResponse without the credential", async () => {
     const connection = createConnection(repository, doubleAdapter({}), { credential: "t0ken-value" });
     await assert.rejects(connection.access.viewer(), (error) => {
@@ -234,5 +303,15 @@ describe("the shared port layer", () => {
       return true;
     });
     assert.equal(calls, 2);
+  });
+
+  it("leaves no part of a rotated credential that extends an earlier one", async () => {
+    const tokens = ["t0ken", "t0ken-rotated"];
+    const connection = createConnection(repository, doubleAdapter({}), { credential: () => tokens.shift() });
+    await assert.rejects(connection.access.viewer());
+    await assert.rejects(connection.access.viewer(), (error: Error) => {
+      assert.equal(error.cause instanceof Error && error.cause.message, "viewer failed for token <REDACTED>");
+      return true;
+    });
   });
 });

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { PlatformError, connect } from "../../src/index.ts";
-import type { PlatformErrorReason } from "../../src/index.ts";
+import type { Connection, PlatformErrorReason } from "../../src/index.ts";
 import { GitHubFake } from "./fake.ts";
 import type { Injected } from "./fake.ts";
 
@@ -208,5 +208,32 @@ describe("GitHub requests", () => {
         else process.env[name] = value;
       }
     }
+  });
+});
+
+describe("GitHub request paths", () => {
+  // A "." or ".." path segment, even percent-encoded, would move the request to another resource.
+  for (const [name, call] of [
+    ["a label named .", (connection: Connection) => connection.issueTracker.removeLabel(1, ".")],
+    ["a label named ..", (connection: Connection) => connection.issueTracker.removeLabel(1, "..")],
+    ["a login named ..", (connection: Connection) => connection.access.role("..")],
+    ["a commit named ..", (connection: Connection) => connection.pullRequests.checks("..")],
+    ["a tag with a .. segment", (connection: Connection) => connection.releaseSource.tagCommit("v1/../../x")],
+    ["a tag named .", (connection: Connection) => connection.releaseSource.tagCommit(".")],
+  ] as const) {
+    it(`reject ${name} without sending a request`, async () => {
+      const { fake, connection } = setup();
+      await assert.rejects(call(connection), failure("rejected"));
+      assert.equal(fake.requests.length, 0);
+    });
+  }
+});
+
+describe("GitHub tag peeling", () => {
+  it("fails with invalidResponse for a tag object whose SHA is not hexadecimal, without following it", async () => {
+    const { fake, connection } = setup();
+    fake.inject({ status: 200, body: JSON.stringify({ object: { type: "tag", sha: "../../../user" } }) });
+    await assert.rejects(connection.releaseSource.tagCommit("v1.0.0"), failure("invalidResponse"));
+    assert.equal(fake.requests.length, 1);
   });
 });

@@ -13,18 +13,24 @@ some platforms nest groups. Any remote no adapter serves fails with
 `PlatformError` reason `unsupported`; the error names the host only, never
 credentials embedded in the URL.
 
-`connect(repository, options)` takes a remote URL or a `detectPlatform`
-result and returns a connection with `repository` and the four ports
-`issueTracker`, `pullRequests`, `releaseSource` and `access`. Its options are:
+`connect(repository, options)` takes a remote URL or a repository identity,
+such as a `detectPlatform` result, and returns a connection with `repository`
+and the four ports `issueTracker`, `pullRequests`, `releaseSource` and
+`access`. An identity follows the same rules as detection: a GitHub identity
+names the host `github.com` and a path of exactly an owner and a name. An
+identity on a host no adapter serves fails with `unsupported`, and one with
+any other path fails with `rejected`. Its options are:
 
 | Option                 | Meaning                                                                                                                               |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `credential`           | A non-empty token, or a function returning one (or a promise of one). Called each time a request needs a token.                       |
 | `relationshipSections` | `{ parent, blockedBy }`: non-empty body section names for platforms without native links. No default.                                 |
 | `fetch`                | A `fetch`-compatible function. Defaults to the global `fetch`.                                                                        |
-| `timeoutMs`            | The time one request may take before it fails with `unavailable`. Defaults to 30000.                                                  |
+| `timeoutMs`            | The time one request may take before it fails with `unavailable`: whole milliseconds from 1 to 2147483647. Defaults to 30000.         |
 
-Invalid options and arguments fail with `rejected` before any request.
+Invalid options and arguments fail with `rejected` before any request. On
+GitHub, a label, login, commit or tag path segment of `.` or `..` is also
+`rejected`, because GitHub's API cannot address it in a request path.
 
 ### Credentials
 
@@ -35,7 +41,9 @@ reads environment variables, files or command-line tools for credentials.
 
 Every error message, cause and result is cleaned of every token the
 connection has used: a response that echoes a token, such as an issue body
-that contains one, reports `<REDACTED>` in its place.
+that contains one, reports `<REDACTED>` in its place. When the tokens overlap,
+as after a rotation to a token that extends the previous one, each overlapping
+run is one `<REDACTED>`, so no part of either token remains.
 
 ## Capability flags
 
@@ -128,7 +136,12 @@ conclusions are the platform's own words.
 | `request({ method?, path, query?, body?, headers? })` | `{ status, headers, data }` from the platform's API.              |
 
 `request` sends the connection's credential, so its `path` must stay on the
-platform's API: it starts with a single `/`. A failing status rejects with
+platform's API: it starts with a single `/`. Its `method` is `GET` (the
+default), `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE` or `OPTIONS`, in any case.
+Its `query` values are strings, finite numbers or booleans; its `headers` are
+valid header names with string values; and its `body` is a JSON value, sent
+only with a method other than `GET` or `HEAD`. A request that breaks any of
+these fails with `rejected` before it is sent. A failing status rejects with
 `PlatformError`, mapped like any other operation.
 
 ## Errors

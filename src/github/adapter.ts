@@ -134,7 +134,7 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
       await transport.rest(`${repo}/issues/${number}/labels`, { method: "POST", body: { labels } });
     },
     async removeLabel(number, label) {
-      await transport.rest(`${repo}/issues/${number}/labels/${encodeURIComponent(label)}`, { method: "DELETE" });
+      await transport.rest(`${repo}/issues/${number}/labels/${segment(label)}`, { method: "DELETE" });
     },
     async createLabel(label) {
       const response = await transport.rest(`${repo}/labels`, { method: "POST", body: label });
@@ -299,7 +299,7 @@ function pullRequests(transport: GitHubTransport, repo: string, coordinates: Jso
       }));
     },
     async checks(commit) {
-      const ref = encodeURIComponent(commit);
+      const ref = segment(commit);
       const [runs, statuses] = await Promise.all([
         transport.restPages<Json>(`${repo}/commits/${ref}/check-runs`, { items: "check_runs" }),
         transport.restPages<Json>(`${repo}/commits/${ref}/status`, { items: "statuses" }),
@@ -374,7 +374,7 @@ function releaseSource(transport: GitHubTransport, repo: string): ReleaseSource 
       // An annotated tag points to a tag object, which may itself point to another tag.
       for (let depth = 0; target.type === "tag"; depth++) {
         if (depth === 10) throw invalid(`Tag ${tag} nests too many annotated tags.`);
-        target = object(object((await transport.rest(`${repo}/git/tags/${text(target.sha)}`)).data).object);
+        target = object(object((await transport.rest(`${repo}/git/tags/${sha(target.sha)}`)).data).object);
       }
       if (target.type !== "commit") {
         throw new PlatformError("notFound", `Tag ${tag} points to a ${String(target.type)}, not a commit.`);
@@ -384,7 +384,16 @@ function releaseSource(transport: GitHubTransport, repo: string): ReleaseSource 
   };
 }
 
-const encodeTag = (tag: string) => tag.split("/").map(encodeURIComponent).join("/");
+const encodeTag = (tag: string) => tag.split("/").map(segment).join("/");
+
+// One request path segment. A URL resolves "." and "..", even percent-encoded,
+// against the path before it, which would send the request to another resource.
+function segment(value: string): string {
+  if (value === "." || value === "..") {
+    throw new PlatformError("rejected", `GitHub's API cannot address "${value}" as a path segment.`);
+  }
+  return encodeURIComponent(value);
+}
 
 // Access
 
@@ -396,7 +405,7 @@ function access(transport: GitHubTransport, context: AdapterContext, repo: strin
       return restAccount((await transport.rest("/user")).data);
     },
     async role(login) {
-      const response = await transport.rest(`${repo}/collaborators/${encodeURIComponent(login)}/permission`);
+      const response = await transport.rest(`${repo}/collaborators/${segment(login)}/permission`);
       const permission = object(response.data);
       return permission.permission === "none" ? null : text(permission.role_name);
     },
@@ -460,6 +469,13 @@ function object(value: unknown): Json {
 function text(value: unknown): string {
   if (typeof value !== "string") throw invalid("GitHub returned a missing or unreadable text field.");
   return value;
+}
+
+// A Git object ID GitHub returned, checked before it becomes part of a request path.
+function sha(value: unknown): string {
+  const id = text(value);
+  if (!/^[0-9a-f]+$/i.test(id)) throw invalid("GitHub returned an unreadable object ID.");
+  return id;
 }
 
 function optionalText(value: unknown): string | null {

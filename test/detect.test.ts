@@ -31,6 +31,8 @@ describe("detectPlatform", () => {
     "https://github.com/octo/hello/tree/main",
     "/srv/git/hello.git",
     "file:///srv/git/hello.git",
+    "https://github.com/foo/%ZZ",
+    "ssh://git@github.com/foo/%E0%A4%A",
     "",
   ]) {
     it(`fails with unsupported for ${JSON.stringify(remote)}`, () => {

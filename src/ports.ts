@@ -223,11 +223,12 @@ export interface ReleaseSource {
 }
 
 export interface TransportRequest {
+  /** `GET` (the default), `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE` or `OPTIONS`, in any case. */
   method?: string;
   /** A path on the platform's API, starting with `/`, optionally with a query string. */
   path: string;
   query?: Record<string, string | number | boolean>;
-  /** Sent as JSON. */
+  /** Sent as JSON, with any method but `GET` and `HEAD`. */
   body?: unknown;
   headers?: Record<string, string>;
 }
