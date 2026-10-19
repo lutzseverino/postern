@@ -1,0 +1,1822 @@
+{
+  "format": "repo-standards/state/v7",
+  "observations": [
+    {
+      "phase": "fixes",
+      "scope": {
+        "github-repository-configuration": {
+          "paths": [],
+          "directories": []
+        }
+      },
+      "operation": {
+        "phase": "fixes",
+        "declaration": "github-repository-configuration",
+        "id": "canonical-labels"
+      },
+      "operationIndex": 0,
+      "before": "sha256:14132c53a68fd53b156429504cd541a594c20e93baed8e5e7059b3fb9e686c9e",
+      "after": "sha256:14132c53a68fd53b156429504cd541a594c20e93baed8e5e7059b3fb9e686c9e",
+      "changes": {},
+      "boundaryChanges": {},
+      "violations": []
+    },
+    {
+      "phase": "fixes",
+      "scope": {
+        "github-repository-configuration": {
+          "paths": [],
+          "directories": []
+        }
+      },
+      "operation": {
+        "phase": "fixes",
+        "declaration": "github-repository-configuration",
+        "id": "pull-request-integration"
+      },
+      "operationIndex": 1,
+      "before": "sha256:14132c53a68fd53b156429504cd541a594c20e93baed8e5e7059b3fb9e686c9e",
+      "after": "sha256:14132c53a68fd53b156429504cd541a594c20e93baed8e5e7059b3fb9e686c9e",
+      "changes": {},
+      "boundaryChanges": {},
+      "violations": []
+    },
+    {
+      "phase": "agent",
+      "scope": {
+        "documentation": {
+          "paths": [
+            "docs/README.md",
+            "docs/development/README.md"
+          ],
+          "directories": []
+        },
+        "factory-sandbox-image": {
+          "paths": [
+            ".factory/Dockerfile"
+          ],
+          "directories": []
+        },
+        "factory-workflow": {
+          "paths": [],
+          "directories": []
+        },
+        "github-repository-configuration": {
+          "paths": [],
+          "directories": []
+        },
+        "project-agent-guidance": {
+          "paths": [
+            "docs/agents/project.md"
+          ],
+          "directories": []
+        },
+        "project-readmes": {
+          "paths": [],
+          "directories": []
+        },
+        "repository-license": {
+          "paths": [
+            "LICENSE"
+          ],
+          "directories": []
+        },
+        "repository-readme": {
+          "paths": [
+            "README.md"
+          ],
+          "directories": []
+        }
+      },
+      "before": "sha256:14132c53a68fd53b156429504cd541a594c20e93baed8e5e7059b3fb9e686c9e",
+      "after": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "changes": {
+        ".factory/Dockerfile": {
+          "before": {
+            "type": "missing"
+          },
+          "after": {
+            "type": "file",
+            "sha256": "eb8bbe4439c67956bba4da86620a757bcf1d7c49d8dcd9a19c50f22ef0cce97d",
+            "executable": false
+          }
+        },
+        "README.md": {
+          "before": {
+            "type": "file",
+            "sha256": "8c01dd1d36e907069ab09c46574acb3054a04d6c20685d7fde4f3e137bb56367",
+            "executable": false
+          },
+          "after": {
+            "type": "file",
+            "sha256": "e01d9909fd89102944e135424830f0a7b2c9723151b0a176c3faefc639f7fc8c",
+            "executable": false
+          }
+        },
+        "docs/README.md": {
+          "before": {
+            "type": "missing"
+          },
+          "after": {
+            "type": "file",
+            "sha256": "84247c148b5e77d90f5980ad4901044a16cb4f2cb5c7c1cddb272fca387a373b",
+            "executable": false
+          }
+        },
+        "docs/development/README.md": {
+          "before": {
+            "type": "missing"
+          },
+          "after": {
+            "type": "file",
+            "sha256": "2779617beba8ca5f4957c4ba48d85247985089905c692a4a543963547f6090c3",
+            "executable": false
+          }
+        }
+      },
+      "boundaryChanges": {
+        "docs/development": {
+          "before": {
+            "type": "missing"
+          },
+          "after": {
+            "type": "directory",
+            "mode": 448
+          }
+        }
+      },
+      "violations": []
+    },
+    {
+      "phase": "agent",
+      "scope": {
+        "documentation": {
+          "paths": [
+            "docs/README.md",
+            "docs/development/README.md"
+          ],
+          "directories": []
+        },
+        "factory-sandbox-image": {
+          "paths": [
+            ".factory/Dockerfile"
+          ],
+          "directories": []
+        },
+        "factory-workflow": {
+          "paths": [],
+          "directories": []
+        },
+        "github-repository-configuration": {
+          "paths": [],
+          "directories": []
+        },
+        "project-agent-guidance": {
+          "paths": [
+            "docs/agents/project.md"
+          ],
+          "directories": []
+        },
+        "project-readmes": {
+          "paths": [],
+          "directories": []
+        },
+        "repository-license": {
+          "paths": [
+            "LICENSE"
+          ],
+          "directories": []
+        },
+        "repository-readme": {
+          "paths": [
+            "README.md"
+          ],
+          "directories": []
+        }
+      },
+      "before": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "after": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "changes": {},
+      "boundaryChanges": {},
+      "violations": []
+    },
+    {
+      "phase": "checks",
+      "scope": {
+        "documentation": {
+          "paths": [
+            "docs/README.md",
+            "docs/development/README.md"
+          ],
+          "directories": []
+        }
+      },
+      "operation": {
+        "phase": "checks",
+        "declaration": "documentation",
+        "id": "documentation-navigation"
+      },
+      "operationIndex": 2,
+      "before": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "after": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "changes": {},
+      "boundaryChanges": {},
+      "violations": []
+    },
+    {
+      "phase": "checks",
+      "scope": {
+        "github-repository-configuration": {
+          "paths": [],
+          "directories": []
+        }
+      },
+      "operation": {
+        "phase": "checks",
+        "declaration": "github-repository-configuration",
+        "id": "pull-request-reviewer"
+      },
+      "operationIndex": 3,
+      "before": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "after": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "changes": {},
+      "boundaryChanges": {},
+      "violations": []
+    },
+    {
+      "phase": "checks",
+      "scope": {
+        "project-readmes": {
+          "paths": [],
+          "directories": []
+        }
+      },
+      "operation": {
+        "phase": "checks",
+        "declaration": "project-readmes",
+        "id": "project-readme-structure"
+      },
+      "operationIndex": 4,
+      "before": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "after": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "changes": {},
+      "boundaryChanges": {},
+      "violations": []
+    },
+    {
+      "phase": "checks",
+      "scope": {
+        "repository-readme": {
+          "paths": [
+            "README.md"
+          ],
+          "directories": []
+        }
+      },
+      "operation": {
+        "phase": "checks",
+        "declaration": "repository-readme",
+        "id": "repository-readme-structure"
+      },
+      "operationIndex": 5,
+      "before": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "after": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "changes": {},
+      "boundaryChanges": {},
+      "violations": []
+    },
+    {
+      "phase": "agent",
+      "scope": {
+        "documentation": {
+          "paths": [
+            "docs/README.md",
+            "docs/development/README.md"
+          ],
+          "directories": []
+        },
+        "factory-sandbox-image": {
+          "paths": [
+            ".factory/Dockerfile"
+          ],
+          "directories": []
+        },
+        "factory-workflow": {
+          "paths": [],
+          "directories": []
+        },
+        "github-repository-configuration": {
+          "paths": [],
+          "directories": []
+        },
+        "project-agent-guidance": {
+          "paths": [
+            "docs/agents/project.md"
+          ],
+          "directories": []
+        },
+        "project-readmes": {
+          "paths": [],
+          "directories": []
+        },
+        "repository-license": {
+          "paths": [
+            "LICENSE"
+          ],
+          "directories": []
+        },
+        "repository-readme": {
+          "paths": [
+            "README.md"
+          ],
+          "directories": []
+        }
+      },
+      "before": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "after": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "changes": {},
+      "boundaryChanges": {},
+      "violations": []
+    }
+  ],
+  "operations": [
+    {
+      "operation": {
+        "declaration": "github-repository-configuration",
+        "phase": "fixes",
+        "id": "canonical-labels"
+      },
+      "process": {
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "timedOut": false
+      },
+      "result": {
+        "format": "repo-standards/result/v2",
+        "status": "unchanged",
+        "message": "GitHub labels already match the canonical configuration for lutzseverino/postern."
+      },
+      "error": null,
+      "stdout": ".repo-standards/local/operations/0.stdout",
+      "stderr": ".repo-standards/local/operations/0.stderr"
+    },
+    {
+      "operation": {
+        "declaration": "github-repository-configuration",
+        "phase": "fixes",
+        "id": "pull-request-integration"
+      },
+      "process": {
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "timedOut": false
+      },
+      "result": {
+        "format": "repo-standards/result/v2",
+        "status": "unchanged",
+        "message": "GitHub PR integration for lutzseverino/postern applies squash-only integration, PR-title subjects, and PR-body messages. Requiring `PR metadata` is deferred because the default branch `main` does not carry the PR metadata validation workflow yet, so GitHub cannot report the check. Merge this adoption; the next adoption or update then requires the check."
+      },
+      "error": null,
+      "stdout": ".repo-standards/local/operations/1.stdout",
+      "stderr": ".repo-standards/local/operations/1.stderr"
+    },
+    {
+      "operation": {
+        "declaration": "documentation",
+        "phase": "checks",
+        "id": "documentation-navigation"
+      },
+      "process": {
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "timedOut": false
+      },
+      "result": {
+        "format": "repo-standards/result/v2",
+        "status": "passed",
+        "message": "Documentation navigation is valid; content placement and usefulness still require maintainer or agent review."
+      },
+      "error": null,
+      "stdout": ".repo-standards/local/operations/2.stdout",
+      "stderr": ".repo-standards/local/operations/2.stderr"
+    },
+    {
+      "operation": {
+        "declaration": "github-repository-configuration",
+        "phase": "checks",
+        "id": "pull-request-reviewer"
+      },
+      "process": {
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "timedOut": false
+      },
+      "result": {
+        "format": "repo-standards/result/v2",
+        "status": "passed",
+        "message": "No pull request reviewer is configured."
+      },
+      "error": null,
+      "stdout": ".repo-standards/local/operations/3.stdout",
+      "stderr": ".repo-standards/local/operations/3.stderr"
+    },
+    {
+      "operation": {
+        "declaration": "project-readmes",
+        "phase": "checks",
+        "id": "project-readme-structure"
+      },
+      "process": {
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "timedOut": false
+      },
+      "result": {
+        "format": "repo-standards/result/v2",
+        "status": "passed",
+        "message": "Project README structure and shared setup and contribution links are valid for 0 concrete targets; Project membership, purpose, commands, configuration, documentation, and duplication of shared instructions still require maintainer or agent review."
+      },
+      "error": null,
+      "stdout": ".repo-standards/local/operations/4.stdout",
+      "stderr": ".repo-standards/local/operations/4.stderr"
+    },
+    {
+      "operation": {
+        "declaration": "repository-readme",
+        "phase": "checks",
+        "id": "repository-readme-structure"
+      },
+      "process": {
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "timedOut": false
+      },
+      "result": {
+        "format": "repo-standards/result/v2",
+        "status": "passed",
+        "message": "Repository README structure is valid; factual content still requires maintainer or agent review."
+      },
+      "error": null,
+      "stdout": ".repo-standards/local/operations/5.stdout",
+      "stderr": ".repo-standards/local/operations/5.stderr"
+    }
+  ],
+  "retryHistory": [],
+  "changeSet": [
+    {
+      "path": ".agents/skills/LICENSE.humanlayer-skills",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/LICENSE.mattpocock-skills",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/babysit/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/babysit/merge.mjs",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/babysit/pull-request-reviewer.mjs",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/babysit/reviewer.mjs",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/babysit/wait.mjs",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/code-review/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/code-review/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/codebase-design/DEEPENING.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/codebase-design/DESIGN-IT-TWICE.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/codebase-design/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/codebase-design/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/diagnosing-bugs/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/diagnosing-bugs/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/diagnosing-bugs/scripts/hitl-loop.template.sh",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/domain-modeling/ADR-FORMAT.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/domain-modeling/GLOSSARY-FORMAT.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/domain-modeling/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/domain-modeling/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/grill-with-docs/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/grill-with-docs/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/grilling/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/grilling/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/implement/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/implement/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/improve-codebase-architecture/HTML-REPORT.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/improve-codebase-architecture/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/improve-codebase-architecture/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/pr/CREDITS.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/pr/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/pr/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/prototype/LOGIC.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/prototype/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/prototype/UI.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/prototype/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/repository-standards/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/repository-standards/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/research/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/research/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/tdd/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/tdd/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/tdd/mocking.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/tdd/tests.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/to-spec/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/to-spec/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/to-tickets/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/to-tickets/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/triage/AGENT-BRIEF.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/triage/CREDITS.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/triage/OUT-OF-SCOPE.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/triage/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/triage/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/wayfinder/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/wayfinder/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/writing-for-agents/SKILL-MECHANICS.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/writing-for-agents/SKILL.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".agents/skills/writing-for-agents/agents/openai.yaml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/babysit",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/code-review",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/codebase-design",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/diagnosing-bugs",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/domain-modeling",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/grill-with-docs",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/grilling",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/implement",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/improve-codebase-architecture",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/pr",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/prototype",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/repository-standards",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/research",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/tdd",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/to-spec",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/to-tickets",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/triage",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/wayfinder",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".claude/skills/writing-for-agents",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".factory/Dockerfile",
+      "phases": [
+        "agent"
+      ]
+    },
+    {
+      "path": ".factory/config.json",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug-report.yml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature-request.yml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/implementation-ticket.yml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/specification.yml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".github/scripts/validate-pr-metadata.mjs",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".github/workflows/issue-contracts.yml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".github/workflows/pr-metadata.yml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": ".github/workflows/sandbox-image.yml",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "AGENTS.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "README.md",
+      "phases": [
+        "agent"
+      ]
+    },
+    {
+      "path": "docs/README.md",
+      "phases": [
+        "agent"
+      ]
+    },
+    {
+      "path": "docs/agents/README.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "docs/agents/domain.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "docs/agents/issue-tracker.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "docs/agents/triage-labels.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "docs/development/README.md",
+      "phases": [
+        "agent"
+      ]
+    },
+    {
+      "path": "operations/lib/rendered-markdown.mjs",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "scripts/validate-issue-contract.mjs",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "vendor/marked/LICENSE",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "vendor/marked/README.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "vendor/marked/marked.esm.js",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "vendor/parse5/LICENSE.entities",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "vendor/parse5/LICENSE.parse5",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "vendor/parse5/README.md",
+      "phases": [
+        "installation"
+      ]
+    },
+    {
+      "path": "vendor/parse5/parse5.esm.js",
+      "phases": [
+        "installation"
+      ]
+    }
+  ],
+  "lastComplete": {
+    "run": "23226a68-14d7-4654-be39-2b48bea73fe7",
+    "inspection": "sha256:d6a340538b4d8d97d0937132af1c2817f1b4839a2693dcfaf8d4d420777a091f",
+    "completedAt": "2026-10-19T03:51:52.933Z",
+    "head": "64b725a80edf9e3f85f77307147dbde8b251086b"
+  },
+  "baselines": {
+    "docs/agents/README.md": {
+      "sha256": "a78a8a4934c9de37cfcd11be23ce3dd58462108fa53b6cdaead4af18ca7e773b",
+      "executable": false
+    },
+    "AGENTS.md": {
+      "sha256": "b07aea42b68e26527216b901bd262e69347e6993d387ad04c6a234766e728937",
+      "executable": false
+    },
+    ".github/ISSUE_TEMPLATE/bug-report.yml": {
+      "sha256": "5fca3bab67073fdb827cd5eb88d9c413ac1e1df2891a85c7938420dcb1e3dfed",
+      "executable": false
+    },
+    "CONTRIBUTING.md": {
+      "sha256": "956a4dec63a5c557e205ce291441ee17a51de14a0d72c290412d8556deb34a81",
+      "executable": false
+    },
+    "docs/agents/domain.md": {
+      "sha256": "593a7042218689f1d24df89df14eaf0a20e19e0d0a7d479a01947ac78f0784b9",
+      "executable": false
+    },
+    ".factory/config.json": {
+      "sha256": "9de48af731c45f963a613a6b77668ce9727834ae5a2d9b92af1c5ffcb18a1c07",
+      "executable": false
+    },
+    ".github/workflows/sandbox-image.yml": {
+      "sha256": "598ab9931a8cfc63a3e1d2487fb151eca9b134a5e9a4e3bfa20d4b87b96399b3",
+      "executable": false
+    },
+    ".github/ISSUE_TEMPLATE/feature-request.yml": {
+      "sha256": "d3df4f5c27dd7b7a22d0baec1a52a1dc3301c002549f8634392a3abd26566505",
+      "executable": false
+    },
+    ".agents/skills/LICENSE.humanlayer-skills": {
+      "sha256": "5f13c18ea00ea5c1384f41745feeca774079164f7f59a92e4ac0899ad217b26f",
+      "executable": false
+    },
+    ".github/ISSUE_TEMPLATE/implementation-ticket.yml": {
+      "sha256": "d452da0ad9e39173f681b699d3848a00ab3466b55be508cc3f36d7731083bff6",
+      "executable": false
+    },
+    "scripts/validate-issue-contract.mjs": {
+      "sha256": "f7e604f218f7aab8eaa53e537aa8bdd079f9208be4f8866b5333278d92d9ea3e",
+      "executable": false
+    },
+    ".github/workflows/issue-contracts.yml": {
+      "sha256": "edcc96d6d8e040a55cd30ea2109d1291322a85bb66ea9d3a5dbbb43fa00a4588",
+      "executable": false
+    },
+    "docs/agents/issue-tracker.md": {
+      "sha256": "afd6852a80185217bd28aa5cbe456bef1e85be25be7bd1fba382d5b8ee428325",
+      "executable": false
+    },
+    "vendor/marked/LICENSE": {
+      "sha256": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
+      "executable": false
+    },
+    "vendor/marked/marked.esm.js": {
+      "sha256": "2e70fea3ee49f98ab67ee395e5af51cc6bee4fafed15910da9ccb7f650df8014",
+      "executable": false
+    },
+    "vendor/marked/README.md": {
+      "sha256": "c1f9e95c649e297b482a842c72814efa04b0277f1a3a3c181e637d949b5bedc7",
+      "executable": false
+    },
+    ".agents/skills/LICENSE.mattpocock-skills": {
+      "sha256": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5",
+      "executable": false
+    },
+    "vendor/parse5/LICENSE.entities": {
+      "sha256": "cb992345949ccd6e8394b2cd6c465f7b897c864f845937dbf64e8997f389e164",
+      "executable": false
+    },
+    "vendor/parse5/LICENSE.parse5": {
+      "sha256": "8c535800331e1e4439835555b3f9edc7fe9dee2fab0d8bbbd5a982e8b8343d4d",
+      "executable": false
+    },
+    "vendor/parse5/parse5.esm.js": {
+      "sha256": "bdf861eb0bce411afe5fcc312c770c3fe18dac9b5296771d40217d52a6ae7a93",
+      "executable": false
+    },
+    "vendor/parse5/README.md": {
+      "sha256": "8f285afdb9d5eca93648d2ffbea58ea0cea94485f18c3eec6f5825ef1e0446bf",
+      "executable": false
+    },
+    ".github/scripts/validate-pr-metadata.mjs": {
+      "sha256": "967c93f5cb5057d50e1fd7b7315fd520ae10558e47f45ef5d286e79ab5fadcf0",
+      "executable": false
+    },
+    ".github/workflows/pr-metadata.yml": {
+      "sha256": "cb718da096023298e44b962dbb60a42fb0dce52ec0c98f25b9a6307d9e94eac3",
+      "executable": false
+    },
+    ".github/PULL_REQUEST_TEMPLATE.md": {
+      "sha256": "7dcc5881eef1c342a08519750b9beae700f4620d1fdf23c2eb0d9b2dfaec5fd0",
+      "executable": false
+    },
+    "operations/lib/rendered-markdown.mjs": {
+      "sha256": "b885d1cd1650e61c616b6f2917b4074bc752282626b4d5eee01df4d5a923b267",
+      "executable": false
+    },
+    ".agents/skills/babysit/SKILL.md": {
+      "sha256": "5e3a33c571b8d09983b6a18600ecf7b218b487c5ea111712728fe1a808241387",
+      "executable": false
+    },
+    ".agents/skills/babysit/merge.mjs": {
+      "sha256": "f1ba69545f9e7234666e76e1bb64283378419f9e6af963753d141107438b8d3e",
+      "executable": false
+    },
+    ".agents/skills/babysit/pull-request-reviewer.mjs": {
+      "sha256": "661a5832f8386352d9f9f7e4f58c6f467a63b56b6b49edb41514266a4ed858d1",
+      "executable": false
+    },
+    ".agents/skills/babysit/reviewer.mjs": {
+      "sha256": "bda1879ccbf256b0da6ab17857e158555068bde14f4f277307ba3d99a110275d",
+      "executable": false
+    },
+    ".agents/skills/babysit/wait.mjs": {
+      "sha256": "93e4f0658510fb799009bf7681ff1844679ed496db648fb6fd8fe90ec9d72124",
+      "executable": false
+    },
+    ".agents/skills/code-review/SKILL.md": {
+      "sha256": "47f4e52c21694def9c7c11cbfbf891ca35eac7a93e395797515be3c8a409ae50",
+      "executable": false
+    },
+    ".agents/skills/code-review/agents/openai.yaml": {
+      "sha256": "8229ca854e11dc8e6aef2131ee03f31fb1561cf905fab9ccc325180cf3331352",
+      "executable": false
+    },
+    ".agents/skills/codebase-design/DEEPENING.md": {
+      "sha256": "f3dd099ce99289bd213914d8ee3e2429b78309c3957ca4583f7659551b1d53c1",
+      "executable": false
+    },
+    ".agents/skills/codebase-design/DESIGN-IT-TWICE.md": {
+      "sha256": "52b52e75655a27aea59c6966b410bac82448968ad46ef1ebb9f07c274e3ae010",
+      "executable": false
+    },
+    ".agents/skills/codebase-design/SKILL.md": {
+      "sha256": "2c20617f87ec8af6a434859f381b2f061a69b530444e74eb39e78bb016a6d1e2",
+      "executable": false
+    },
+    ".agents/skills/codebase-design/agents/openai.yaml": {
+      "sha256": "edebc9e4fcfe102114012575eaa9600b9b5fd08c311664f389c36e7bc717740f",
+      "executable": false
+    },
+    ".agents/skills/diagnosing-bugs/SKILL.md": {
+      "sha256": "9168404abda0967a5d32977e3498cd95fda6807018852f3de736a78357c82b40",
+      "executable": false
+    },
+    ".agents/skills/diagnosing-bugs/agents/openai.yaml": {
+      "sha256": "3e430dbe4334a87597488c060cb3dc3786bb00c9182877d6f5ec41f62490e90b",
+      "executable": false
+    },
+    ".agents/skills/diagnosing-bugs/scripts/hitl-loop.template.sh": {
+      "sha256": "35103539fc36873eea36074769ad454f9379d6fc8b2dc0e26ce987fd3bfe5503",
+      "executable": false
+    },
+    ".agents/skills/domain-modeling/ADR-FORMAT.md": {
+      "sha256": "944c92aa790e8fbdc9199640b170979abb8a34ba8d0fe18c2a01a63bce140ca0",
+      "executable": false
+    },
+    ".agents/skills/domain-modeling/GLOSSARY-FORMAT.md": {
+      "sha256": "21dcc40cdec8e151a829b98ab1517c1867bc444e3665134a98c6983411996801",
+      "executable": false
+    },
+    ".agents/skills/domain-modeling/SKILL.md": {
+      "sha256": "7b925d7b1e341a2eeae33ad68a8a8c0ab889a38ddd22a7598e4c240e5a7556a3",
+      "executable": false
+    },
+    ".agents/skills/domain-modeling/agents/openai.yaml": {
+      "sha256": "f6bf2aa996c6e6f53fdd0708e18a0d16a56aed8322cca59fedbe3c0d2c75f06b",
+      "executable": false
+    },
+    ".agents/skills/grill-with-docs/SKILL.md": {
+      "sha256": "7de372c13488f1ee96cc11cd8907b56b6809cc93eef776eeddd37de6b6cbe3fe",
+      "executable": false
+    },
+    ".agents/skills/grill-with-docs/agents/openai.yaml": {
+      "sha256": "94cd0ab161fb468a836349f5ed482ba58ce8e709a05c57ce533d739dbd35cca9",
+      "executable": false
+    },
+    ".agents/skills/grilling/SKILL.md": {
+      "sha256": "10ff989e7498b23b5acb49d5048f11dcd906757d2f79c5cdf8a00001381296f2",
+      "executable": false
+    },
+    ".agents/skills/grilling/agents/openai.yaml": {
+      "sha256": "1411d7df7d99b7e621a1ff8283c8133cc2464be63d064e52d8ce169c6800ee9b",
+      "executable": false
+    },
+    ".agents/skills/implement/SKILL.md": {
+      "sha256": "6d3fd9e83b8f36e5213854779db49b256a457a7ebb4a503e53fa7dcff696adc3",
+      "executable": false
+    },
+    ".agents/skills/implement/agents/openai.yaml": {
+      "sha256": "8970a8596ade0c28ab427f41a4ea242d6bdf6186c59ebf55e1238dbecaab79dc",
+      "executable": false
+    },
+    ".agents/skills/improve-codebase-architecture/HTML-REPORT.md": {
+      "sha256": "581e8bb5a521e46bbda8ca7e19b15948bed882187108092ebb90c62513b77528",
+      "executable": false
+    },
+    ".agents/skills/improve-codebase-architecture/SKILL.md": {
+      "sha256": "552240a5ab5cec6b67c15dd1ad6e9f6962b1bca6ce870059a8c2713760c20392",
+      "executable": false
+    },
+    ".agents/skills/improve-codebase-architecture/agents/openai.yaml": {
+      "sha256": "c8cb20f68ebf0edb4e497bc11ae5fcaa196004e661cd189015b04f4109ced7f1",
+      "executable": false
+    },
+    ".agents/skills/pr/CREDITS.md": {
+      "sha256": "a7a087127665d7298a72280ef6e19c41ad8404523712a788c8dc3ab414bc2497",
+      "executable": false
+    },
+    ".agents/skills/pr/SKILL.md": {
+      "sha256": "ab63f1cf78647389edcd386c9427c5dfca27ed2836930c24773ffee834c19bcd",
+      "executable": false
+    },
+    ".agents/skills/pr/agents/openai.yaml": {
+      "sha256": "2295b586624db4ef546f3fd4695492f039d941a46d8a1593a702ce3ca511b8ad",
+      "executable": false
+    },
+    ".agents/skills/prototype/LOGIC.md": {
+      "sha256": "f61c7d249e786a79ef289018901c348271e1798dd0b0bc5607b5c6f4d4a01ab9",
+      "executable": false
+    },
+    ".agents/skills/prototype/SKILL.md": {
+      "sha256": "714de632d116bb73f65cdb5a882db15b9369a6713b9a47c0fad827848f0bfbe3",
+      "executable": false
+    },
+    ".agents/skills/prototype/UI.md": {
+      "sha256": "723211e878acbc7b6ff09755263f3295cde724ba902ff0064da41eed51d45ad3",
+      "executable": false
+    },
+    ".agents/skills/prototype/agents/openai.yaml": {
+      "sha256": "5af65e43ab41a350436697b81e27b7f848d36782043b73c322bb2c9fa9cc55dc",
+      "executable": false
+    },
+    ".agents/skills/research/SKILL.md": {
+      "sha256": "985569f15739c713d6784887c3d186d4ef9ac85bec5ad9c068d25bf0739928e4",
+      "executable": false
+    },
+    ".agents/skills/research/agents/openai.yaml": {
+      "sha256": "9b4c470d63221c1f68f22df70b83e2f12401b317babe0d1b7b5f24a974474d0d",
+      "executable": false
+    },
+    ".agents/skills/tdd/SKILL.md": {
+      "sha256": "93ea419b76e9caaf26153b828e984f7c3fb136f4caa67b14af95f32ea965a1cc",
+      "executable": false
+    },
+    ".agents/skills/tdd/agents/openai.yaml": {
+      "sha256": "ea6f01cf1b8c06a4b0f5b649d74b1b8ce8685e72af1b38d70d877693e092af0b",
+      "executable": false
+    },
+    ".agents/skills/tdd/mocking.md": {
+      "sha256": "3ceb807fdf4a47d6a93d4d9a891e5ba6d362a6247bd08adc451feebfc17361ef",
+      "executable": false
+    },
+    ".agents/skills/tdd/tests.md": {
+      "sha256": "859f9e592c188fda4fc7277dd180e4ce9c7a2e13f6efe1f6f29eccc9d28c106a",
+      "executable": false
+    },
+    ".agents/skills/to-spec/SKILL.md": {
+      "sha256": "43ad9cf318e5e7d3d1fa360253a37021796dc87a0c2e595ad262661a10f85088",
+      "executable": false
+    },
+    ".agents/skills/to-spec/agents/openai.yaml": {
+      "sha256": "1c5b4d1e3d8e52287ef19cc2742fdbbfae1914ac75d33af3e4c8174f08cc55bb",
+      "executable": false
+    },
+    ".agents/skills/to-tickets/SKILL.md": {
+      "sha256": "5c9fba69845c2519b9b35b9af42ae5142c21f8ca15ac2123dc2722002c8058ae",
+      "executable": false
+    },
+    ".agents/skills/to-tickets/agents/openai.yaml": {
+      "sha256": "21bc6215fffcd7614e9f772bb1760e87cc5fc7dcc707e7d282bc9414267a6090",
+      "executable": false
+    },
+    ".agents/skills/triage/AGENT-BRIEF.md": {
+      "sha256": "f308022030970cefcc69167df642641e4a5419f5e8c4fe34c7453f5aa17b2d32",
+      "executable": false
+    },
+    ".agents/skills/triage/CREDITS.md": {
+      "sha256": "6193dee40b565d8b6da1c527005ea6ae5881ef6c5e451b6c63405dafd1ef9196",
+      "executable": false
+    },
+    ".agents/skills/triage/OUT-OF-SCOPE.md": {
+      "sha256": "1fbf9b432130c6380aa65813b55553cfda150309b27c595e183f8e335b8a190d",
+      "executable": false
+    },
+    ".agents/skills/triage/SKILL.md": {
+      "sha256": "b271b22439d2ce8a1c19367723b24d17a2034446b3ff6804c54bbdd81368c548",
+      "executable": false
+    },
+    ".agents/skills/triage/agents/openai.yaml": {
+      "sha256": "2e683717720cf456d165d0bb1a68bb600d0b6a8ccb61841c172e50d26f95351c",
+      "executable": false
+    },
+    ".agents/skills/wayfinder/SKILL.md": {
+      "sha256": "fee6e1d0c50f0e736b4ef8a599060c959afae904c9a97d82c97f049fcc3aa0f1",
+      "executable": false
+    },
+    ".agents/skills/wayfinder/agents/openai.yaml": {
+      "sha256": "88bc81a11a6d52ac67aeaa76b8b619e387020d47c5133a4dd4927fd15c4ad073",
+      "executable": false
+    },
+    ".agents/skills/writing-for-agents/SKILL-MECHANICS.md": {
+      "sha256": "c768e6307c7c10728c401c213f2c4ba71c542127eeb7ad2956aabd15a0fa0059",
+      "executable": false
+    },
+    ".agents/skills/writing-for-agents/SKILL.md": {
+      "sha256": "551adca942227b44192edba88acd4e8db911f0121ce58ad16944ccf6a896a74a",
+      "executable": false
+    },
+    ".agents/skills/writing-for-agents/agents/openai.yaml": {
+      "sha256": "eacb24b2a618cfb81dacb0416f4fdd75ddf3a8060f8ddb99aae1b1e301907e4b",
+      "executable": false
+    },
+    ".github/ISSUE_TEMPLATE/specification.yml": {
+      "sha256": "77b6359750ff03695a1dc19ee121e664787f4a6954cd9847277ab40fb6b22dfd",
+      "executable": false
+    },
+    "docs/agents/triage-labels.md": {
+      "sha256": "4f53c9b40ce2651e3611aa090eaedbd6dbc9b71ef8c5f7e65eac0d8263190d0d",
+      "executable": false
+    },
+    ".agents/skills/repository-standards/SKILL.md": {
+      "sha256": "4e331d32a27f003027cfbcfce376f49c8e0743142dc6cd653fe7e31052f61450",
+      "executable": false
+    },
+    ".agents/skills/repository-standards/agents/openai.yaml": {
+      "sha256": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935",
+      "executable": false
+    }
+  },
+  "skills": {
+    ".agents/skills/babysit": [
+      "SKILL.md",
+      "merge.mjs",
+      "pull-request-reviewer.mjs",
+      "reviewer.mjs",
+      "wait.mjs"
+    ],
+    ".agents/skills/code-review": [
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/codebase-design": [
+      "DEEPENING.md",
+      "DESIGN-IT-TWICE.md",
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/diagnosing-bugs": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "scripts/hitl-loop.template.sh"
+    ],
+    ".agents/skills/domain-modeling": [
+      "ADR-FORMAT.md",
+      "GLOSSARY-FORMAT.md",
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/grill-with-docs": [
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/grilling": [
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/implement": [
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/improve-codebase-architecture": [
+      "HTML-REPORT.md",
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/pr": [
+      "CREDITS.md",
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/prototype": [
+      "LOGIC.md",
+      "SKILL.md",
+      "UI.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/research": [
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/tdd": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "mocking.md",
+      "tests.md"
+    ],
+    ".agents/skills/to-spec": [
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/to-tickets": [
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/triage": [
+      "AGENT-BRIEF.md",
+      "CREDITS.md",
+      "OUT-OF-SCOPE.md",
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/wayfinder": [
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/writing-for-agents": [
+      "SKILL-MECHANICS.md",
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
+    ".agents/skills/repository-standards": [
+      "SKILL.md",
+      "agents/openai.yaml"
+    ]
+  },
+  "links": {
+    ".claude/skills/repository-standards": "../../.agents/skills/repository-standards",
+    ".claude/skills/babysit": "../../.agents/skills/babysit",
+    ".claude/skills/code-review": "../../.agents/skills/code-review",
+    ".claude/skills/codebase-design": "../../.agents/skills/codebase-design",
+    ".claude/skills/diagnosing-bugs": "../../.agents/skills/diagnosing-bugs",
+    ".claude/skills/domain-modeling": "../../.agents/skills/domain-modeling",
+    ".claude/skills/grill-with-docs": "../../.agents/skills/grill-with-docs",
+    ".claude/skills/grilling": "../../.agents/skills/grilling",
+    ".claude/skills/implement": "../../.agents/skills/implement",
+    ".claude/skills/improve-codebase-architecture": "../../.agents/skills/improve-codebase-architecture",
+    ".claude/skills/pr": "../../.agents/skills/pr",
+    ".claude/skills/prototype": "../../.agents/skills/prototype",
+    ".claude/skills/research": "../../.agents/skills/research",
+    ".claude/skills/tdd": "../../.agents/skills/tdd",
+    ".claude/skills/to-spec": "../../.agents/skills/to-spec",
+    ".claude/skills/to-tickets": "../../.agents/skills/to-tickets",
+    ".claude/skills/triage": "../../.agents/skills/triage",
+    ".claude/skills/wayfinder": "../../.agents/skills/wayfinder",
+    ".claude/skills/writing-for-agents": "../../.agents/skills/writing-for-agents"
+  },
+  "checks": [
+    {
+      "operation": {
+        "declaration": "documentation",
+        "phase": "checks",
+        "id": "documentation-navigation"
+      },
+      "process": {
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "timedOut": false
+      },
+      "result": {
+        "format": "repo-standards/result/v2",
+        "status": "passed",
+        "message": "Documentation navigation is valid; content placement and usefulness still require maintainer or agent review."
+      },
+      "error": null,
+      "stdout": ".repo-standards/local/operations/2.stdout",
+      "stderr": ".repo-standards/local/operations/2.stderr"
+    },
+    {
+      "operation": {
+        "declaration": "github-repository-configuration",
+        "phase": "checks",
+        "id": "pull-request-reviewer"
+      },
+      "process": {
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "timedOut": false
+      },
+      "result": {
+        "format": "repo-standards/result/v2",
+        "status": "passed",
+        "message": "No pull request reviewer is configured."
+      },
+      "error": null,
+      "stdout": ".repo-standards/local/operations/3.stdout",
+      "stderr": ".repo-standards/local/operations/3.stderr"
+    },
+    {
+      "operation": {
+        "declaration": "project-readmes",
+        "phase": "checks",
+        "id": "project-readme-structure"
+      },
+      "process": {
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "timedOut": false
+      },
+      "result": {
+        "format": "repo-standards/result/v2",
+        "status": "passed",
+        "message": "Project README structure and shared setup and contribution links are valid for 0 concrete targets; Project membership, purpose, commands, configuration, documentation, and duplication of shared instructions still require maintainer or agent review."
+      },
+      "error": null,
+      "stdout": ".repo-standards/local/operations/4.stdout",
+      "stderr": ".repo-standards/local/operations/4.stderr"
+    },
+    {
+      "operation": {
+        "declaration": "repository-readme",
+        "phase": "checks",
+        "id": "repository-readme-structure"
+      },
+      "process": {
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "timedOut": false
+      },
+      "result": {
+        "format": "repo-standards/result/v2",
+        "status": "passed",
+        "message": "Repository README structure is valid; factual content still requires maintainer or agent review."
+      },
+      "error": null,
+      "stdout": ".repo-standards/local/operations/5.stdout",
+      "stderr": ".repo-standards/local/operations/5.stderr"
+    }
+  ],
+  "assessments": [
+    {
+      "format": "repo-standards/assessment/v3",
+      "scope": {
+        "inspection": "sha256:d6a340538b4d8d97d0937132af1c2817f1b4839a2693dcfaf8d4d420777a091f",
+        "afterFixes": "sha256:dcee0e072b25776ecafb24ec7b99d0268c6a1873d5b6451a7c0671b1a9af8459"
+      },
+      "run": "23226a68-14d7-4654-be39-2b48bea73fe7",
+      "selection": "sha256:caa0fb4e8fd05586d8c968d87cd98c81985fc0236d03c4c4c8a50e00d4108dcb",
+      "snapshot": "sha256:e6b6bf1e23dc116e646865279ba6ec460f63a15664a01a93feba304218101ade",
+      "declarations": [
+        {
+          "id": "documentation",
+          "status": "satisfied",
+          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of documentation.",
+          "changedPaths": [
+            "docs/README.md",
+            "docs/development/README.md"
+          ],
+          "evidence": [
+            "Check documentation-navigation passed: Documentation navigation is valid; content placement and usefulness still require maintainer or agent review.",
+            "The maintainer confirmed it done in adopt's terminal walk-through."
+          ],
+          "scopeValidity": {
+            "afterFixes": {
+              "status": "valid",
+              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the run's fixes, the confirmed scope covers every file the declaration should.",
+              "evidence": [
+                "The confirmed scope: docs/README.md, docs/development/README.md."
+              ],
+              "additionalPaths": []
+            },
+            "current": {
+              "status": "valid",
+              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the contextual work, the confirmed scope covers every file the declaration should.",
+              "evidence": [
+                "The confirmed scope: docs/README.md, docs/development/README.md."
+              ],
+              "additionalPaths": []
+            }
+          }
+        },
+        {
+          "id": "factory-sandbox-image",
+          "status": "satisfied",
+          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of factory-sandbox-image.",
+          "changedPaths": [
+            ".factory/Dockerfile"
+          ],
+          "evidence": [
+            "The maintainer confirmed it done in adopt's terminal walk-through."
+          ]
+        },
+        {
+          "id": "factory-workflow",
+          "status": "satisfied",
+          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of factory-workflow.",
+          "changedPaths": [],
+          "evidence": [
+            "The maintainer confirmed it done in adopt's terminal walk-through."
+          ],
+          "scopeValidity": {
+            "afterFixes": {
+              "status": "valid",
+              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the run's fixes, the confirmed scope covers every file the declaration should.",
+              "evidence": [
+                "The confirmed scope: no files."
+              ],
+              "additionalPaths": []
+            },
+            "current": {
+              "status": "valid",
+              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the contextual work, the confirmed scope covers every file the declaration should.",
+              "evidence": [
+                "The confirmed scope: no files."
+              ],
+              "additionalPaths": []
+            }
+          }
+        },
+        {
+          "id": "github-repository-configuration",
+          "status": "satisfied",
+          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of github-repository-configuration.",
+          "changedPaths": [],
+          "evidence": [
+            "Check pull-request-reviewer passed: No pull request reviewer is configured.",
+            "The maintainer confirmed it done in adopt's terminal walk-through."
+          ],
+          "scopeValidity": {
+            "afterFixes": {
+              "status": "valid",
+              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the run's fixes, the confirmed scope covers every file the declaration should.",
+              "evidence": [
+                "The confirmed scope: no files."
+              ],
+              "additionalPaths": []
+            },
+            "current": {
+              "status": "valid",
+              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the contextual work, the confirmed scope covers every file the declaration should.",
+              "evidence": [
+                "The confirmed scope: no files."
+              ],
+              "additionalPaths": []
+            }
+          }
+        },
+        {
+          "id": "project-agent-guidance",
+          "status": "satisfied",
+          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of project-agent-guidance.",
+          "changedPaths": [],
+          "evidence": [
+            "The maintainer confirmed it done in adopt's terminal walk-through."
+          ]
+        },
+        {
+          "id": "project-readmes",
+          "status": "satisfied",
+          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of project-readmes.",
+          "changedPaths": [],
+          "evidence": [
+            "Check project-readme-structure passed: Project README structure and shared setup and contribution links are valid for 0 concrete targets; Project membership, purpose, commands, configuration, documentation, and duplication of shared instructions still require maintainer or agent review.",
+            "The maintainer confirmed it done in adopt's terminal walk-through."
+          ],
+          "scopeValidity": {
+            "afterFixes": {
+              "status": "valid",
+              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the run's fixes, the confirmed scope covers every file the declaration should.",
+              "evidence": [
+                "The confirmed scope: no files."
+              ],
+              "additionalPaths": []
+            },
+            "current": {
+              "status": "valid",
+              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the contextual work, the confirmed scope covers every file the declaration should.",
+              "evidence": [
+                "The confirmed scope: no files."
+              ],
+              "additionalPaths": []
+            }
+          }
+        },
+        {
+          "id": "repository-license",
+          "status": "satisfied",
+          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of repository-license.",
+          "changedPaths": [],
+          "evidence": [
+            "The maintainer confirmed it done in adopt's terminal walk-through."
+          ]
+        },
+        {
+          "id": "repository-readme",
+          "status": "satisfied",
+          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of repository-readme.",
+          "changedPaths": [
+            "README.md"
+          ],
+          "evidence": [
+            "Check repository-readme-structure passed: Repository README structure is valid; factual content still requires maintainer or agent review.",
+            "The maintainer confirmed it done in adopt's terminal walk-through."
+          ]
+        }
+      ]
+    }
+  ],
+  "deferred": []
+}

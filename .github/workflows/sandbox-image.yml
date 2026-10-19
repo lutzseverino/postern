@@ -1,0 +1,41 @@
+name: Sandbox image build
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Sandbox image
+    runs-on: ${{ vars.REPO_CANON_RUNS_ON && fromJSON(vars.REPO_CANON_RUNS_ON) || 'ubuntu-latest' }}
+    steps:
+      - name: Check out the pull request head
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build the toolchain image when changed
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only --no-renames -z "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/sandbox-image-paths"
+          changed=false
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              .factory/Dockerfile|.github/workflows/sandbox-image.yml)
+                changed=true
+                break
+                ;;
+            esac
+          done < "$RUNNER_TEMP/sandbox-image-paths"
+
+          if [ "$changed" = true ]; then
+            docker build - < .factory/Dockerfile
+          else
+            echo "No toolchain image changes; skipping build."
+          fi

@@ -1,0 +1,28 @@
+name: Feature request
+description: Explain a problem and the outcome you want.
+labels: [enhancement, needs-triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the need or limitation, including a concrete example.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should become possible, and how would it help?
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Proposed approach
+      description: Suggest an approach if you have one. An implementation plan is optional.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add relevant examples, alternatives, or links.

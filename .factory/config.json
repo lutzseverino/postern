@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "labels": {
+    "ready": "ready-for-agent",
+    "running": "factory:running",
+    "failed": "factory:failed",
+    "needsInput": "factory:needs-input",
+    "paused": "factory:paused"
+  },
+  "modelLabelPrefix": "model:",
+  "prompt": "{skillPrefix}implement #{issue}"
+}

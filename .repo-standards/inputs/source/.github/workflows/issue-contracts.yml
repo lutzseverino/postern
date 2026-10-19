@@ -1,0 +1,37 @@
+name: Issue contracts
+
+on:
+  issues:
+    types: [opened, edited, reopened, closed, labeled, unlabeled]
+  issue_comment:
+    types: [created, edited, deleted]
+
+permissions: {}
+
+concurrency:
+  group: issue-contract-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate issue contract
+    if: github.event.issue.pull_request == null
+    runs-on: ${{ vars.REPO_CANON_RUNS_ON && fromJSON(vars.REPO_CANON_RUNS_ON) || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Check out trusted workflow code
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Use Node.js 24
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Validate authoritative issue state
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/validate-issue-contract.mjs

@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "dependencies": {
+    "@lutzseverino/repo-standards": "8.0.0"
+  }
+}

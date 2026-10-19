@@ -1,0 +1,419 @@
+format: repo-standards/v2
+name: repo-canon
+description: Repository documentation, contribution, agent workflow, and GitHub validation standards
+requires:
+  repo-standards: ">=7.2.0"
+
+defaults:
+  declarations:
+    agent-configuration-index:
+      kind: file
+      target: docs/agents/README.md
+      exact: docs/agents/README.md
+
+    agent-guidance:
+      kind: file
+      target: AGENTS.md
+      exact: AGENTS.md
+
+    bug-report-template:
+      kind: file
+      target: .github/ISSUE_TEMPLATE/bug-report.yml
+      exact: .github/ISSUE_TEMPLATE/bug-report.yml
+
+    contribution-guidance:
+      kind: file
+      target: CONTRIBUTING.md
+      exact: CONTRIBUTING.md
+
+    documentation:
+      kind: repository
+      guidance: guidance/documentation.md
+      rules: rules/documentation.md
+      discovery: discovery/documentation.md
+      discovery-script:
+        run:
+          executable: node
+          script: discovery/draft-documentation-scope.mjs
+          resources:
+            - standards.yaml
+            - operations/lib/rendered-markdown.mjs
+            - operations/lib/local-markdown-links.mjs
+            - operations/lib/documentation-model.mjs
+            - operations/lib/entry-document.mjs
+            - vendor/marked
+            - vendor/parse5
+          arguments: []
+        prerequisite:
+          version-arguments: ["--version"]
+          version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+        timeout-seconds: 60
+      checks:
+        - id: documentation-navigation
+          run:
+            executable: node
+            script: operations/check-documentation.mjs
+            resources:
+              - operations/lib/rendered-markdown.mjs
+              - operations/lib/local-markdown-links.mjs
+              - operations/lib/documentation-model.mjs
+              - operations/lib/entry-document.mjs
+              - vendor/marked
+              - vendor/parse5
+            arguments: []
+          prerequisite:
+            version-arguments: ["--version"]
+            version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          timeout-seconds: 30
+
+    domain-configuration:
+      kind: file
+      target: docs/agents/domain.md
+      exact: vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/domain.md
+
+    feature-request-template:
+      kind: file
+      target: .github/ISSUE_TEMPLATE/feature-request.yml
+      exact: .github/ISSUE_TEMPLATE/feature-request.yml
+
+    github-repository-configuration:
+      kind: repository
+      guidance: guidance/github-repository-configuration.md
+      rules: rules/github-repository-configuration.md
+      discovery: discovery/github-repository-configuration.md
+      checks:
+        - id: pull-request-reviewer
+          run:
+            executable: node
+            script: operations/check-pull-request-reviewer.mjs
+            resources:
+              - operations/lib/pull-request-reviewer.mjs
+            arguments: []
+          prerequisite:
+            version-arguments: ["--version"]
+            version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          timeout-seconds: 30
+      fixes:
+        - id: canonical-labels
+          run:
+            executable: node
+            script: operations/setup-github-labels.mjs
+            resources:
+              - operations/lib/github-operation.mjs
+              - LICENSE
+              - THIRD_PARTY_NOTICES.md
+              - vendor/mattpocock-skills/LICENSE
+              - vendor/humanlayer-skills/LICENSE
+              - vendor/marked/LICENSE
+              - vendor/parse5/LICENSE.parse5
+              - vendor/parse5/LICENSE.entities
+            arguments: []
+          prerequisite:
+            version-arguments: ["--version"]
+            version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          timeout-seconds: 30
+          remote-setup:
+            probe:
+              run:
+                executable: node
+                script: operations/probe-github-labels.mjs
+                resources:
+                  - operations/lib/github-operation.mjs
+                arguments: []
+              prerequisite:
+                version-arguments: ["--version"]
+                version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+              timeout-seconds: 30
+        - id: pull-request-integration
+          run:
+            executable: node
+            script: operations/setup-github-pr-integration.mjs
+            resources:
+              - operations/lib/github-operation.mjs
+            arguments: []
+          prerequisite:
+            version-arguments: ["--version"]
+            version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          timeout-seconds: 30
+          remote-setup:
+            probe:
+              run:
+                executable: node
+                script: operations/probe-github-pr-integration.mjs
+                resources:
+                  - operations/lib/github-operation.mjs
+                arguments: []
+              prerequisite:
+                version-arguments: ["--version"]
+                version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+              timeout-seconds: 30
+
+    humanlayer-skills-license:
+      kind: file
+      target: .agents/skills/LICENSE.humanlayer-skills
+      exact: vendor/humanlayer-skills/LICENSE
+
+    implementation-ticket-template:
+      kind: file
+      target: .github/ISSUE_TEMPLATE/implementation-ticket.yml
+      exact: .github/ISSUE_TEMPLATE/implementation-ticket.yml
+
+    issue-contract-validator:
+      kind: file
+      target: scripts/validate-issue-contract.mjs
+      exact: scripts/validate-issue-contract.mjs
+
+    issue-contract-workflow:
+      kind: file
+      target: .github/workflows/issue-contracts.yml
+      exact: .github/workflows/issue-contracts.yml
+
+    issue-tracker-configuration:
+      kind: file
+      target: docs/agents/issue-tracker.md
+      exact: vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/issue-tracker-github.md
+
+    marked-license:
+      kind: file
+      target: vendor/marked/LICENSE
+      exact: vendor/marked/LICENSE
+
+    marked-parser:
+      kind: file
+      target: vendor/marked/marked.esm.js
+      exact: vendor/marked/marked.esm.js
+
+    marked-provenance:
+      kind: file
+      target: vendor/marked/README.md
+      exact: vendor/marked/README.md
+
+    mattpocock-skills-license:
+      kind: file
+      target: .agents/skills/LICENSE.mattpocock-skills
+      exact: vendor/mattpocock-skills/LICENSE
+
+    parse5-entities-license:
+      kind: file
+      target: vendor/parse5/LICENSE.entities
+      exact: vendor/parse5/LICENSE.entities
+
+    parse5-license:
+      kind: file
+      target: vendor/parse5/LICENSE.parse5
+      exact: vendor/parse5/LICENSE.parse5
+
+    parse5-parser:
+      kind: file
+      target: vendor/parse5/parse5.esm.js
+      exact: vendor/parse5/parse5.esm.js
+
+    parse5-provenance:
+      kind: file
+      target: vendor/parse5/README.md
+      exact: vendor/parse5/README.md
+
+    rendered-markdown-runtime:
+      kind: file
+      target: operations/lib/rendered-markdown.mjs
+      exact: operations/lib/rendered-markdown.mjs
+
+    pr-metadata-validator:
+      kind: file
+      target: .github/scripts/validate-pr-metadata.mjs
+      exact: .github/scripts/validate-pr-metadata.mjs
+
+    pr-metadata-workflow:
+      kind: file
+      target: .github/workflows/pr-metadata.yml
+      exact: .github/workflows/pr-metadata.yml
+
+    project-agent-guidance:
+      kind: file
+      target: docs/agents/project.md
+      guidance: guidance/project-agent-guidance.md
+      rules: rules/project-agent-guidance.md
+
+    project-readmes:
+      kind: repository
+      guidance: guidance/project-readmes.md
+      rules: rules/project-readmes.md
+      discovery: discovery/project-readmes.md
+      checks:
+        - id: project-readme-structure
+          run:
+            executable: node
+            script: operations/check-project-readmes.mjs
+            resources:
+              - operations/lib/rendered-markdown.mjs
+              - operations/lib/local-markdown-links.mjs
+              - vendor/marked
+              - vendor/parse5
+            arguments: []
+          prerequisite:
+            version-arguments: ["--version"]
+            version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          timeout-seconds: 30
+
+    pull-request-template:
+      kind: file
+      target: .github/PULL_REQUEST_TEMPLATE.md
+      exact: .github/PULL_REQUEST_TEMPLATE.md
+
+    repository-license:
+      kind: file
+      target: LICENSE
+      guidance: guidance/repository-license.md
+      rules: rules/repository-license.md
+
+    repository-readme:
+      kind: file
+      target: README.md
+      guidance: guidance/repository-readme.md
+      rules: rules/repository-readme.md
+      checks:
+        - id: repository-readme-structure
+          run:
+            executable: node
+            script: operations/check-repository-readme.mjs
+            resources:
+              - operations/lib/entry-document.mjs
+              - operations/lib/rendered-markdown.mjs
+              - operations/lib/local-markdown-links.mjs
+              - vendor/marked
+              - vendor/parse5
+            arguments: []
+          prerequisite:
+            version-arguments: ["--version"]
+            version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          timeout-seconds: 30
+
+    skill-babysit:
+      kind: skill
+      name: babysit
+      source: .agents/skills/babysit
+
+    skill-code-review:
+      kind: skill
+      name: code-review
+      source: vendor/mattpocock-skills/skills/engineering/code-review
+
+    skill-codebase-design:
+      kind: skill
+      name: codebase-design
+      source: vendor/mattpocock-skills/skills/engineering/codebase-design
+
+    skill-diagnosing-bugs:
+      kind: skill
+      name: diagnosing-bugs
+      source: vendor/mattpocock-skills/skills/engineering/diagnosing-bugs
+
+    skill-domain-modeling:
+      kind: skill
+      name: domain-modeling
+      source: vendor/mattpocock-skills/skills/engineering/domain-modeling
+
+    skill-grill-with-docs:
+      kind: skill
+      name: grill-with-docs
+      source: vendor/mattpocock-skills/skills/engineering/grill-with-docs
+
+    skill-grilling:
+      kind: skill
+      name: grilling
+      source: vendor/mattpocock-skills/skills/productivity/grilling
+
+    skill-implement:
+      kind: skill
+      name: implement
+      source: vendor/mattpocock-skills/skills/engineering/implement
+
+    skill-improve-codebase-architecture:
+      kind: skill
+      name: improve-codebase-architecture
+      source: vendor/mattpocock-skills/skills/engineering/improve-codebase-architecture
+
+    skill-pr:
+      kind: skill
+      name: pr
+      source: vendor/mattpocock-skills/skills/engineering/pr
+
+    skill-prototype:
+      kind: skill
+      name: prototype
+      source: vendor/mattpocock-skills/skills/engineering/prototype
+
+    skill-research:
+      kind: skill
+      name: research
+      source: vendor/mattpocock-skills/skills/engineering/research
+
+    skill-tdd:
+      kind: skill
+      name: tdd
+      source: vendor/mattpocock-skills/skills/engineering/tdd
+
+    skill-to-spec:
+      kind: skill
+      name: to-spec
+      source: vendor/mattpocock-skills/skills/engineering/to-spec
+
+    skill-to-tickets:
+      kind: skill
+      name: to-tickets
+      source: vendor/mattpocock-skills/skills/engineering/to-tickets
+
+    skill-triage:
+      kind: skill
+      name: triage
+      source: .agents/skills/triage
+
+    skill-wayfinder:
+      kind: skill
+      name: wayfinder
+      source: vendor/mattpocock-skills/skills/engineering/wayfinder
+
+    skill-writing-for-agents:
+      kind: skill
+      name: writing-for-agents
+      source: vendor/mattpocock-skills/skills/productivity/writing-for-agents
+
+    specification-template:
+      kind: file
+      target: .github/ISSUE_TEMPLATE/specification.yml
+      exact: .github/ISSUE_TEMPLATE/specification.yml
+
+    triage-label-configuration:
+      kind: file
+      target: docs/agents/triage-labels.md
+      exact: vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/triage-labels.md
+
+profiles:
+  standard:
+    description: The Repo Canon standards for every adopting repository
+    declarations: {}
+
+  factory:
+    description: The standard profile plus the factory's repository files and workflow rules, for a repository a factory serves
+    declarations:
+      factory-configuration:
+        kind: file
+        target: .factory/config.json
+        exact: .factory/config.json
+
+      factory-workflow:
+        kind: repository
+        rules: rules/factory-workflow.md
+        guidance: guidance/factory-workflow.md
+        discovery: discovery/factory-workflow.md
+
+      factory-sandbox-image:
+        kind: file
+        target: .factory/Dockerfile
+        rules: rules/factory-sandbox-image.md
+        guidance: guidance/factory-sandbox-image.md
+
+      factory-sandbox-image-workflow:
+        kind: file
+        target: .github/workflows/sandbox-image.yml
+        exact: .github/workflows/sandbox-image.yml

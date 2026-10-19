@@ -1,0 +1,47 @@
+name: Specification
+description: Define the intended behavior and boundaries of larger work.
+labels: [needs-triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Explain the problem and who experiences it.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution
+      description: Describe the intended behavior and approach.
+    validations:
+      required: true
+  - type: textarea
+    id: stories
+    attributes:
+      label: User Stories
+      description: Describe the capabilities and outcomes the work must deliver.
+    validations:
+      required: true
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Decisions
+      description: Record agreed constraints and consequential decisions where applicable.
+  - type: textarea
+    id: testing
+    attributes:
+      label: Testing Decisions
+      description: Record agreed verification boundaries or special evidence requirements.
+  - type: textarea
+    id: exclusions
+    attributes:
+      label: Out of Scope
+      description: State important exclusions, or explicitly write None.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Further Notes
+      description: Add relevant references and remaining questions.

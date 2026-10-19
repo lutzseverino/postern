@@ -1,0 +1,8 @@
+{
+  "format": "repo-standards/v2",
+  "name": "repo-canon",
+  "description": "Repository documentation, contribution, agent workflow, and GitHub validation standards",
+  "requires": {
+    "repo-standards": ">=7.2.0"
+  }
+}
