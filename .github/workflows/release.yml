@@ -1,0 +1,152 @@
+name: Release
+
+# Dispatched by the owner at the `v<version>` tag they pushed. The workflow
+# never creates a tag: the release-tag ruleset reserves `v*` tags for the owner.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact version already recorded in package.json; dispatch at its v<version> tag
+        required: true
+        type: string
+      notes:
+        description: Release notes in Markdown, required to publish; pass a file with -F notes=@FILE
+        required: false
+        default: ""
+        type: string
+      verify_published:
+        description: Only run the public checks for an already published version
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: ${{ !inputs.verify_published }}
+    name: Validate on Node.js ${{ matrix.node }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [24, 26]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - name: Verify the tag, version and notes
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_NOTES: ${{ inputs.notes }}
+        run: |
+          node --input-type=module -e '
+            import assert from "node:assert/strict";
+            import { readFileSync } from "node:fs";
+            const version = process.env.RELEASE_VERSION;
+            assert.match(version, /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/, "The version is an exact stable version.");
+            assert.equal(process.env.GITHUB_REF, `refs/tags/v${version}`, `Dispatch the workflow at the v${version} tag.`);
+            assert.equal(JSON.parse(readFileSync("package.json", "utf8")).version, version, "package.json records another version.");
+            assert.ok(process.env.RELEASE_NOTES.trim(), "Supply the release notes with -F notes=@FILE.");
+          '
+      - run: npm ci --ignore-scripts
+      - run: npm run validate
+      - name: Pack the release tarball once
+        if: ${{ matrix.node == 24 }}
+        run: |
+          mkdir release
+          npm pack --ignore-scripts --pack-destination release
+          (cd release && sha256sum ./*.tgz > SHA256SUMS)
+      - if: ${{ matrix.node == 24 }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-bundle
+          path: release/
+          if-no-files-found: error
+      - name: Retain the supplied release notes
+        if: ${{ matrix.node == 24 }}
+        env:
+          RELEASE_NOTES: ${{ inputs.notes }}
+        run: |
+          mkdir release-notes
+          printf '%s\n' "$RELEASE_NOTES" > release-notes/release-notes.md
+      - if: ${{ matrix.node == 24 }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-notes
+          path: release-notes/
+          if-no-files-found: error
+
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm install --global npm@11.19.0 --ignore-scripts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-bundle
+          path: release
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-notes
+          path: release-notes
+      - name: Publish the validated tarball through trusted publishing
+        working-directory: release
+        run: |
+          sha256sum --check SHA256SUMS
+          npm publish ./*.tgz --ignore-scripts --access public --provenance --registry=https://registry.npmjs.org
+      - name: Publish the GitHub release at the existing tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "v$RELEASE_VERSION" release/* --verify-tag \
+            --title "Postern $RELEASE_VERSION" \
+            --notes-file release-notes/release-notes.md
+      - name: Explain publication recovery
+        if: ${{ failure() }}
+        run: |
+          message='Publication is incomplete or uncertain. Inspect npm and the GitHub release before any retry; see "Recover a publication" in docs/development/release.md. Do not rerun this job after npm has accepted the version.'
+          echo "$message"
+          echo "$message" >> "$GITHUB_STEP_SUMMARY"
+
+  public-installation:
+    needs: publish
+    if: ${{ !cancelled() && (inputs.verify_published || needs.publish.result == 'success') }}
+    name: Public check on Node.js ${{ matrix.node }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [24, 26]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - name: Install and exercise the public package
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: node scripts/public-smoke.mjs "$RELEASE_VERSION"
