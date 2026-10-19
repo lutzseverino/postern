@@ -1,8 +1,11 @@
-<h1 align="center">Postern</h1>
-
-Postern is a Node.js library that gives developers building tools one interface to code hosting platforms such as GitHub, for issues, pull requests, releases and access, and reports only facts the platform states.
-
-[![Node.js 24 or 26](https://img.shields.io/badge/Node.js-24%20or%2026-339933?logo=nodedotjs)](https://nodejs.org/)
+<div align="center">
+  <h1>Postern</h1>
+  <p>Postern is a Node.js library that gives developers building tools one interface to code hosting platforms such as GitHub, for issues, pull requests, releases and access, and reports only facts the platform states.</p>
+  <p>
+    <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
+    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-24%20or%2026-339933?logo=nodedotjs" alt="Node.js 24 or 26"></a>
+  </p>
+</div>
 
 Each of those four areas is a **port**, one stable interface for one concept, and each hosting platform sits behind its own **adapter**. Postern reports what the platform records and decides nothing: readiness, ordering, authorization and what a label means stay with your tool. GitHub is the only adapter so far.
 
