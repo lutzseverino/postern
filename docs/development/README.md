@@ -31,6 +31,18 @@ the network: each adapter is tested against a local fake of its platform API.
 CI runs the same validation on Node.js 24 and 26 and reports it as the `Test`
 check.
 
+The property tests in `test/property/` generate caller inputs and changed
+GitHub responses from a seed. They use a fixed seed, so every run, CI's
+included, tests the same cases. To explore other cases, set
+`POSTERN_PROPERTY_SEED` to a number or to `random`, and optionally
+`POSTERN_PROPERTY_RUNS` to the number of cases per property (200 by default):
+
+```sh
+POSTERN_PROPERTY_SEED=random POSTERN_PROPERTY_RUNS=1000 node --test "test/property/*.test.ts"
+```
+
+A failing case names its seed and case number. Rerun it with that seed.
+
 For an adoption or update, also verify that the pinned CLI's `status` reports
 the run ready to commit. Use its `adopt` command to continue incomplete work.
 

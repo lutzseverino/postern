@@ -96,6 +96,14 @@ const maxTimeoutMs = 2 ** 31 - 1;
 // The methods `fetch` sends; it refuses CONNECT, TRACE and TRACK.
 const transportMethods = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
 
+// Headers about the connection and the message's framing, which `fetch` sets
+// itself: it replaces a caller's value or refuses the request when it sends it.
+const transportHeaders = new Set(["connection", "content-length", "expect", "host", "keep-alive", "transfer-encoding", "upgrade"]);
+
+// A header value `fetch` sends as written: visible ASCII, Latin-1 and inner
+// spaces or tabs. It trims outer whitespace and refuses control characters.
+const headerValue = /^(?:[\x21-\x7e\x80-\xff](?:[\t\x20-\x7e\x80-\xff]*[\x21-\x7e\x80-\xff])?)?$/;
+
 /**
  * Opens a connection to one repository, given its Git remote URL or identity.
  * Fails with `unsupported` for a platform no adapter serves and with
@@ -433,6 +441,8 @@ function checkTransportRequest(request: TransportRequest): TransportRequest {
     reject("A request path starts with a single '/' and stays on the platform's API.");
   }
   if (!isText(path)) reject(unencodable);
+  if (!isExactPath(path)) reject(inexactPath);
+  if (query !== undefined && path.includes("?")) reject("A request gives its query either in its path or as query, not both.");
   const verb = typeof method === "string" ? method.toUpperCase() : "";
   if (!transportMethods.has(verb)) reject(`A request method is one of ${[...transportMethods].join(", ")}.`);
   let queryCopy: Record<string, string | number | boolean> | undefined;
@@ -448,9 +458,16 @@ function checkTransportRequest(request: TransportRequest): TransportRequest {
   let headersCopy: Record<string, string> | undefined;
   if (headers !== undefined) {
     const pairs = entries(headers, "Request headers are a plain object.");
+    const names = new Set<string>();
     for (const [key, value] of pairs) {
       if (typeof value !== "string") reject("A request header value is a string.");
       if (!isText(key) || !isText(value)) reject(unencodable);
+      const name = key.toLowerCase();
+      if (names.has(name)) reject("A request names each header once, in any case.");
+      names.add(name);
+      if (name === "authorization") reject("A request is sent with the connection's credential, never its own.");
+      if (transportHeaders.has(name)) reject(`A request leaves the ${name} header to the transport.`);
+      if (!headerValue.test(value)) reject("A request header value is sent as written, with no outer whitespace or control character.");
     }
     try {
       new Headers(pairs as [string, string][]);
@@ -471,6 +488,21 @@ function checkTransportRequest(request: TransportRequest): TransportRequest {
     ...(body === undefined ? {} : { body: bodyCopy }),
     ...(headersCopy === undefined ? {} : { headers: headersCopy }),
   };
+}
+
+const inexactPath =
+  "A request path is sent as written: it holds no fragment, backslash, whitespace, control or non-ASCII character, dot segment or empty query.";
+
+// Whether a URL keeps a path as written. A URL parser drops a fragment and an
+// empty query, reads a backslash as '/', strips tabs, line breaks and outer
+// spaces, resolves dot segments, even percent-encoded, and percent-encodes
+// other characters. A path it would change in any way, read as naming another
+// host, or not read at all, is not sent.
+function isExactPath(path: string): boolean {
+  const origin = "https://platform.invalid";
+  if (!URL.canParse(path, origin)) return false;
+  const url = new URL(path, origin);
+  return url.origin === origin && url.pathname + url.search === path;
 }
 
 const jsonRule = "A request body holds only plain objects, arrays, strings, finite numbers, booleans and null.";

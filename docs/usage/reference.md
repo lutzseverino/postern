@@ -159,15 +159,26 @@ conclusions are the platform's own words.
 | `request({ method?, path, query?, body?, headers? })` | `{ status, headers, data }` from the platform's API.              |
 
 `request` sends the connection's credential, so its `path` must stay on the
-platform's API: it starts with a single `/`. Its `method` is `GET` (the
-default), `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE` or `OPTIONS`, in any case.
-Its `query` is a plain object of strings, finite numbers or booleans; its
-`headers` are a plain object of valid header names with string values; and
-its `body`, sent only with a method other than `GET` or `HEAD`, holds only
-plain objects, arrays, strings, finite numbers, booleans and `null`, without
-cycles. A value JSON would drop or coerce, such as `undefined`, `NaN`, a
-function or a `Date`, is not accepted. A request that breaks any of these
-fails with `rejected` before it is sent. Postern sends a copy it makes while
+platform's API: it starts with a single `/`. The path is sent as written, so
+it holds nothing a URL would change: no fragment, backslash, whitespace,
+control or non-ASCII character, dot segment (even percent-encoded) or empty
+query string. Percent-encode such characters instead. A query goes either in
+the path or in `query`, not both. Its `method` is `GET` (the default), `HEAD`,
+`POST`, `PUT`, `PATCH`, `DELETE` or `OPTIONS`, in any case. Its `query` is a
+plain object of strings, finite numbers or booleans. Its `headers` are a plain
+object of valid header names, each named once in any case, with string values
+that have no outer whitespace or control characters. They are sent as given,
+over Postern's own `accept`, `content-type` and other defaults, except that
+`authorization` is not accepted, since the request always carries the
+connection's credential, and neither are the headers `fetch` sets itself:
+`connection`, `content-length`, `expect`, `host`, `keep-alive`,
+`transfer-encoding` and `upgrade`. Its `body`, sent only with a method other
+than `GET` or `HEAD`, holds only plain objects, arrays, strings, finite
+numbers, booleans and `null`, without cycles. A value JSON would drop or
+coerce, such as `undefined`, `NaN`, a function or a `Date`, is not accepted,
+and neither is an array with a hole or any field besides its items, such as a
+named or symbol-keyed one, or an object with an enumerable symbol key. A
+request that breaks any of these fails with `rejected` before it is sent. Postern sends a copy it makes while
 checking, so a later change to the objects passed in never reaches the
 platform. A failing status rejects with
 `PlatformError`, mapped like any other operation.
@@ -190,8 +201,9 @@ platform. A failing status rejects with
 stated its HTTP status carries that `status`: a failing status, a GraphQL
 error, a body that fails to arrive (`unavailable`), and any part of the
 response the adapter cannot read, such as unreadable headers, a missing
-field, an unreadable identifier or time, or a page without its cursor, on
-every page of a list.
+field, an unreadable identifier, a time that is not ISO 8601 in the
+platform's shape or that does not exist, such as February 30, or a page
+without its cursor, on every page of a list.
 
 A list continues only while a page says, exactly, that another page follows
 and gives its cursor, and ends only on a page that says, exactly, that none

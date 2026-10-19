@@ -14,7 +14,8 @@ src/
 └── github/          # the GitHub adapter and its transport
 test/
 ├── contract/        # the adapter contract suite and its harness
-└── github/          # the local GitHub fake, its harness and GitHub-specific tests
+├── github/          # the local GitHub fake, its harness and GitHub-specific tests
+└── property/        # property tests over generated caller inputs and changed responses
 ```
 
 The shared layer in `connection.ts` checks arguments, enforces capability

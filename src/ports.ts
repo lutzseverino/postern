@@ -244,16 +244,24 @@ export interface ReleaseSource {
 export interface TransportRequest {
   /** `GET` (the default), `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE` or `OPTIONS`, in any case. */
   method?: string;
-  /** A path on the platform's API, starting with `/`, optionally with a query string. */
+  /**
+   * A path on the platform's API, starting with `/`, optionally with a query
+   * string, sent as written: without a fragment, backslash, whitespace,
+   * control or non-ASCII character, dot segment or empty query string.
+   */
   path: string;
-  /** A plain object of strings, finite numbers and booleans. */
+  /** A plain object of strings, finite numbers and booleans, for a path without a query string. */
   query?: Record<string, string | number | boolean>;
   /**
    * Sent as JSON, with any method but `GET` and `HEAD`: plain objects, arrays,
    * strings, finite numbers, booleans and `null`, without cycles.
    */
   body?: unknown;
-  /** A plain object of header names and string values. */
+  /**
+   * A plain object of header names, each once in any case, and string values
+   * without outer whitespace or control characters. `authorization` and the
+   * headers `fetch` sets itself, such as `host` and `content-length`, are refused.
+   */
   headers?: Record<string, string>;
 }
 

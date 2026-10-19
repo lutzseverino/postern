@@ -11,6 +11,8 @@ import type { ContractPlatform } from "../contract/harness.ts";
 import { GitHubFake } from "./fake.ts";
 import type { Injected } from "./fake.ts";
 import { startGitHub } from "./harness.ts";
+import { head, mona, reads } from "./reads.ts";
+import type { Read } from "./reads.ts";
 
 const path = "octo/hello";
 const token = "ghp_adapterToken0123456789";
@@ -266,6 +268,21 @@ describe("GitHub rate limits", () => {
       response: { status: 403, headers: { "retry-after": "60", ...quota(0, now() + 3000) }, body: rest(secondaryMessage) },
       check: about(60),
     })],
+    ["a secondary limit with a Retry-After date", () => ({
+      response: {
+        status: 403,
+        headers: { "retry-after": new Date((now() + 120) * 1000).toUTCString(), ...quota(4990, now() + 3000) },
+        body: rest(secondaryMessage),
+      },
+      check: about(121),
+    })],
+    ["an exhausted quota with a Retry-After date that does not exist", () => {
+      const reset = now() + 1800;
+      return {
+        response: { status: 403, headers: { "retry-after": "Fri, 30 Feb 2024 12:00:00 GMT", ...quota(0, reset) }, body: rest(primaryMessage) },
+        check: at(reset),
+      };
+    }],
     ["an exhausted quota with an unreadable Retry-After", () => {
       const reset = now() + 1800;
       return { response: { status: 403, headers: { "retry-after": "soon", ...quota(0, reset) }, body: rest(primaryMessage) }, check: at(reset) };
@@ -349,12 +366,24 @@ describe("GitHub requests", () => {
     assert.equal(request?.headers.get("accept"), "application/vnd.github+json");
   });
 
-  it("keep the connection's credential when a transport request names its own", async () => {
+  it("send no transport request that names its own credential", async () => {
     const { fake, connection } = setup();
-    await connection.access.request({ path: "/user", headers: { Authorization: "Bearer someone-else", "X-Extra": "1" } });
+    await assert.rejects(
+      connection.access.request({ path: "/user", headers: { Authorization: "Bearer someone-else", "X-Extra": "1" } }),
+      failure("rejected"),
+    );
+    assert.equal(fake.requests.length, 0);
+  });
+
+  it("send a transport request's own headers, its content type included, over Postern's", async () => {
+    const { fake, connection } = setup();
+    const headers = { "Content-Type": "application/merge-patch+json", Accept: "application/vnd.github.raw+json", "X-Extra": "1" };
+    await connection.access.request({ path: "/user", method: "PATCH", body: {}, headers }).catch(() => {});
     const [request] = fake.requests;
-    assert.equal(request?.headers.get("authorization"), `Bearer ${token}`);
+    assert.equal(request?.headers.get("content-type"), "application/merge-patch+json");
+    assert.equal(request?.headers.get("accept"), "application/vnd.github.raw+json");
     assert.equal(request?.headers.get("x-extra"), "1");
+    assert.equal(request?.headers.get("authorization"), `Bearer ${token}`);
   });
 
   it("send the transport body exactly as the connection validated it", async () => {
@@ -714,7 +743,18 @@ describe("GitHub response reading after the status", () => {
     });
   }
 
-  for (const errors of ["boom", {}, 1]) {
+  for (const errors of [
+    "boom",
+    {},
+    1,
+    [{}],
+    [null],
+    ["nope"],
+    [{ type: "NOT_FOUND" }],
+    [{ message: 1 }],
+    [{ message: "nope", type: 1 }],
+    [{ message: "nope" }, {}],
+  ]) {
     it(`fails with invalidResponse and the status for GraphQL errors given as ${JSON.stringify(errors)}`, async () => {
       const { fake, connection } = setup();
       fake.inject({ status: 200, body: JSON.stringify({ data: { repository: { pullRequest: null } }, errors }) });
@@ -835,8 +875,6 @@ describe("GitHub page metadata", () => {
 });
 
 describe("GitHub response values", () => {
-  const head = "a".repeat(40);
-  const mona = { login: "mona", bot: false };
   // Every value under `key`, anywhere in a response, changed; a change to `undefined` drops it.
   const everyKey = (key: string, change: (value: unknown) => unknown) =>
     function walk(value: unknown): unknown {
@@ -849,59 +887,8 @@ describe("GitHub response values", () => {
       }
       return result;
     };
-  type Read = (platform: ContractPlatform, connection: Connection) => () => Promise<unknown>;
-  const issue: Read = (platform, { issueTracker }) => {
-    const parent = platform.addIssue();
-    const number = platform.addIssue({ parent, labels: ["bug"], blockedBy: [parent] });
-    platform.addIssue({ parent: number });
-    return () => issueTracker.issue(number);
-  };
-  const labelChanges: Read = (platform, { issueTracker }) => {
-    const number = platform.addIssue();
-    platform.addLabelChange(number, { action: "added", label: "bug", actor: mona, time: "2026-01-02T00:00:00Z" });
-    return () => issueTracker.labelChanges(number);
-  };
-  const comments: Read = (platform, { issueTracker }) => {
-    const number = platform.addIssue();
-    platform.addComment(number, { author: mona, body: "hi", createdAt: "2026-01-02T00:00:00Z" });
-    return () => issueTracker.comments(number);
-  };
-  const pullRequest: Read = (platform, { pullRequests }) => {
-    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-    return () => pullRequests.pullRequest(number);
-  };
-  const reviews: Read = (platform, { pullRequests }) => {
-    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-    platform.addReview(number, { author: mona, state: "APPROVED", commit: head, submittedAt: "2026-01-02T00:00:00Z" });
-    return () => pullRequests.reviews(number);
-  };
-  const reviewThreads: Read = (platform, { pullRequests }) => {
-    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-    platform.addReviewThread(number, { resolved: false, outdated: false, path: "a.ts", author: mona });
-    return () => pullRequests.reviewThreads(number);
-  };
-  const checks: Read = (platform, { pullRequests }) => {
-    platform.addCheck(head, { name: "Test", status: "completed", conclusion: "success", completedAt: "2026-01-02T00:00:00Z" });
-    return () => pullRequests.checks(head);
-  };
-  const releases: Read = (platform, { releaseSource }) => {
-    platform.addRelease({ tag: "v1.0.0", name: "1.0.0", draft: false, prerelease: false, publishedAt: "2026-01-02T00:00:00Z" });
-    return () => releaseSource.releases();
-  };
-  const tagCommit: Read = (platform, { releaseSource }) => {
-    platform.addTag("v1.0.0", head);
-    return () => releaseSource.tagCommit("v1.0.0");
-  };
-  const role: Read = (platform, { access }) => {
-    platform.setRole("mona", "maintain");
-    return () => access.role("mona");
-  };
-  const squashMerge: Read = (platform, { pullRequests }) => {
-    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-    return () => pullRequests.squashMerge(number, { expectedHead: head, title: "t", body: "b" });
-  };
-  const createLabel: Read = (_platform, { issueTracker }) => () =>
-    issueTracker.createLabel({ name: "bug", color: "ededed", description: "" });
+  const { issue, labelChanges, comments, pullRequest, reviews, reviewThreads, checks, releases, tagCommit, role, squashMerge, createLabel } =
+    reads;
   const drop = () => undefined;
   const cases: [name: string, read: Read, key: string, change: (value: unknown) => unknown][] = [
     ["an issue result without its repository", issue, "repository", drop],
@@ -915,6 +902,20 @@ describe("GitHub response values", () => {
     ["an empty issue node ID", issue, "id", () => ""],
     ["an issue URL that is no URL", issue, "url", () => "issue 1"],
     ["an issue creation time that is no time", issue, "createdAt", () => "2026-13-45"],
+    ["an issue creation time on February 30", issue, "createdAt", () => "2024-02-30T12:00:00Z"],
+    ["an issue creation time on February 29 of a common year", issue, "createdAt", () => "2026-02-29T12:00:00Z"],
+    ["an issue creation time on April 31", issue, "createdAt", () => "2026-04-31T12:00:00Z"],
+    ["an issue creation time at hour 24", issue, "createdAt", () => "2026-01-01T24:00:00Z"],
+    ["an issue creation time at minute 60", issue, "createdAt", () => "2026-01-01T12:60:00Z"],
+    ["an issue creation time at second 60", issue, "createdAt", () => "2026-01-01T23:59:60Z"],
+    ["an issue creation time in month 0", issue, "createdAt", () => "2026-00-10T12:00:00Z"],
+    ["an issue creation time on day 0", issue, "createdAt", () => "2026-01-00T12:00:00Z"],
+    ["an issue creation time with an offset of 24 hours", issue, "createdAt", () => "2026-01-01T12:00:00+24:00"],
+    ["an issue creation time with an offset of 60 minutes", issue, "createdAt", () => "2026-01-01T12:00:00+01:60"],
+    ["an issue creation time in lower case", issue, "createdAt", () => "2026-01-01t12:00:00z"],
+    ["an issue creation time with an expanded year", issue, "createdAt", () => "+002026-01-01T12:00:00Z"],
+    ["a comment creation time on February 30", comments, "created_at", () => "2024-02-30T12:00:00Z"],
+    ["a release publish time on November 31", releases, "published_at", () => "2026-11-31T00:00:00Z"],
     ["a linked issue repository that is no owner and name", issue, "nameWithOwner", () => "nobody"],
     ["an author without its kind", issue, "__typename", drop],
     ["an empty author login", issue, "login", () => ""],
@@ -1020,6 +1021,11 @@ describe("GitHub request path encoding", () => {
       () => ports.access.request({ path: "/\uD800", method: "GET" }),
       () => ports.access.request({ path: "/user", method: "GET", query: { q: "\uD800" } }),
       () => ports.access.request({ path: "/user", method: "GET", query: { "\uD800": "x" } }),
+      () => ports.access.request({ path: "/repos/octo/hello/issues/1#typo", method: "GET" }),
+      () => ports.access.request({ path: "/repos\\octo/hello", method: "GET" }),
+      () => ports.access.request({ path: "/\\?c", method: "GET" }),
+      () => ports.access.request({ path: "/\t/ ", method: "GET" }),
+      () => ports.access.request({ path: "/search/issues?q=x", method: "GET", query: { page: 2 } }),
     ]) {
       await assert.rejects(call(), failure("rejected"));
     }

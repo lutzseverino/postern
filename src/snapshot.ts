@@ -16,15 +16,25 @@ export function fields<Name extends string>(value: unknown, names: readonly Name
 
 /**
  * The items of an array, its length and each item read once. Anything but an
- * array, or one with holes or extra fields, fails with `message`.
+ * array, or one with holes or any own field besides its items and `length`,
+ * such as a named or symbol-keyed one, fails with `message`.
  */
 export function items(value: unknown, message: string): unknown[] {
   if (!read(() => Array.isArray(value))) reject(message);
   const array = value as unknown[];
   const length = read(() => array.length);
-  const keys = read(() => Object.keys(array).length);
-  if (!Number.isSafeInteger(length) || keys !== length) reject(message);
+  if (!Number.isSafeInteger(length)) reject(message);
+  const keys = read(() => Reflect.ownKeys(array));
+  if (keys.length !== length + 1) reject(message);
+  for (const key of keys) {
+    if (key !== "length" && !(typeof key === "string" && isIndex(key, length))) reject(message);
+  }
   return Array.from({ length }, (_, index) => read(() => array[index]));
+}
+
+// Whether a key names an item of an array of this length, written as JavaScript writes an index.
+function isIndex(key: string, length: number): boolean {
+  return /^(?:0|[1-9][0-9]*)$/.test(key) && Number(key) < length;
 }
 
 /**

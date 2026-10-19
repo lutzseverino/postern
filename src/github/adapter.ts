@@ -564,12 +564,31 @@ function sha(value: unknown): string {
   return read;
 }
 
-// An ISO 8601 time with its offset, as GitHub reports times.
+// An ISO 8601 time with its offset, in the shape GitHub reports times.
+const isoTime = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/;
+
+// A time that exists: its date is on the calendar, and its time and offset
+// within the day. A Date moves a day, hour, minute or second out of range into
+// the next one, as `Date.parse` does with February 30, so a Date built from the
+// components must give back the same components.
 function time(value: unknown): string {
   const read = text(value);
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(read) || Number.isNaN(Date.parse(read))) {
-    throw invalid("GitHub returned an unreadable time.");
-  }
+  const match = isoTime.exec(read);
+  if (!match) throw invalid("GitHub returned an unreadable time.");
+  const parts = match.slice(1).map((part) => Number(part ?? 0));
+  const [year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0, offsetHour = 0, offsetMinute = 0] = parts;
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  date.setUTCHours(hour, minute, second);
+  const kept = [
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate(),
+    date.getUTCHours(),
+    date.getUTCMinutes(),
+    date.getUTCSeconds(),
+  ].every((component, index) => component === parts[index]);
+  if (!kept || offsetHour > 23 || offsetMinute > 59) throw invalid("GitHub returned a time that does not exist.");
   return read;
 }
 

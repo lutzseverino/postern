@@ -332,12 +332,63 @@ describe("the shared port layer", () => {
     ["a number header value", { path: "/user", headers: { "x-a": 1 } }],
     ["an invalid header name", { path: "/user", headers: { "bad name": "1" } }],
     ["a header value with a line break", { path: "/user", headers: { "x-a": "1\r\nx-b: 2" } }],
+    ["a header value with a leading space", { path: "/user", headers: { "x-a": " 1" } }],
+    ["a header value with a trailing tab", { path: "/user", headers: { "x-a": "1\t" } }],
+    ["a header value that is only a line break", { path: "/user", headers: { "x-a": "\r\n" } }],
+    ["a header value with a control character", { path: "/user", headers: { "x-a": "a\u0001b" } }],
+    ["a header value with a delete character", { path: "/user", headers: { "x-a": "a\u007fb" } }],
+    ["header names that differ only in case", { path: "/user", headers: { "X-A": "1", "x-a": "2" } }],
+    ["its own authorization header", { path: "/user", headers: { Authorization: "Bearer someone-else" } }],
+    ["a connection header", { path: "/user", headers: { connection: "x" } }],
+    ["a host header", { path: "/user", headers: { Host: "elsewhere.example" } }],
+    ["a content length header", { path: "/user", method: "POST", body: {}, headers: { "content-length": "5" } }],
+    ["a transfer encoding header", { path: "/user", method: "POST", body: {}, headers: { "transfer-encoding": "chunked" } }],
+    ["an expect header", { path: "/user", method: "POST", body: {}, headers: { expect: "100-continue" } }],
+    ["an upgrade header", { path: "/user", headers: { upgrade: "websocket" } }],
+    ["a keep-alive header", { path: "/user", headers: { "keep-alive": "timeout=5" } }],
+    ["a fragment in the path", { path: "/repos/octo/hello/issues/1#typo" }],
+    ["an empty fragment in the path", { path: "/user#" }],
+    ["a backslash in the path", { path: "/repos\\octo/hello" }],
+    ["a tab in the path", { path: "/us\ter" }],
+    ["a path a URL cannot hold: a backslash after the first slash", { path: "/\\?c" }],
+    ["a path a URL cannot hold: a tab after the first slash", { path: "/\t/ " }],
+    ["a path a URL reads as a host: a line break after the first slash", { path: "/\n/v1.0/x" }],
+    ["a line break in the path", { path: "/user\n" }],
+    ["a space in the path", { path: "/search/issues?q=is:open label:bug" }],
+    ["a trailing space in the path", { path: "/user " }],
+    ["a control character in the path", { path: "/user\u0000" }],
+    ["a delete character in the path", { path: "/us\u007fer" }],
+    ["a non-ASCII character in the path", { path: "/repos/octo/caf\u00e9" }],
+    ["a dot segment in the path", { path: "/repos/octo/hello/../other" }],
+    ["a percent-encoded dot segment in the path", { path: "/repos/octo/hello/%2e%2E/other" }],
+    ["an empty query string in the path", { path: "/user?" }],
+    ["a query string in the path beside a query", { path: "/search/issues?q=x", query: { page: 2 } }],
+    ["an array body with a symbol key", { path: "/user", method: "POST", body: Object.assign([1], { [Symbol("s")]: 2 }) }],
+    ["an array body with a named field", { path: "/user", method: "POST", body: Object.assign([1], { extra: 2 }) }],
+    [
+      "an array body with a hidden named field",
+      { path: "/user", method: "POST", body: Object.defineProperty([1], "extra", { value: 2, enumerable: false }) },
+    ],
+    ["a nested array with a symbol key", { path: "/user", method: "POST", body: { a: Object.assign([], { [Symbol("s")]: 1 }) } }],
   ] as const) {
     it(`rejects a transport request with ${name} before calling the adapter`, async () => {
       const connection = createConnection(repository, doubleAdapter({}), {});
       await assert.rejects(connection.access.request(request as never), isReason("rejected"));
     });
   }
+
+  it("forwards a path with a query string exactly as given", async () => {
+    const connection = createConnection(repository, doubleAdapter({}), {});
+    const path = "/search/issues?q=repo:octo/hello+is:open&sort=created|a[1]=%zz";
+    const response = await connection.access.request({ path });
+    assert.equal((response.data as { path: string }).path, path);
+  });
+
+  it("rejects labels given as an array with a symbol key or a named field before calling the adapter", async () => {
+    const connection = createConnection(repository, doubleAdapter({}), {});
+    await assert.rejects(connection.issueTracker.addLabels(1, Object.assign(["bug"], { [Symbol("s")]: "x" })), isReason("rejected"));
+    await assert.rejects(connection.issueTracker.addLabels(1, Object.assign(["bug"], { more: "x" })), isReason("rejected"));
+  });
 
   it("accepts JSON bodies with shared references, null prototypes and every JSON type", async () => {
     const connection = createConnection(repository, doubleAdapter({}), {});

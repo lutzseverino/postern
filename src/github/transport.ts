@@ -78,7 +78,9 @@ export class GitHubTransport {
     return scope(response, () => {
       const result = response.data as { data?: unknown; errors?: unknown } | null;
       if (!result || typeof result !== "object") throw invalid("GitHub returned no GraphQL result.");
-      if (result.errors !== undefined && !Array.isArray(result.errors)) throw invalid("GitHub returned unreadable GraphQL errors.");
+      if (result.errors !== undefined && !(Array.isArray(result.errors) && result.errors.every(isGraphqlError))) {
+        throw invalid("GitHub returned unreadable GraphQL errors.");
+      }
       if (result.errors && result.errors.length > 0) {
         throw graphqlError(result.errors, response.status, response.headers);
       }
@@ -127,13 +129,14 @@ export class GitHubTransport {
       "user-agent": userAgent,
       "x-github-api-version": apiVersion,
     };
-    // Header names are case-insensitive; the connection's credential always wins.
+    // Header names are case-insensitive. A caller's own header wins over
+    // Postern's defaults; the connection's credential always wins.
+    if (options.body !== undefined) headers["content-type"] = "application/json";
     for (const [name, value] of Object.entries(options.headers ?? {})) {
       const key = name.toLowerCase();
       if (key !== "authorization") headers[key] = value;
     }
     if (token) headers.authorization = `Bearer ${token}`;
-    if (options.body !== undefined) headers["content-type"] = "application/json";
     const method = (options.method ?? "GET").toUpperCase();
     const request = `${method} ${url.pathname}`;
     // A failure to reach GitHub, or to receive the whole answer, is
@@ -233,9 +236,13 @@ function apiUrl(path: string, query?: RestOptions["query"]): URL {
   if (![path, ...pairs.flat()].every((part) => part.isWellFormed())) {
     throw new PlatformError("rejected", "A request path or query holds text that cannot be encoded.");
   }
-  const url = new URL(path, apiOrigin);
-  if (url.origin !== apiOrigin) {
+  const url = URL.canParse(path, apiOrigin) ? new URL(path, apiOrigin) : null;
+  if (url?.origin !== apiOrigin) {
     throw new PlatformError("rejected", "A request path must stay on GitHub's API.");
+  }
+  // A URL that would change the path, or a query given twice, would send another request than the one asked for.
+  if (url.pathname + url.search !== path || (url.search !== "" && pairs.length > 0)) {
+    throw new PlatformError("rejected", "A request path must be sent as written.");
   }
   for (const [key, value] of pairs) url.searchParams.set(key, value);
   return url;
@@ -404,11 +411,12 @@ const latestTime = 8.64e15;
 // errors: Retry-After when it is stated, otherwise the quota reset when
 // `x-ratelimit-remaining` is `0`. Without either, as for a secondary limit
 // with quota left, GitHub states no time and advises waiting at least a
-// minute, so there is none. A time a Date cannot hold is not stated.
+// minute, so there is none. A time a Date cannot hold is not stated, nor is a
+// date that does not exist, which `Date.parse` would move to another day.
 function retryTime(headers: Headers): string | undefined {
-  const retryAfter = headers.get("retry-after");
-  if (retryAfter !== null) {
-    const at = /^\d+$/.test(retryAfter.trim()) ? Date.now() + Number(retryAfter) * 1000 : Date.parse(retryAfter);
+  const retryAfter = headers.get("retry-after")?.trim();
+  if (retryAfter !== undefined) {
+    const at = /^\d+$/.test(retryAfter) ? Date.now() + Number(retryAfter) * 1000 : httpDate(retryAfter);
     if (readableTime(at)) return new Date(at).toISOString();
   }
   const reset = headers.get("x-ratelimit-reset");
@@ -417,6 +425,12 @@ function retryTime(headers: Headers): string | undefined {
     if (readableTime(at)) return new Date(at).toISOString();
   }
   return undefined;
+}
+
+// An HTTP date in its preferred form, which a Date writes back unchanged only if the date exists.
+function httpDate(value: string): number {
+  const at = Date.parse(value);
+  return readableTime(at) && new Date(at).toUTCString() === value ? at : Number.NaN;
 }
 
 function readableTime(at: number): boolean {
@@ -431,16 +445,27 @@ const graphqlReasons: Record<string, PlatformErrorReason> = {
   RATE_LIMIT: "rateLimited",
 };
 
+interface GraphqlError {
+  message: string;
+  type?: string;
+}
+
+// A GraphQL error as the GraphQL specification requires it, an object with
+// its message, and with GitHub's type, when it names one, as a string.
+function isGraphqlError(value: unknown): value is GraphqlError {
+  if (value === null || typeof value !== "object") return false;
+  const { message, type } = value as { message?: unknown; type?: unknown };
+  return typeof message === "string" && (type === undefined || typeof type === "string");
+}
+
 // A GraphQL error's reason: its first error's type when GitHub names one,
 // otherwise a rate limit when the response says one stopped it, as GitHub's
 // GraphQL limits may arrive without a type, and otherwise `rejected`.
-function graphqlError(errors: unknown[], status: number, headers: Headers): PlatformError {
-  const first = errors[0] as { type?: unknown; message?: unknown } | null;
-  const type = typeof first?.type === "string" ? first.type : "";
-  const messages = errors.map((error) => (error as { message?: unknown } | null)?.message).filter((message) => typeof message === "string");
-  const reason = graphqlReasons[type] ?? (rateLimited(headers, messages) ? "rateLimited" : "rejected");
-  const message = typeof first?.message === "string" ? first.message : "GraphQL query failed";
-  return limitError(reason, `GitHub's GraphQL API answered: ${message}`, status, headers);
+function graphqlError(errors: GraphqlError[], status: number, headers: Headers): PlatformError {
+  const [first] = errors as [GraphqlError, ...GraphqlError[]];
+  const messages = errors.map((error) => error.message);
+  const reason = graphqlReasons[first.type ?? ""] ?? (rateLimited(headers, messages) ? "rateLimited" : "rejected");
+  return limitError(reason, `GitHub's GraphQL API answered: ${first.message}`, status, headers);
 }
 
 /** An unreadable response. Within a scope, the scope supplies the status. */
