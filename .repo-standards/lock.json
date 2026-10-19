@@ -12,7 +12,7 @@
     },
     "profile": "factory"
   },
-  "inspection": "sha256:d6a340538b4d8d97d0937132af1c2817f1b4839a2693dcfaf8d4d420777a091f",
+  "inspection": "sha256:edffbdf904b4016a4da916f3ce82977c051ba1552bf334220becd788230e6c7c",
   "files": {
     "docs/agents/README.md": {
       "sha256": "a78a8a4934c9de37cfcd11be23ce3dd58462108fa53b6cdaead4af18ca7e773b",
@@ -827,11 +827,11 @@
       "executable": false
     },
     ".repo-standards/inputs/resolved.json": {
-      "sha256": "0cffd8c687fecee4efb001d3c05718fb9aa162b89c79c68a81de2f579bb0f9df",
+      "sha256": "d53eb569764feabcb1f123b1f4889f3263aa6a58820684101b78aebfe0e6d4b2",
       "executable": false
     },
     ".repo-standards/inputs/scope-history.json": {
-      "sha256": "d65765ca07bfcbe31af28eb98f0a900df181798090f7b4fab98677ff6e2eb102",
+      "sha256": "c0a611ba9988d08348a666f4330e5bdc78bb325bd25685852f83ebcad9e501f9",
       "executable": false
     },
     ".repo-standards/rules/documentation.md": {
@@ -867,7 +867,7 @@
       "executable": false
     },
     ".repo-standards/rules/README.md": {
-      "sha256": "5f3151d03d100f09f705ed22f2477a9c7fa5d3853bfa3195eb157d8a22a8caa8",
+      "sha256": "155e566dd7a2d7cbfa1bfe01780a878e3a22b37b7bf35bcb558ebcc92d290d99",
       "executable": false
     },
     ".repo-standards/selection.yaml": {
@@ -888,7 +888,7 @@
     }
   },
   "state": {
-    "sha256": "c022fad23ead8b58b5460ce2b302f6625426b4fe8701983cc8412ae7145953ff",
+    "sha256": "1b5a9ffe35a529b398364b81af3d296df30aab07313bb4374df93ab403fe589f",
     "executable": false
   }
 }

@@ -15,8 +15,8 @@
         "id": "canonical-labels"
       },
       "operationIndex": 0,
-      "before": "sha256:14132c53a68fd53b156429504cd541a594c20e93baed8e5e7059b3fb9e686c9e",
-      "after": "sha256:14132c53a68fd53b156429504cd541a594c20e93baed8e5e7059b3fb9e686c9e",
+      "before": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
+      "after": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
       "changes": {},
       "boundaryChanges": {},
       "violations": []
@@ -35,8 +35,8 @@
         "id": "pull-request-integration"
       },
       "operationIndex": 1,
-      "before": "sha256:14132c53a68fd53b156429504cd541a594c20e93baed8e5e7059b3fb9e686c9e",
-      "after": "sha256:14132c53a68fd53b156429504cd541a594c20e93baed8e5e7059b3fb9e686c9e",
+      "before": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
+      "after": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
       "changes": {},
       "boundaryChanges": {},
       "violations": []
@@ -47,7 +47,13 @@
         "documentation": {
           "paths": [
             "docs/README.md",
-            "docs/development/README.md"
+            "docs/adr/0001-facts-only-ports-with-platform-adapters.md",
+            "docs/adr/README.md",
+            "docs/development/README.md",
+            "docs/development/release.md",
+            "docs/development/source-layout.md",
+            "docs/usage/README.md",
+            "docs/usage/reference.md"
           ],
           "directories": []
         },
@@ -88,63 +94,10 @@
           "directories": []
         }
       },
-      "before": "sha256:14132c53a68fd53b156429504cd541a594c20e93baed8e5e7059b3fb9e686c9e",
-      "after": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
-      "changes": {
-        ".factory/Dockerfile": {
-          "before": {
-            "type": "missing"
-          },
-          "after": {
-            "type": "file",
-            "sha256": "eb8bbe4439c67956bba4da86620a757bcf1d7c49d8dcd9a19c50f22ef0cce97d",
-            "executable": false
-          }
-        },
-        "README.md": {
-          "before": {
-            "type": "file",
-            "sha256": "8c01dd1d36e907069ab09c46574acb3054a04d6c20685d7fde4f3e137bb56367",
-            "executable": false
-          },
-          "after": {
-            "type": "file",
-            "sha256": "e01d9909fd89102944e135424830f0a7b2c9723151b0a176c3faefc639f7fc8c",
-            "executable": false
-          }
-        },
-        "docs/README.md": {
-          "before": {
-            "type": "missing"
-          },
-          "after": {
-            "type": "file",
-            "sha256": "84247c148b5e77d90f5980ad4901044a16cb4f2cb5c7c1cddb272fca387a373b",
-            "executable": false
-          }
-        },
-        "docs/development/README.md": {
-          "before": {
-            "type": "missing"
-          },
-          "after": {
-            "type": "file",
-            "sha256": "2779617beba8ca5f4957c4ba48d85247985089905c692a4a543963547f6090c3",
-            "executable": false
-          }
-        }
-      },
-      "boundaryChanges": {
-        "docs/development": {
-          "before": {
-            "type": "missing"
-          },
-          "after": {
-            "type": "directory",
-            "mode": 448
-          }
-        }
-      },
+      "before": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
+      "after": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
+      "changes": {},
+      "boundaryChanges": {},
       "violations": []
     },
     {
@@ -153,7 +106,13 @@
         "documentation": {
           "paths": [
             "docs/README.md",
-            "docs/development/README.md"
+            "docs/adr/0001-facts-only-ports-with-platform-adapters.md",
+            "docs/adr/README.md",
+            "docs/development/README.md",
+            "docs/development/release.md",
+            "docs/development/source-layout.md",
+            "docs/usage/README.md",
+            "docs/usage/reference.md"
           ],
           "directories": []
         },
@@ -194,8 +153,8 @@
           "directories": []
         }
       },
-      "before": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
-      "after": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "before": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
+      "after": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
       "changes": {},
       "boundaryChanges": {},
       "violations": []
@@ -206,7 +165,13 @@
         "documentation": {
           "paths": [
             "docs/README.md",
-            "docs/development/README.md"
+            "docs/adr/0001-facts-only-ports-with-platform-adapters.md",
+            "docs/adr/README.md",
+            "docs/development/README.md",
+            "docs/development/release.md",
+            "docs/development/source-layout.md",
+            "docs/usage/README.md",
+            "docs/usage/reference.md"
           ],
           "directories": []
         }
@@ -217,8 +182,8 @@
         "id": "documentation-navigation"
       },
       "operationIndex": 2,
-      "before": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
-      "after": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "before": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
+      "after": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
       "changes": {},
       "boundaryChanges": {},
       "violations": []
@@ -237,8 +202,8 @@
         "id": "pull-request-reviewer"
       },
       "operationIndex": 3,
-      "before": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
-      "after": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "before": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
+      "after": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
       "changes": {},
       "boundaryChanges": {},
       "violations": []
@@ -257,8 +222,8 @@
         "id": "project-readme-structure"
       },
       "operationIndex": 4,
-      "before": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
-      "after": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "before": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
+      "after": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
       "changes": {},
       "boundaryChanges": {},
       "violations": []
@@ -279,8 +244,8 @@
         "id": "repository-readme-structure"
       },
       "operationIndex": 5,
-      "before": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
-      "after": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "before": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
+      "after": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
       "changes": {},
       "boundaryChanges": {},
       "violations": []
@@ -291,7 +256,13 @@
         "documentation": {
           "paths": [
             "docs/README.md",
-            "docs/development/README.md"
+            "docs/adr/0001-facts-only-ports-with-platform-adapters.md",
+            "docs/adr/README.md",
+            "docs/development/README.md",
+            "docs/development/release.md",
+            "docs/development/source-layout.md",
+            "docs/usage/README.md",
+            "docs/usage/reference.md"
           ],
           "directories": []
         },
@@ -332,8 +303,8 @@
           "directories": []
         }
       },
-      "before": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
-      "after": "sha256:29ce2952e8d05c774987c0bc136df377d18cd65584366af48c173a8284bc1e1e",
+      "before": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
+      "after": "sha256:2b3e6b4bd3b507c9a262357a629185e51610016078962de9ee6e18a8ead419c6",
       "changes": {},
       "boundaryChanges": {},
       "violations": []
@@ -376,7 +347,7 @@
       "result": {
         "format": "repo-standards/result/v2",
         "status": "unchanged",
-        "message": "GitHub PR integration for lutzseverino/postern applies squash-only integration, PR-title subjects, and PR-body messages. Requiring `PR metadata` is deferred because the default branch `main` does not carry the PR metadata validation workflow yet, so GitHub cannot report the check. Merge this adoption; the next adoption or update then requires the check."
+        "message": "GitHub PR integration already matches the canonical configuration for lutzseverino/postern."
       },
       "error": null,
       "stdout": ".repo-standards/local/operations/1.stdout",
@@ -418,7 +389,7 @@
       "result": {
         "format": "repo-standards/result/v2",
         "status": "passed",
-        "message": "No pull request reviewer is configured."
+        "message": ".github/pull-request-reviewer.json is valid."
       },
       "error": null,
       "stdout": ".repo-standards/local/operations/3.stdout",
@@ -468,649 +439,12 @@
     }
   ],
   "retryHistory": [],
-  "changeSet": [
-    {
-      "path": ".agents/skills/LICENSE.humanlayer-skills",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/LICENSE.mattpocock-skills",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/babysit/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/babysit/merge.mjs",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/babysit/pull-request-reviewer.mjs",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/babysit/reviewer.mjs",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/babysit/wait.mjs",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/code-review/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/code-review/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/codebase-design/DEEPENING.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/codebase-design/DESIGN-IT-TWICE.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/codebase-design/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/codebase-design/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/diagnosing-bugs/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/diagnosing-bugs/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/diagnosing-bugs/scripts/hitl-loop.template.sh",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/domain-modeling/ADR-FORMAT.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/domain-modeling/GLOSSARY-FORMAT.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/domain-modeling/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/domain-modeling/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/grill-with-docs/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/grill-with-docs/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/grilling/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/grilling/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/implement/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/implement/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/improve-codebase-architecture/HTML-REPORT.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/improve-codebase-architecture/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/improve-codebase-architecture/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/pr/CREDITS.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/pr/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/pr/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/prototype/LOGIC.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/prototype/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/prototype/UI.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/prototype/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/repository-standards/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/repository-standards/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/research/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/research/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/tdd/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/tdd/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/tdd/mocking.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/tdd/tests.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/to-spec/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/to-spec/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/to-tickets/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/to-tickets/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/triage/AGENT-BRIEF.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/triage/CREDITS.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/triage/OUT-OF-SCOPE.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/triage/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/triage/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/wayfinder/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/wayfinder/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/writing-for-agents/SKILL-MECHANICS.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/writing-for-agents/SKILL.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".agents/skills/writing-for-agents/agents/openai.yaml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/babysit",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/code-review",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/codebase-design",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/diagnosing-bugs",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/domain-modeling",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/grill-with-docs",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/grilling",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/implement",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/improve-codebase-architecture",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/pr",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/prototype",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/repository-standards",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/research",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/tdd",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/to-spec",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/to-tickets",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/triage",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/wayfinder",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".claude/skills/writing-for-agents",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".factory/Dockerfile",
-      "phases": [
-        "agent"
-      ]
-    },
-    {
-      "path": ".factory/config.json",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".github/ISSUE_TEMPLATE/bug-report.yml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".github/ISSUE_TEMPLATE/feature-request.yml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".github/ISSUE_TEMPLATE/implementation-ticket.yml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".github/ISSUE_TEMPLATE/specification.yml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".github/PULL_REQUEST_TEMPLATE.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".github/scripts/validate-pr-metadata.mjs",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".github/workflows/issue-contracts.yml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".github/workflows/pr-metadata.yml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": ".github/workflows/sandbox-image.yml",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "AGENTS.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "CONTRIBUTING.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "README.md",
-      "phases": [
-        "agent"
-      ]
-    },
-    {
-      "path": "docs/README.md",
-      "phases": [
-        "agent"
-      ]
-    },
-    {
-      "path": "docs/agents/README.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "docs/agents/domain.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "docs/agents/issue-tracker.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "docs/agents/triage-labels.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "docs/development/README.md",
-      "phases": [
-        "agent"
-      ]
-    },
-    {
-      "path": "operations/lib/rendered-markdown.mjs",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "scripts/validate-issue-contract.mjs",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "vendor/marked/LICENSE",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "vendor/marked/README.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "vendor/marked/marked.esm.js",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "vendor/parse5/LICENSE.entities",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "vendor/parse5/LICENSE.parse5",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "vendor/parse5/README.md",
-      "phases": [
-        "installation"
-      ]
-    },
-    {
-      "path": "vendor/parse5/parse5.esm.js",
-      "phases": [
-        "installation"
-      ]
-    }
-  ],
+  "changeSet": [],
   "lastComplete": {
-    "run": "23226a68-14d7-4654-be39-2b48bea73fe7",
-    "inspection": "sha256:d6a340538b4d8d97d0937132af1c2817f1b4839a2693dcfaf8d4d420777a091f",
-    "completedAt": "2026-10-19T03:51:52.933Z",
-    "head": "64b725a80edf9e3f85f77307147dbde8b251086b"
+    "run": "1edd5101-2649-45c5-9827-d3e8f2ba99a8",
+    "inspection": "sha256:edffbdf904b4016a4da916f3ce82977c051ba1552bf334220becd788230e6c7c",
+    "completedAt": "2026-10-19T08:29:21.442Z",
+    "head": "835220e0ac959901c84b0a9d4586053f1cd326f9"
   },
   "baselines": {
     "docs/agents/README.md": {
@@ -1600,7 +934,7 @@
       "result": {
         "format": "repo-standards/result/v2",
         "status": "passed",
-        "message": "No pull request reviewer is configured."
+        "message": ".github/pull-request-reviewer.json is valid."
       },
       "error": null,
       "stdout": ".repo-standards/local/operations/3.stdout",
@@ -1653,39 +987,56 @@
     {
       "format": "repo-standards/assessment/v3",
       "scope": {
-        "inspection": "sha256:d6a340538b4d8d97d0937132af1c2817f1b4839a2693dcfaf8d4d420777a091f",
-        "afterFixes": "sha256:dcee0e072b25776ecafb24ec7b99d0268c6a1873d5b6451a7c0671b1a9af8459"
+        "inspection": "sha256:edffbdf904b4016a4da916f3ce82977c051ba1552bf334220becd788230e6c7c",
+        "afterFixes": "sha256:8dc8fa31cd34bc45cd85a00aa8a144bab62596dc45a4998bcdedfdd4f475d4f2"
       },
-      "run": "23226a68-14d7-4654-be39-2b48bea73fe7",
+      "run": "1edd5101-2649-45c5-9827-d3e8f2ba99a8",
       "selection": "sha256:caa0fb4e8fd05586d8c968d87cd98c81985fc0236d03c4c4c8a50e00d4108dcb",
-      "snapshot": "sha256:e6b6bf1e23dc116e646865279ba6ec460f63a15664a01a93feba304218101ade",
+      "snapshot": "sha256:8dc8fa31cd34bc45cd85a00aa8a144bab62596dc45a4998bcdedfdd4f475d4f2",
       "declarations": [
         {
           "id": "documentation",
           "status": "satisfied",
-          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of documentation.",
-          "changedPaths": [
-            "docs/README.md",
-            "docs/development/README.md"
-          ],
+          "explanation": "The eight confirmed documents provide maintained usage, development and ADR material with directory indexes and contextual links; no reorganization or document edits are needed. The original documentation draft is unchanged.",
+          "changedPaths": [],
           "evidence": [
-            "Check documentation-navigation passed: Documentation navigation is valid; content placement and usefulness still require maintainer or agent review.",
-            "The maintainer confirmed it done in adopt's terminal walk-through."
+            "docs/README.md",
+            "docs/adr/README.md",
+            "docs/adr/0001-facts-only-ports-with-platform-adapters.md",
+            "docs/development/README.md",
+            "docs/development/release.md",
+            "docs/development/source-layout.md",
+            "docs/usage/README.md",
+            "docs/usage/reference.md"
           ],
           "scopeValidity": {
             "afterFixes": {
               "status": "valid",
-              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the run's fixes, the confirmed scope covers every file the declaration should.",
+              "explanation": "All maintained docs are in the eight confirmed paths or owned by exact agent declarations; no new paths or moves are needed.",
               "evidence": [
-                "The confirmed scope: docs/README.md, docs/development/README.md."
+                "docs/README.md",
+                "docs/adr/README.md",
+                "docs/adr/0001-facts-only-ports-with-platform-adapters.md",
+                "docs/development/README.md",
+                "docs/development/release.md",
+                "docs/development/source-layout.md",
+                "docs/usage/README.md",
+                "docs/usage/reference.md"
               ],
               "additionalPaths": []
             },
             "current": {
               "status": "valid",
-              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the contextual work, the confirmed scope covers every file the declaration should.",
+              "explanation": "All maintained docs are in the eight confirmed paths or owned by exact agent declarations; no new paths or moves are needed.",
               "evidence": [
-                "The confirmed scope: docs/README.md, docs/development/README.md."
+                "docs/README.md",
+                "docs/adr/README.md",
+                "docs/adr/0001-facts-only-ports-with-platform-adapters.md",
+                "docs/development/README.md",
+                "docs/development/release.md",
+                "docs/development/source-layout.md",
+                "docs/usage/README.md",
+                "docs/usage/reference.md"
               ],
               "additionalPaths": []
             }
@@ -1694,36 +1045,42 @@
         {
           "id": "factory-sandbox-image",
           "status": "satisfied",
-          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of factory-sandbox-image.",
-          "changedPaths": [
-            ".factory/Dockerfile"
-          ],
+          "explanation": "The unchanged Debian-based node:24-bookworm image supplies stable Node.js 24 and bundled npm, matching the development guide and babysit runtime requirement. Git and gh are supplied by the factory layer; no agent setup or project dependency install is embedded.",
+          "changedPaths": [],
           "evidence": [
-            "The maintainer confirmed it done in adopt's terminal walk-through."
+            ".factory/Dockerfile",
+            "docs/development/README.md",
+            ".agents/skills/babysit/SKILL.md"
           ]
         },
         {
           "id": "factory-workflow",
           "status": "satisfied",
-          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of factory-workflow.",
+          "explanation": "Installed workflow rules agree with the factory ready, running, failed, needs-input and paused labels and model prefix. The issue-contract workflow is installed; current open issues are in needs-triage. No tracker changes are needed.",
           "changedPaths": [],
           "evidence": [
-            "The maintainer confirmed it done in adopt's terminal walk-through."
+            ".factory/config.json",
+            ".github/workflows/issue-contracts.yml",
+            "gh issue list: open issues #2, #5 and #7 carry needs-triage"
           ],
           "scopeValidity": {
             "afterFixes": {
               "status": "valid",
-              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the run's fixes, the confirmed scope covers every file the declaration should.",
+              "explanation": "Intentionally empty contextual scope remains correct; this declaration requires no project-content targets.",
               "evidence": [
-                "The confirmed scope: no files."
+                ".factory/config.json",
+                ".github/workflows/issue-contracts.yml",
+                "gh issue list: open issues #2, #5 and #7 carry needs-triage"
               ],
               "additionalPaths": []
             },
             "current": {
               "status": "valid",
-              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the contextual work, the confirmed scope covers every file the declaration should.",
+              "explanation": "Intentionally empty contextual scope remains correct; this declaration requires no project-content targets.",
               "evidence": [
-                "The confirmed scope: no files."
+                ".factory/config.json",
+                ".github/workflows/issue-contracts.yml",
+                "gh issue list: open issues #2, #5 and #7 carry needs-triage"
               ],
               "additionalPaths": []
             }
@@ -1732,26 +1089,34 @@
         {
           "id": "github-repository-configuration",
           "status": "satisfied",
-          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of github-repository-configuration.",
+          "explanation": "The authored fixes report existing canonical labels and PR integration unchanged. Existing active default-branch ruleset requires PR metadata and Test; no ruleset, branch protection or environment was written. Public visibility and repository REPO_CANON_RUNS_ON absent classify as unset; User owner lutzseverino has no organization inheritance, so the installed workflow runner is ubuntu-latest. Existing repository-owned reviewer configuration requests Codex on opening and needs no changes.",
           "changedPaths": [],
           "evidence": [
-            "Check pull-request-reviewer passed: No pull request reviewer is configured.",
-            "The maintainer confirmed it done in adopt's terminal walk-through."
+            "gh api repos/lutzseverino/postern: public, owner.type User",
+            "gh api repos/lutzseverino/postern/actions/variables: total_count 0",
+            "gh api repos/lutzseverino/postern/rulesets/25371925: active, PR metadata and Test",
+            ".github/pull-request-reviewer.json"
           ],
           "scopeValidity": {
             "afterFixes": {
               "status": "valid",
-              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the run's fixes, the confirmed scope covers every file the declaration should.",
+              "explanation": "Intentionally empty contextual scope remains correct; this declaration requires no project-content targets.",
               "evidence": [
-                "The confirmed scope: no files."
+                "gh api repos/lutzseverino/postern: public, owner.type User",
+                "gh api repos/lutzseverino/postern/actions/variables: total_count 0",
+                "gh api repos/lutzseverino/postern/rulesets/25371925: active, PR metadata and Test",
+                ".github/pull-request-reviewer.json"
               ],
               "additionalPaths": []
             },
             "current": {
               "status": "valid",
-              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the contextual work, the confirmed scope covers every file the declaration should.",
+              "explanation": "Intentionally empty contextual scope remains correct; this declaration requires no project-content targets.",
               "evidence": [
-                "The confirmed scope: no files."
+                "gh api repos/lutzseverino/postern: public, owner.type User",
+                "gh api repos/lutzseverino/postern/actions/variables: total_count 0",
+                "gh api repos/lutzseverino/postern/rulesets/25371925: active, PR metadata and Test",
+                ".github/pull-request-reviewer.json"
               ],
               "additionalPaths": []
             }
@@ -1760,35 +1125,50 @@
         {
           "id": "project-agent-guidance",
           "status": "satisfied",
-          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of project-agent-guidance.",
+          "explanation": "HEAD AGENTS.md contains only installed shared guidance; there are no repository-specific constraints to recover and docs/agents/project.md remains absent.",
           "changedPaths": [],
           "evidence": [
-            "The maintainer confirmed it done in adopt's terminal walk-through."
+            "git show HEAD:AGENTS.md",
+            "docs/agents/project.md is absent"
           ]
         },
         {
           "id": "project-readmes",
           "status": "satisfied",
-          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of project-readmes.",
+          "explanation": "The root package.json and package-lock.json define the sole maintained package. src, test and scripts implement and validate that package; vendor holds third-party assets, not non-root Projects. The intentionally empty scope is complete.",
           "changedPaths": [],
           "evidence": [
-            "Check project-readme-structure passed: Project README structure and shared setup and contribution links are valid for 0 concrete targets; Project membership, purpose, commands, configuration, documentation, and duplication of shared instructions still require maintainer or agent review.",
-            "The maintainer confirmed it done in adopt's terminal walk-through."
+            "package.json",
+            "package-lock.json",
+            "src/",
+            "test/",
+            "scripts/",
+            "vendor/"
           ],
           "scopeValidity": {
             "afterFixes": {
               "status": "valid",
-              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the run's fixes, the confirmed scope covers every file the declaration should.",
+              "explanation": "Intentionally empty contextual scope remains correct; this declaration requires no project-content targets.",
               "evidence": [
-                "The confirmed scope: no files."
+                "package.json",
+                "package-lock.json",
+                "src/",
+                "test/",
+                "scripts/",
+                "vendor/"
               ],
               "additionalPaths": []
             },
             "current": {
               "status": "valid",
-              "explanation": "The maintainer confirmed in adopt's terminal walk-through that, after the contextual work, the confirmed scope covers every file the declaration should.",
+              "explanation": "Intentionally empty contextual scope remains correct; this declaration requires no project-content targets.",
               "evidence": [
-                "The confirmed scope: no files."
+                "package.json",
+                "package-lock.json",
+                "src/",
+                "test/",
+                "scripts/",
+                "vendor/"
               ],
               "additionalPaths": []
             }
@@ -1797,22 +1177,24 @@
         {
           "id": "repository-license",
           "status": "satisfied",
-          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of repository-license.",
+          "explanation": "The existing single root LICENSE contains the MIT license with its copyright notice. No other root license file exists, and the root README links it as MIT License. The existing license decision is preserved.",
           "changedPaths": [],
           "evidence": [
-            "The maintainer confirmed it done in adopt's terminal walk-through."
+            "LICENSE",
+            "README.md"
           ]
         },
         {
           "id": "repository-readme",
           "status": "satisfied",
-          "explanation": "The maintainer confirmed in adopt's terminal walk-through that the project satisfies the rules and adoption guidance of repository-readme.",
-          "changedPaths": [
-            "README.md"
-          ],
+          "explanation": "The existing centered title, Node.js 24 or 26 badge, install command, representative example and links describe the root package. Features and configuration match the exported ports; the package builds and validates successfully. No README edits are needed for this scope update.",
+          "changedPaths": [],
           "evidence": [
-            "Check repository-readme-structure passed: Repository README structure is valid; factual content still requires maintainer or agent review.",
-            "The maintainer confirmed it done in adopt's terminal walk-through."
+            "README.md",
+            "package.json",
+            "src/index.ts",
+            "docs/usage/reference.md",
+            "npm run validate: typecheck and build pass, 745 tests pass, 11 skipped, 0 failures"
           ]
         }
       ]
