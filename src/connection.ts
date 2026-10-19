@@ -505,19 +505,20 @@ function isExactPath(path: string): boolean {
   return url.origin === origin && url.pathname + url.search === path;
 }
 
-const jsonRule = "A request body holds only plain objects, arrays, strings, finite numbers, booleans and null.";
+const jsonRule = "A request body holds only plain objects, arrays, strings, finite numbers other than -0, booleans and null.";
 const unencodable = "A request holds text with an unpaired surrogate, which has no UTF-8 encoding.";
 
 // A copy of a JSON value that serializes exactly as the value read here.
 // Anything `JSON.stringify` would drop, coerce or refuse fails instead:
-// undefined, non-finite numbers, functions, symbols, BigInt, array holes,
-// objects other than plain ones, such as a Date or a Map, and cycles.
+// undefined, non-finite numbers, -0 (written as 0), functions, symbols,
+// BigInt, array holes, objects other than plain ones, such as a Date or a
+// Map, and cycles.
 // `ancestors` holds the objects enclosing `value`, so shared references pass.
 function jsonCopy(value: unknown, ancestors: Set<object>): unknown {
   if (typeof value === "string" && !isText(value)) reject(unencodable);
   if (value === null || typeof value === "string" || typeof value === "boolean") return value;
   if (typeof value === "number") {
-    if (!Number.isFinite(value)) reject(jsonRule);
+    if (!Number.isFinite(value) || Object.is(value, -0)) reject(jsonRule);
     return value;
   }
   if (typeof value !== "object") reject(jsonRule);

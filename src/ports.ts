@@ -254,7 +254,7 @@ export interface TransportRequest {
   query?: Record<string, string | number | boolean>;
   /**
    * Sent as JSON, with any method but `GET` and `HEAD`: plain objects, arrays,
-   * strings, finite numbers, booleans and `null`, without cycles.
+   * strings, finite numbers other than `-0`, booleans and `null`, without cycles.
    */
   body?: unknown;
   /**
