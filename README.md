@@ -2,7 +2,7 @@
   <h1>Postern</h1>
   <p>Postern is a Node.js library that gives developers building tools one interface to code hosting platforms such as GitHub, for issues, pull requests, releases and access, and reports only facts the platform states.</p>
   <p>
-    <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
+    <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript"></a>
     <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-24%20or%2026-339933?logo=nodedotjs" alt="Node.js 24 or 26"></a>
   </p>
 </div>
