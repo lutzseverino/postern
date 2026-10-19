@@ -1,2 +1,3 @@
-# postern
-Hosting platform ports and adapters for Repo Canon, Repository Standards and Scriptorium
+# Postern
+
+Facts-only ports to code hosting platforms: issues, pull requests, releases and access.
