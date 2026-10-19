@@ -85,7 +85,7 @@ export interface IssueTrackerCapabilities {
   readonly bodyEditTime?: true;
   /** Issues report `linkTime`. */
   readonly linkTime?: true;
-  /** Accounts carry the platform's bot marking. */
+  /** Every account a connection reports, from any port, carries the platform's bot marking. */
   readonly botMarking?: true;
 }
 
@@ -227,9 +227,14 @@ export interface TransportRequest {
   method?: string;
   /** A path on the platform's API, starting with `/`, optionally with a query string. */
   path: string;
+  /** A plain object of strings, finite numbers and booleans. */
   query?: Record<string, string | number | boolean>;
-  /** Sent as JSON, with any method but `GET` and `HEAD`. */
+  /**
+   * Sent as JSON, with any method but `GET` and `HEAD`: plain objects, arrays,
+   * strings, finite numbers, booleans and `null`, without cycles.
+   */
   body?: unknown;
+  /** A plain object of header names and string values. */
   headers?: Record<string, string>;
 }
 

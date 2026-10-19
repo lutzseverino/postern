@@ -143,6 +143,24 @@ describe("GitHub requests", () => {
     assert.equal(request?.headers.get("x-extra"), "1");
   });
 
+  it("send the transport body exactly as the connection validated it", async () => {
+    const fake = new GitHubFake(path);
+    fake.tokens.set(token, { login: "octocat", type: "User" });
+    const sent: unknown[] = [];
+    const fetch: typeof globalThis.fetch = (input, init) => {
+      sent.push(init?.body);
+      return fake.fetch(input as string | URL, init);
+    };
+    // A token function makes the transport wait before it serializes the body.
+    const connection = connect(`https://github.com/${path}`, { credential: async () => token, fetch });
+    const body = { title: "checked", labels: ["a"] };
+    const pending = connection.access.request({ path: `/repos/${path}/issues`, method: "POST", body });
+    body.title = "changed";
+    body.labels.push("b");
+    await pending.catch(() => {});
+    assert.deepEqual(sent, ['{"title":"checked","labels":["a"]}']);
+  });
+
   it("send no credential on an anonymous connection", async () => {
     const fake = new GitHubFake(path);
     await connect(`https://github.com/${path}`, { fetch: fake.fetch }).releaseSource.releases();

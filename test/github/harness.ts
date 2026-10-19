@@ -1,7 +1,7 @@
 // The GitHub adapter's contract harness over the local GitHub fake.
 
 import { connect } from "../../src/index.ts";
-import type { Account } from "../../src/index.ts";
+import type { Account, ConnectOptions, Connection } from "../../src/index.ts";
 import type { AdapterHarness, ContractPlatform, Failure, SeedReference } from "../contract/harness.ts";
 import { GitHubFake } from "./fake.ts";
 import type { FakeUser, Injected } from "./fake.ts";
@@ -41,8 +41,12 @@ function githubFailure({ reason, retryAt, echo = "" }: Failure): Injected {
   }
 }
 
-export const githubHarness: AdapterHarness = {
-  name: "GitHub",
+/** Opens a connection the way `connect` does. */
+export type Opener = (remote: string, options: ConnectOptions) => Connection;
+
+/** A harness over the GitHub fake whose connections `open` makes, by default through `connect`. */
+export const harnessOver = (name: string, open: Opener = connect): AdapterHarness => ({
+  name,
   start(): ContractPlatform {
     const fake = new GitHubFake(path);
     fake.tokens.set(token, viewer);
@@ -71,7 +75,7 @@ export const githubHarness: AdapterHarness = {
       },
       connect({ anonymous = false, tokenFunction = false, ...options } = {}) {
         const credential = anonymous ? {} : { credential: tokenFunction ? async () => token : token };
-        return connect(`https://github.com/${path}.git`, { ...options, ...credential, fetch: fake.fetch });
+        return open(`https://github.com/${path}.git`, { ...options, ...credential, fetch: fake.fetch });
       },
       pageSize(size) {
         fake.maxPageSize = size;
@@ -246,4 +250,6 @@ export const githubHarness: AdapterHarness = {
       },
     };
   },
-};
+});
+
+export const githubHarness = harnessOver("GitHub");

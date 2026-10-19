@@ -51,7 +51,7 @@ export class Secrets {
   #redactValue(value: unknown): unknown {
     if (typeof value === "string") return this.redactText(value);
     if (Array.isArray(value)) return value.map((item) => this.#redactValue(item));
-    if (value && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
+    if (value && typeof value === "object" && [Object.prototype, null].includes(Object.getPrototypeOf(value))) {
       return Object.fromEntries(
         Object.entries(value).map(([key, item]) => [this.redactText(key), this.#redactValue(item)]),
       );

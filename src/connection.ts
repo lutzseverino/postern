@@ -6,6 +6,7 @@ import { detectPlatform, githubHost, isGitHubRepositoryPath } from "./detect.ts"
 import type { PlatformName, RepositoryIdentity } from "./detect.ts";
 import { PlatformError } from "./errors.ts";
 import { githubAdapter } from "./github/adapter.ts";
+import { capabilityFlags } from "./ports.ts";
 import type {
   Access,
   Account,
@@ -13,6 +14,7 @@ import type {
   IssueFilter,
   IssueTracker,
   Label,
+  PullRequest,
   PullRequests,
   ReleaseSource,
   SquashMerge,
@@ -118,17 +120,43 @@ export function createConnection(
     timeoutMs: checked.timeoutMs ?? defaultTimeoutMs,
   };
   const ports = adapter(context);
-  const guard = <T>(operation: () => Promise<T>): Promise<T> => shielded(secrets, operation);
+  const issueCapabilities = offered(ports.issueTracker.capabilities, capabilityFlags.issueTracker);
+  const marked = issueCapabilities.botMarking === true;
+  const layer: Layer = {
+    guard: (operation) => shielded(secrets, operation),
+    account: (value) => (value && !marked ? { ...value, bot: null } : value),
+  };
   return Object.freeze({
     repository: Object.freeze({ ...repository }),
-    issueTracker: guardIssueTracker(ports.issueTracker, context, guard),
-    pullRequests: guardPullRequests(ports.pullRequests, guard),
-    releaseSource: guardReleaseSource(ports.releaseSource, guard),
-    access: guardAccess(ports.access, guard),
+    issueTracker: guardIssueTracker(ports.issueTracker, issueCapabilities, context, layer),
+    pullRequests: guardPullRequests(ports.pullRequests, layer),
+    releaseSource: guardReleaseSource(ports.releaseSource, layer),
+    access: guardAccess(ports.access, layer),
   });
 }
 
-type Guard = <T>(operation: () => Promise<T>) => Promise<T>;
+// What every port's guard shares: running an operation with credentials kept
+// out of its errors and results, and reporting an account with `bot` behind
+// the issue tracker's `botMarking`, whichever port returns it.
+interface Layer {
+  guard<T>(operation: () => Promise<T>): Promise<T>;
+  account(value: Account | null): Account | null;
+}
+
+// The flags a port offers: only the known ones, and only where exactly true,
+// so the reported flags and the ones the layer enforces never differ.
+function offered<Name extends string>(
+  capabilities: unknown,
+  names: readonly Name[],
+): Readonly<Partial<Record<Name, true>>> {
+  const flags: Partial<Record<Name, true>> = {};
+  if (capabilities !== null && typeof capabilities === "object") {
+    for (const name of names) {
+      if ((capabilities as Record<string, unknown>)[name] === true) flags[name] = true;
+    }
+  }
+  return Object.freeze(flags);
+}
 
 async function shielded<T>(secrets: Secrets, operation: () => Promise<T>): Promise<T> {
   try {
@@ -138,10 +166,13 @@ async function shielded<T>(secrets: Secrets, operation: () => Promise<T>): Promi
   }
 }
 
-function guardIssueTracker(port: IssueTracker, context: AdapterContext, guard: Guard): IssueTracker {
-  const capabilities = Object.freeze({ ...port.capabilities });
+function guardIssueTracker(
+  port: IssueTracker,
+  capabilities: IssueTracker["capabilities"],
+  context: AdapterContext,
+  { guard, account }: Layer,
+): IssueTracker {
   const sections = context.relationshipSections !== null;
-  const account = (value: Account | null) => withBotMarking(value, capabilities.botMarking === true);
   const issueFacts = (issue: Issue): Issue => ({
     ...issue,
     author: account(issue.author),
@@ -154,10 +185,7 @@ function guardIssueTracker(port: IssueTracker, context: AdapterContext, guard: G
   return Object.freeze({
     capabilities,
     issues: (filter: IssueFilter = {}) =>
-      guard(async () => {
-        checkIssueFilter(filter);
-        return (await port.issues({ ...filter })).map(issueFacts);
-      }),
+      guard(async () => (await port.issues(checkIssueFilter(filter))).map(issueFacts)),
     issue: (number: number) =>
       guard(async () => {
         checkNumber(number, "issue number");
@@ -176,9 +204,10 @@ function guardIssueTracker(port: IssueTracker, context: AdapterContext, guard: G
     addLabels: (number: number, labels: readonly string[]) =>
       guard(async () => {
         checkNumber(number, "issue number");
-        if (!Array.isArray(labels) || labels.length === 0) reject("Name at least one label to add.");
-        for (const label of labels) checkText(label, "label");
-        await port.addLabels(number, [...labels]);
+        const names: string[] = Array.isArray(labels) ? [...labels] : [];
+        if (names.length === 0) reject("Name at least one label to add.");
+        for (const name of names) checkText(name, "label");
+        await port.addLabels(number, names);
       }),
     removeLabel: (number: number, label: string) =>
       guard(async () => {
@@ -189,12 +218,13 @@ function guardIssueTracker(port: IssueTracker, context: AdapterContext, guard: G
     createLabel: (label: Label) =>
       guard(async () => {
         if (!label || typeof label !== "object") reject("A label needs a name, color and description.");
-        checkText(label.name, "label name");
-        if (typeof label.color !== "string" || !/^[0-9a-fA-F]{6}$/.test(label.color)) {
+        const { name, color, description } = label;
+        checkText(name, "label name");
+        if (typeof color !== "string" || !/^[0-9a-fA-F]{6}$/.test(color)) {
           reject("A label color is six hexadecimal digits without '#'.");
         }
-        if (typeof label.description !== "string") reject("A label description is a string.");
-        return port.createLabel({ name: label.name, color: label.color, description: label.description });
+        if (typeof description !== "string") reject("A label description is a string.");
+        return port.createLabel({ name, color, description });
       }),
     createComment: (number: number, body: string) =>
       guard(async () => {
@@ -218,36 +248,40 @@ function guardIssueTracker(port: IssueTracker, context: AdapterContext, guard: G
   });
 }
 
-function guardPullRequests(port: PullRequests, guard: Guard): PullRequests {
-  const capabilities = Object.freeze({ ...port.capabilities });
+function guardPullRequests(port: PullRequests, { guard, account }: Layer): PullRequests {
+  const capabilities = offered(port.capabilities, capabilityFlags.pullRequests);
+  const pullFacts = (pull: PullRequest): PullRequest => ({ ...pull, author: account(pull.author) });
   return Object.freeze({
     capabilities,
     byHeadBranch: (branch: string) =>
       guard(async () => {
         checkText(branch, "head branch");
-        return port.byHeadBranch(branch);
+        return (await port.byHeadBranch(branch)).map(pullFacts);
       }),
     closing: (issueNumber: number) =>
       guard(async () => {
         checkNumber(issueNumber, "issue number");
         if (!capabilities.closingReferences) unsupported("closingReferences");
-        return port.closing(issueNumber);
+        return (await port.closing(issueNumber)).map(pullFacts);
       }),
     pullRequest: (number: number) =>
       guard(async () => {
         checkNumber(number, "pull request number");
-        return port.pullRequest(number);
+        return pullFacts(await port.pullRequest(number));
       }),
     reviews: (number: number) =>
       guard(async () => {
         checkNumber(number, "pull request number");
-        const reviews = await port.reviews(number);
-        return capabilities.reviewCommits ? reviews : reviews.map((review) => ({ ...review, commit: null }));
+        return (await port.reviews(number)).map((review) => ({
+          ...review,
+          author: account(review.author),
+          commit: capabilities.reviewCommits ? review.commit : null,
+        }));
       }),
     reviewThreads: (number: number) =>
       guard(async () => {
         checkNumber(number, "pull request number");
-        return port.reviewThreads(number);
+        return (await port.reviewThreads(number)).map((thread) => ({ ...thread, author: account(thread.author) }));
       }),
     checks: (commit: string) =>
       guard(async () => {
@@ -263,22 +297,24 @@ function guardPullRequests(port: PullRequests, guard: Guard): PullRequests {
       guard(async () => {
         checkNumber(number, "pull request number");
         checkText(body, "comment body");
-        return port.comment(number, body);
+        const comment = await port.comment(number, body);
+        return { ...comment, author: account(comment.author) };
       }),
     squashMerge: (number: number, merge: SquashMerge) =>
       guard(async () => {
         checkNumber(number, "pull request number");
         if (!merge || typeof merge !== "object") reject("A squash merge needs its expected head, title and body.");
-        checkText(merge.expectedHead, "expected head commit");
-        checkText(merge.title, "merge title");
-        if (typeof merge.body !== "string") reject("A merge body is a string.");
-        return port.squashMerge(number, { expectedHead: merge.expectedHead, title: merge.title, body: merge.body });
+        const { expectedHead, title, body } = merge;
+        checkText(expectedHead, "expected head commit");
+        checkText(title, "merge title");
+        if (typeof body !== "string") reject("A merge body is a string.");
+        return port.squashMerge(number, { expectedHead, title, body });
       }),
   });
 }
 
-function guardReleaseSource(port: ReleaseSource, guard: Guard): ReleaseSource {
-  const capabilities = Object.freeze({ ...port.capabilities });
+function guardReleaseSource(port: ReleaseSource, { guard }: Layer): ReleaseSource {
+  const capabilities = offered(port.capabilities, capabilityFlags.releaseSource);
   return Object.freeze({
     capabilities,
     releases: () =>
@@ -297,10 +333,10 @@ function guardReleaseSource(port: ReleaseSource, guard: Guard): ReleaseSource {
   });
 }
 
-function guardAccess(port: Access, guard: Guard): Access {
+function guardAccess(port: Access, { guard, account }: Layer): Access {
   return Object.freeze({
-    capabilities: Object.freeze({ ...port.capabilities }),
-    viewer: () => guard(() => port.viewer()),
+    capabilities: offered(port.capabilities, capabilityFlags.access),
+    viewer: () => guard(async () => account(await port.viewer())),
     role: (login: string) =>
       guard(async () => {
         checkText(login, "login");
@@ -308,10 +344,6 @@ function guardAccess(port: Access, guard: Guard): Access {
       }),
     request: (request: TransportRequest) => guard(async () => port.request(checkTransportRequest(request))),
   });
-}
-
-function withBotMarking(account: Account | null, marked: boolean): Account | null {
-  return account && !marked ? { ...account, bot: null } : account;
 }
 
 function checkIdentity(identity: RepositoryIdentity): RepositoryIdentity {
@@ -358,8 +390,9 @@ function checkOption(condition: boolean, message: string): asserts condition {
 }
 
 // A copy of the request, with its method in upper case, that the transport can
-// send as given: every field is checked here, so no malformed value reaches
-// `fetch` and fails as a retryable `unavailable`.
+// send as given: every field is read once into the copy and checked there, so
+// no malformed value reaches `fetch` and fails as a retryable `unavailable`,
+// and what is sent is exactly what was checked.
 function checkTransportRequest(request: TransportRequest): TransportRequest {
   if (!request || typeof request !== "object") reject("A request needs a path.");
   const { path, method = "GET", query, body, headers } = request;
@@ -368,52 +401,90 @@ function checkTransportRequest(request: TransportRequest): TransportRequest {
   }
   const verb = typeof method === "string" ? method.toUpperCase() : "";
   if (!transportMethods.has(verb)) reject(`A request method is one of ${[...transportMethods].join(", ")}.`);
+  let queryCopy: Record<string, string | number | boolean> | undefined;
   if (query !== undefined) {
-    if (!isRecord(query)) reject("A request query is an object.");
-    for (const value of Object.values(query)) {
+    if (!isPlainObject(query)) reject("A request query is a plain object.");
+    queryCopy = Object.fromEntries(Object.entries(query)) as Record<string, string | number | boolean>;
+    for (const value of Object.values(queryCopy)) {
       const scalar = typeof value === "string" || typeof value === "boolean" || Number.isFinite(value);
       if (!scalar) reject("A request query value is a string, a finite number or a boolean.");
     }
   }
+  let headersCopy: Record<string, string> | undefined;
   if (headers !== undefined) {
-    if (!isRecord(headers)) reject("Request headers are an object.");
-    for (const value of Object.values(headers)) {
+    if (!isPlainObject(headers)) reject("Request headers are a plain object.");
+    headersCopy = Object.fromEntries(Object.entries(headers)) as Record<string, string>;
+    for (const value of Object.values(headersCopy)) {
       if (typeof value !== "string") reject("A request header value is a string.");
     }
     try {
-      new Headers(Object.entries(headers));
+      new Headers(Object.entries(headersCopy));
     } catch {
       reject("A request header has an invalid name or value.");
     }
   }
+  let bodyCopy: unknown;
   if (body !== undefined) {
     if (verb === "GET" || verb === "HEAD") reject(`A ${verb} request has no body.`);
-    let json: string | undefined;
-    try {
-      json = JSON.stringify(body);
-    } catch {
-      reject("A request body is a JSON value.");
-    }
-    if (json === undefined) reject("A request body is a JSON value.");
+    bodyCopy = jsonCopy(body, new Set());
   }
   return {
     path,
     method: verb,
-    ...(query === undefined ? {} : { query: { ...query } }),
-    ...(body === undefined ? {} : { body }),
-    ...(headers === undefined ? {} : { headers: { ...headers } }),
+    ...(queryCopy === undefined ? {} : { query: queryCopy }),
+    ...(body === undefined ? {} : { body: bodyCopy }),
+    ...(headersCopy === undefined ? {} : { headers: headersCopy }),
   };
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === "object" && !Array.isArray(value);
+const jsonRule = "A request body holds only plain objects, arrays, strings, finite numbers, booleans and null.";
 
-function checkIssueFilter(filter: IssueFilter): void {
+// A copy of a JSON value that serializes exactly as the value read here.
+// Anything `JSON.stringify` would drop, coerce or refuse fails instead:
+// undefined, non-finite numbers, functions, symbols, BigInt, array holes,
+// objects other than plain ones, such as a Date or a Map, and cycles.
+// `ancestors` holds the objects enclosing `value`, so shared references pass.
+function jsonCopy(value: unknown, ancestors: Set<object>): unknown {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) reject(jsonRule);
+    return value;
+  }
+  if (typeof value !== "object") reject(jsonRule);
+  if (ancestors.has(value)) reject("A request body has no cycles.");
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) {
+      if (Object.getPrototypeOf(value) !== Array.prototype || Object.keys(value).length !== value.length) {
+        reject(jsonRule);
+      }
+      return Array.from(value, (item) => jsonCopy(item, ancestors));
+    }
+    if (!isPlainObject(value)) reject(jsonRule);
+    if (Object.getOwnPropertySymbols(value).some((key) => Object.prototype.propertyIsEnumerable.call(value, key))) {
+      reject(jsonRule);
+    }
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, jsonCopy(item, ancestors)]));
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> => {
+  if (value === null || typeof value !== "object") return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
+
+// The filter's known fields, each read once and checked.
+function checkIssueFilter(filter: IssueFilter): IssueFilter {
   if (!filter || typeof filter !== "object") reject("An issue filter is an object.");
-  if (filter.state !== undefined && filter.state !== "open" && filter.state !== "closed") {
+  const { state, label } = filter;
+  if (state !== undefined && state !== "open" && state !== "closed") {
     reject("An issue filter's state is open or closed.");
   }
-  if (filter.label !== undefined) checkText(filter.label, "label");
+  if (label !== undefined) checkText(label, "label");
+  return { ...(state === undefined ? {} : { state }), ...(label === undefined ? {} : { label }) };
 }
 
 function checkNumber(value: number, what: string): void {

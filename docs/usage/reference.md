@@ -58,7 +58,7 @@ exported `capabilityFlags` lists every flag per port.
 | `issueTracker`  | `nativeBlockers`    | `blockedBy` comes from native links.                                         |
 | `issueTracker`  | `bodyEditTime`      | Issues report `bodyEditTime`.                                                |
 | `issueTracker`  | `linkTime`          | Issues report `linkTime`.                                                    |
-| `issueTracker`  | `botMarking`        | Accounts report `bot` as `true` or `false`; otherwise `bot` is `null`.       |
+| `issueTracker`  | `botMarking`        | Accounts on every port report `bot` as a boolean; otherwise it is `null`.    |
 | `pullRequests`  | `closingReferences` | `closing` lists the pull requests that close an issue.                       |
 | `pullRequests`  | `reviewCommits`     | Reviews report the commit they reviewed; otherwise `commit` is `null`.       |
 | `releaseSource` | `drafts`            | Releases report `draft`; otherwise it is `null`.                             |
@@ -138,10 +138,15 @@ conclusions are the platform's own words.
 `request` sends the connection's credential, so its `path` must stay on the
 platform's API: it starts with a single `/`. Its `method` is `GET` (the
 default), `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE` or `OPTIONS`, in any case.
-Its `query` values are strings, finite numbers or booleans; its `headers` are
-valid header names with string values; and its `body` is a JSON value, sent
-only with a method other than `GET` or `HEAD`. A request that breaks any of
-these fails with `rejected` before it is sent. A failing status rejects with
+Its `query` is a plain object of strings, finite numbers or booleans; its
+`headers` are a plain object of valid header names with string values; and
+its `body`, sent only with a method other than `GET` or `HEAD`, holds only
+plain objects, arrays, strings, finite numbers, booleans and `null`, without
+cycles. A value JSON would drop or coerce, such as `undefined`, `NaN`, a
+function or a `Date`, is not accepted. A request that breaks any of these
+fails with `rejected` before it is sent. Postern sends a copy it makes while
+checking, so a later change to the objects passed in never reaches the
+platform. A failing status rejects with
 `PlatformError`, mapped like any other operation.
 
 ## Errors

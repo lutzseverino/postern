@@ -217,6 +217,19 @@ describe("the shared port layer", () => {
     assert.equal(release?.prerelease, null);
   });
 
+  it("reports and honors only known flags that are exactly true", async () => {
+    const flags = { nativeParent: 1, nativeBlockers: "yes", bodyEditTime: true, linkTime: false, botMarking: {}, extra: true };
+    const connection = createConnection(repository, doubleAdapter(flags as never), {});
+    assert.deepEqual(connection.issueTracker.capabilities, { bodyEditTime: true });
+    const issue = await connection.issueTracker.issue(7);
+    assert.equal(issue.parent, null);
+    assert.deepEqual(issue.subIssues, []);
+    assert.deepEqual(issue.blockedBy, []);
+    assert.equal(issue.bodyEditTime, sampleIssue.bodyEditTime);
+    assert.equal(issue.linkTime, null);
+    assert.deepEqual(issue.author, { login: "mona", bot: null });
+  });
+
   it("fails with unsupported when an operation's capability is absent", async () => {
     const connection = createConnection(repository, doubleAdapter({}), {});
     await assert.rejects(connection.pullRequests.closing(7), isReason("unsupported"));
@@ -248,16 +261,35 @@ describe("the shared port layer", () => {
 
   const circular: Record<string, unknown> = {};
   circular.self = circular;
+  const nestedCycle: Record<string, unknown> = { items: [] };
+  (nestedCycle.items as unknown[]).push({ owner: nestedCycle });
   for (const [name, request] of [
     ["a body on a GET", { path: "/user", body: { a: 1 } }],
     ["a body on a HEAD", { path: "/user", method: "HEAD", body: "x" }],
     ["a circular body", { path: "/user", method: "POST", body: circular }],
+    ["a body with a nested cycle", { path: "/user", method: "POST", body: nestedCycle }],
     ["a BigInt body", { path: "/user", method: "POST", body: { n: 1n } }],
     ["a function body", { path: "/user", method: "POST", body: () => 1 }],
+    ["a NaN body", { path: "/user", method: "POST", body: Number.NaN }],
+    ["an undefined body field", { path: "/user", method: "POST", body: { x: undefined, n: 1 } }],
+    ["a NaN body field", { path: "/user", method: "POST", body: { n: Number.NaN } }],
+    ["an infinite body item", { path: "/user", method: "POST", body: [Number.POSITIVE_INFINITY] }],
+    ["an undefined body item", { path: "/user", method: "POST", body: [undefined] }],
+    ["a sparse body array", { path: "/user", method: "POST", body: [1, , 2] }],
+    ["a nested function", { path: "/user", method: "POST", body: { a: { f: () => 1 } } }],
+    ["a nested symbol", { path: "/user", method: "POST", body: { a: [Symbol("s")] } }],
+    ["a symbol key", { path: "/user", method: "POST", body: { [Symbol("s")]: 1 } }],
+    ["a nested BigInt", { path: "/user", method: "POST", body: [{ n: 1n }] }],
+    ["a Date in the body", { path: "/user", method: "POST", body: { at: new Date(0) } }],
+    ["a Map in the body", { path: "/user", method: "POST", body: { m: new Map([["a", 1]]) } }],
+    ["a boxed number in the body", { path: "/user", method: "POST", body: { n: new Number(1) } }],
+    ["an object with toJSON in the body", { path: "/user", method: "POST", body: { a: { toJSON: () => 1 } } }],
     ["a string query", { path: "/user", query: "a=1" }],
+    ["a Map query", { path: "/user", query: new Map([["a", "1"]]) }],
     ["an object query value", { path: "/user", query: { a: { b: 1 } } }],
     ["a non-finite query value", { path: "/user", query: { a: Number.NaN } }],
     ["an array of headers", { path: "/user", headers: [["x-a", "1"]] }],
+    ["a Headers instance", { path: "/user", headers: new Headers({ "x-a": "1" }) }],
     ["a number header value", { path: "/user", headers: { "x-a": 1 } }],
     ["an invalid header name", { path: "/user", headers: { "bad name": "1" } }],
     ["a header value with a line break", { path: "/user", headers: { "x-a": "1\r\nx-b: 2" } }],
@@ -267,6 +299,78 @@ describe("the shared port layer", () => {
       await assert.rejects(connection.access.request(request as never), isReason("rejected"));
     });
   }
+
+  it("accepts JSON bodies with shared references, null prototypes and every JSON type", async () => {
+    const connection = createConnection(repository, doubleAdapter({}), {});
+    const shared = { a: 1 };
+    const bare = Object.assign(Object.create(null) as Record<string, unknown>, { b: "x" });
+    const body = { one: shared, two: [shared], bare, list: [null, true, -0, 1.5, "s", []] };
+    const response = await connection.access.request({ path: "/user", method: "POST", body });
+    assert.equal(JSON.stringify((response.data as { body: unknown }).body), JSON.stringify(body));
+  });
+
+  it("forwards a copy of the body it validated, reading each field once", async () => {
+    const connection = createConnection(repository, doubleAdapter({}), {});
+    let reads = 0;
+    const body = {
+      get title() {
+        reads += 1;
+        return reads === 1 ? "checked" : undefined;
+      },
+    };
+    const response = await connection.access.request({ path: "/user", method: "POST", body });
+    const forwarded = (response.data as { body: unknown }).body;
+    assert.notEqual(forwarded, body);
+    assert.equal(JSON.stringify(forwarded), '{"title":"checked"}');
+    assert.equal(reads, 1);
+  });
+
+  it("forwards copies of the query and headers it validated", async () => {
+    const connection = createConnection(repository, doubleAdapter({}), {});
+    let reads = 0;
+    const query = {
+      get page() {
+        reads += 1;
+        return reads === 1 ? 2 : { not: "scalar" };
+      },
+    };
+    const response = await connection.access.request({ path: "/user", query } as never);
+    assert.deepEqual((response.data as { query: unknown }).query, { page: 2 });
+    assert.equal(reads, 1);
+  });
+
+  it("passes the adapter the arguments it checked, reading each field once", async () => {
+    const calls: unknown[] = [];
+    const recording = (context: AdapterContext): AdapterPorts => {
+      const ports = doubleAdapter({})(context);
+      return {
+        ...ports,
+        issueTracker: {
+          ...ports.issueTracker,
+          issues: async (filter) => (calls.push(filter), []),
+          addLabels: async (_number, labels) => void calls.push(labels),
+          createLabel: async (label) => (calls.push(label), label),
+        },
+        pullRequests: { ...ports.pullRequests, squashMerge: async (_number, merge) => (calls.push(merge), "c0ffee") },
+      };
+    };
+    // A field whose first read passes the checks and whose later reads would not.
+    const flipping = <T extends object>(target: T, key: PropertyKey, first: unknown): T => {
+      let reads = 0;
+      return Object.defineProperty(target, key, { enumerable: true, get: () => (++reads === 1 ? first : 42) });
+    };
+    const connection = createConnection(repository, recording, {});
+    await connection.issueTracker.issues(flipping({}, "state", "closed"));
+    await connection.issueTracker.addLabels(7, flipping([""], 0, "bug"));
+    await connection.issueTracker.createLabel(flipping({ color: "ededed", description: "" }, "name", "bug") as never);
+    await connection.pullRequests.squashMerge(7, flipping({ title: "t", body: "b" }, "expectedHead", "abc") as never);
+    assert.deepEqual(calls, [
+      { state: "closed" },
+      ["bug"],
+      { name: "bug", color: "ededed", description: "" },
+      { expectedHead: "abc", title: "t", body: "b" },
+    ]);
+  });
 
   it("turns an unexpected adapter failure into invalidResponse without the credential", async () => {
     const connection = createConnection(repository, doubleAdapter({}), { credential: "t0ken-value" });

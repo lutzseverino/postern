@@ -26,6 +26,7 @@ export type ContractGroup =
   | "issue tracker reads"
   | "issue relationships"
   | "issue tracker writes"
+  | "accounts"
   | "pull requests"
   | "release source"
   | "access"
@@ -42,6 +43,11 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
   const issueFlags = probe.issueTracker.capabilities;
   const nativeParent = issueFlags.nativeParent === true;
   const nativeBlockers = issueFlags.nativeBlockers === true;
+  // Every account the connection returns reports `bot` only behind `botMarking`.
+  const reported = (account: Account): Account => ({
+    login: account.login,
+    bot: issueFlags.botMarking === true ? account.bot : null,
+  });
   const offers = (flag: boolean, name: string) => (flag ? {} : { skip: `${harness.name} does not offer ${name}` });
   const lacks = (flag: boolean, name: string) => (flag ? { skip: `${harness.name} offers ${name}` } : {});
 
@@ -131,13 +137,12 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         platform.addLabelChange(number, { action: "removed", label: "bug", actor: robot, time: "2026-01-02T00:00:00Z" });
         platform.addLabelChange(number, { action: "added", label: "ready", actor: mona, time: "2026-01-03T00:00:00Z" });
         const changes = await platform.connect().issueTracker.labelChanges(number);
-        const marked = issueFlags.botMarking === true;
         assert.deepEqual(
           changes.map(({ id: _id, ...change }) => change),
           [
-            { action: "added", label: "bug", actor: { login: "mona", bot: marked ? false : null }, time: "2026-01-01T00:00:00Z" },
-            { action: "removed", label: "bug", actor: { login: "helper[bot]", bot: marked ? true : null }, time: "2026-01-02T00:00:00Z" },
-            { action: "added", label: "ready", actor: { login: "mona", bot: marked ? false : null }, time: "2026-01-03T00:00:00Z" },
+            { action: "added", label: "bug", actor: reported(mona), time: "2026-01-01T00:00:00Z" },
+            { action: "removed", label: "bug", actor: reported(robot), time: "2026-01-02T00:00:00Z" },
+            { action: "added", label: "ready", actor: reported(mona), time: "2026-01-03T00:00:00Z" },
           ],
         );
         assert.equal(new Set(changes.map((change) => change.id)).size, 3);
@@ -286,6 +291,49 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         const number = platform.addIssue();
         await platform.connect().issueTracker.closeIssue(number);
         assert.equal(platform.issueState(number), "closed");
+      });
+    });
+
+    group("accounts", () => {
+      const head = "a".repeat(40);
+
+      it("reports issue, label change and comment accounts behind botMarking", async () => {
+        const platform = harness.start();
+        const byRobot = platform.addIssue({ author: robot });
+        const byMona = platform.addIssue({ author: mona });
+        platform.addLabelChange(byRobot, { action: "added", label: "bug", actor: robot, time: "2026-01-01T00:00:00Z" });
+        platform.addComment(byRobot, { author: robot, body: "beep", createdAt: "2026-01-01T00:00:00Z" });
+        platform.addComment(byRobot, { author: mona, body: "hi", createdAt: "2026-01-02T00:00:00Z" });
+        const tracker = platform.connect().issueTracker;
+        assert.deepEqual((await tracker.issues()).map((issue) => issue.author), [reported(robot), reported(mona)]);
+        assert.deepEqual((await tracker.issue(byMona)).author, reported(mona));
+        assert.deepEqual((await tracker.labelChanges(byRobot)).map((change) => change.actor), [reported(robot)]);
+        assert.deepEqual((await tracker.comments(byRobot)).map((comment) => comment.author), [reported(robot), reported(mona)]);
+        const created = await tracker.createComment(byMona, "First");
+        assert.deepEqual(created.author, reported(platform.viewer));
+        assert.deepEqual((await tracker.updateComment(created.id, "Second")).author, reported(platform.viewer));
+      });
+
+      it("reports pull request, review, thread and comment accounts behind botMarking", async () => {
+        const platform = harness.start();
+        const issue = platform.addIssue();
+        const number = platform.addPullRequest({ author: robot, headBranch: "feature", headCommit: head, closes: [issue] });
+        platform.addReview(number, { author: robot, state: platform.words.approvedReview, commit: head, submittedAt: "2026-01-05T00:00:00Z" });
+        platform.addReviewThread(number, { resolved: false, outdated: false, path: "src/a.ts", author: robot });
+        const pulls = platform.connect().pullRequests;
+        assert.deepEqual((await pulls.byHeadBranch("feature")).map((pull) => pull.author), [reported(robot)]);
+        if (pulls.capabilities.closingReferences) {
+          assert.deepEqual((await pulls.closing(issue)).map((pull) => pull.author), [reported(robot)]);
+        }
+        assert.deepEqual((await pulls.pullRequest(number)).author, reported(robot));
+        assert.deepEqual((await pulls.reviews(number)).map((review) => review.author), [reported(robot)]);
+        assert.deepEqual((await pulls.reviewThreads(number)).map((thread) => thread.author), [reported(robot)]);
+        assert.deepEqual((await pulls.comment(number, "Done")).author, reported(platform.viewer));
+      });
+
+      it("reports the viewer behind botMarking", async () => {
+        const platform = harness.start();
+        assert.deepEqual(await platform.connect().access.viewer(), reported(platform.viewer));
       });
     });
 
@@ -476,7 +524,7 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
     group("access", () => {
       it("reports the authenticated account, or none when anonymous", async () => {
         const platform = harness.start();
-        assert.deepEqual(await platform.connect().access.viewer(), platform.viewer);
+        assert.deepEqual(await platform.connect().access.viewer(), reported(platform.viewer));
         assert.equal(await platform.connect({ anonymous: true }).access.viewer(), null);
       });
 
