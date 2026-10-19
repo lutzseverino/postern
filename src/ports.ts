@@ -200,6 +200,11 @@ export interface PullRequests {
   checks(commit: string): Promise<CheckResult[]>;
   /** Whether merging the pull request goes through a merge queue. */
   mergesThroughQueue(number: number): Promise<boolean>;
+  /**
+   * Comments on the pull request. Where pull requests share the issue number
+   * space, as on GitHub, this posts on whatever item has the number, an
+   * issue included; a caller passes only pull request numbers.
+   */
   comment(number: number, body: string): Promise<Comment>;
   /** Squash-merges with an explicit title and body, returning the merge commit's SHA. */
   squashMerge(number: number, merge: SquashMerge): Promise<string>;

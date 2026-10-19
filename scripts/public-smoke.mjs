@@ -1,7 +1,8 @@
 // Checks a published version as a public user gets it: installs it from the
-// npm registry into an empty project, verifies its registry signatures and
-// provenance, reads this repository's releases anonymously through it, and
-// runs its single file copied alone. Usage: node scripts/public-smoke.mjs <version>
+// npm registry into an empty project, verifies its registry signatures,
+// requires its provenance attestation, reads this repository's releases
+// anonymously through it, and runs its single file copied alone.
+// Usage: node scripts/public-smoke.mjs <version>
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -35,6 +36,15 @@ const project = mkdtempSync(join(tmpdir(), "postern-public-"));
 writeFileSync(join(project, "package.json"), JSON.stringify({ name: "postern-public-check", private: true, type: "module" }));
 npm(["install", "--ignore-scripts", "--no-fund", `${name}@${version}`], project);
 npm(["audit", "signatures"], project);
+// `npm audit signatures` passes a version without attestations, so its
+// provenance is required here.
+const attestations = npm(["view", `${name}@${version}`, "dist.attestations", "--json"]).trim();
+const predicate = attestations ? JSON.parse(attestations)?.provenance?.predicateType : undefined;
+assert.match(
+  typeof predicate === "string" ? predicate : "",
+  /^https:\/\/slsa\.dev\/provenance\//,
+  `${name}@${version} has no provenance attestation.`,
+);
 
 const runtime = join(project, "node_modules", ...name.split("/"), "dist", "postern.mjs");
 const postern = await import(pathToFileURL(runtime).href);

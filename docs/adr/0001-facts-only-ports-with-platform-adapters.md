@@ -23,6 +23,8 @@ adapter; Forgejo shaped the ports, and GitLab Free checked them.
   number space, reading or closing a pull request's number as an issue fails
   with `notFound`, so no issue operation changes a pull request's state.
   Labels and comments there belong to the shared number and stay reachable.
+  For the same reason, `PullRequests.comment` posts on whatever item has the
+  number, issue or pull request, and spends no request on checking which.
 - **A repository is a platform plus a path.** Detection works from the Git
   remote, and the path is never split into an owner and a name, because
   GitLab nests groups.
@@ -55,9 +57,10 @@ adapter; Forgejo shaped the ports, and GitLab Free checked them.
   runs through `runAdapterContract`, against a local fake of its platform API
   with no network access. Cases that depend on a flag run only where the
   adapter's flags call for them, including the section-reading and no-option
-  cases for adapters without native links. The suite lives in this repository
-  rather than the package, because adapters live here and the published
-  runtime stays one file.
+  cases for adapters without native links. The suite ships in this
+  repository for adapter authors, not in the npm package: adapters are
+  internal to Postern, so only a change that adds or edits one here runs the
+  suite, and the published runtime stays one file.
 
 ## Design check
 

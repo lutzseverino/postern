@@ -133,6 +133,11 @@ updatedAt }`.
 | `comment(number, body)`            | The created comment.                                                      |
 | `squashMerge(number, { expectedHead, title, body })` | The merge commit's SHA; `conflict` when the head is no longer `expectedHead`. |
 
+Where pull requests share the issue number space, as on GitHub, `comment`
+posts on whatever item has the number, an issue included, without a request
+to check which; a caller that means a pull request passes only pull request
+numbers.
+
 A pull request is `{ repository, number, id, nodeId, url, state, title, body,
 author, createdAt, headBranch, headCommit, baseBranch, crossRepository }`,
 with `state` `open`, `closed` or `merged`. Review states, check statuses and
@@ -209,22 +214,35 @@ The GitHub adapter serves `github.com` repositories and offers every flag.
 - `role` reports GitHub's role name, such as `admin`, `maintain`, `write`,
   `triage`, `read` or a custom role, and `null` when GitHub reports no
   permission. GitHub reports `read` for any account on a public repository.
-- `viewer` reads GitHub's `/user`, which GitHub does not serve to GitHub App
-  installation tokens, so for those it fails with `forbidden`.
+- With a GitHub App installation token, `viewer` fails with `forbidden`.
+  It reads GitHub's `/user`, which isn't available to installation tokens,
+  and Postern reports that failure rather than inventing an account.
 - `checks` reports check runs with their status and conclusion, and commit
   statuses with their state as `status` and no conclusion.
-- A failing status maps to a reason as follows; GraphQL errors map by their
-  type, and an unknown type is `rejected`.
+- A failing status maps to a reason as follows. A rate limit shows as
+  `x-ratelimit-remaining: 0`, a Retry-After header, or a message naming a
+  rate limit.
 
   | Status                                          | Reason            |
   | ----------------------------------------------- | ----------------- |
   | 401                                             | `unauthenticated` |
-  | 403 with an exhausted quota or Retry-After, 429 | `rateLimited`     |
+  | 403 with a rate limit, 429                      | `rateLimited`     |
   | 403 otherwise                                   | `forbidden`       |
   | 404, 410, 451                                   | `notFound`        |
   | 409, 412                                        | `conflict`        |
   | 408, 421, 425, 5xx                              | `unavailable`     |
   | Any other 4xx                                   | `rejected`        |
+
+- GraphQL errors, which GitHub may send with status 200, map by their type
+  (`NOT_FOUND`, `FORBIDDEN`, `INSUFFICIENT_SCOPES`, `RATE_LIMITED`). An
+  error without a known type is `rateLimited` when the response shows a rate
+  limit, as above, and `rejected` otherwise.
+- `retryAt` follows GitHub's
+  [rate-limit handling](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#handle-rate-limit-errors-appropriately):
+  the Retry-After time when the response states one, otherwise the
+  `x-ratelimit-reset` time when `x-ratelimit-remaining` is `0`. Otherwise,
+  as for a secondary rate limit with quota left, `retryAt` is unset, and
+  GitHub advises waiting at least a minute before retrying.
 
 - `closeIssue` reads the number's issue object before closing it, because
   GitHub's Issues API would close a pull request; GitHub offers no issue write

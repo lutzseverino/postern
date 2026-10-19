@@ -27,7 +27,7 @@ export const platformErrorReasons: readonly PlatformErrorReason[] = Object.freez
 ]);
 
 export interface PlatformErrorOptions {
-  /** When a `rateLimited` quota resets, as an ISO 8601 time, when the platform states it. */
+  /** When a `rateLimited` request may be retried, as an ISO 8601 time, when the platform states it. */
   retryAt?: string;
   /** The HTTP status of the response whose reading raised the failure, when one did. */
   status?: number;

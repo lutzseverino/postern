@@ -343,11 +343,7 @@ function statusError(status: number, headers: Headers, data: unknown, request: s
   const message = (data as { message?: unknown } | null)?.message;
   const detail = typeof message === "string" && message ? `: ${message}` : "";
   const reason = statusReason(status, headers, typeof message === "string" ? message : "");
-  const retryAt = reason === "rateLimited" ? retryTime(headers) : undefined;
-  return new PlatformError(reason, `GitHub answered ${request} with ${status}${detail}`, {
-    status,
-    ...(retryAt === undefined ? {} : { retryAt }),
-  });
+  return limitError(reason, `GitHub answered ${request} with ${status}${detail}`, status, headers);
 }
 
 // What a failing status says, read against the error reasons. A request the
@@ -360,13 +356,8 @@ function statusReason(status: number, headers: Headers, message: string): Platfo
   switch (status) {
     case 401:
       return "unauthenticated";
-    case 403: {
-      const exhausted =
-        headers.get("x-ratelimit-remaining") === "0" ||
-        headers.has("retry-after") ||
-        /rate limit/i.test(message);
-      return exhausted ? "rateLimited" : "forbidden";
-    }
+    case 403:
+      return rateLimited(headers, [message]) ? "rateLimited" : "forbidden";
     case 404:
     case 410:
     case 451:
@@ -385,22 +376,51 @@ function statusReason(status: number, headers: Headers, message: string): Platfo
   }
 }
 
+// Whether a response says a rate limit stopped it: an exhausted quota, a
+// stated retry delay, or a message naming a rate limit. REST and GraphQL
+// limits say it the same ways.
+function rateLimited(headers: Headers, messages: string[]): boolean {
+  return (
+    headers.get("x-ratelimit-remaining") === "0" ||
+    headers.has("retry-after") ||
+    messages.some((message) => /rate limit/i.test(message))
+  );
+}
+
+// A platform error, with `retryAt` when it is `rateLimited` and GitHub states
+// when to retry.
+function limitError(reason: PlatformErrorReason, message: string, status: number, headers: Headers): PlatformError {
+  const retryAt = reason === "rateLimited" ? retryTime(headers) : undefined;
+  return new PlatformError(reason, message, {
+    status,
+    ...(retryAt === undefined ? {} : { retryAt }),
+  });
+}
+
 // The latest time a Date can hold, in milliseconds.
 const latestTime = 8.64e15;
 
-// The later of the stated retry delay and the quota reset, when either is
-// stated as a time a Date can hold.
+// When GitHub says to retry, following its documented handling of rate-limit
+// errors: Retry-After when it is stated, otherwise the quota reset when
+// `x-ratelimit-remaining` is `0`. Without either, as for a secondary limit
+// with quota left, GitHub states no time and advises waiting at least a
+// minute, so there is none. A time a Date cannot hold is not stated.
 function retryTime(headers: Headers): string | undefined {
-  const candidates: number[] = [];
   const retryAfter = headers.get("retry-after");
   if (retryAfter !== null) {
-    const seconds = Number(retryAfter);
-    candidates.push(/^\d+$/.test(retryAfter.trim()) ? Date.now() + seconds * 1000 : Date.parse(retryAfter));
+    const at = /^\d+$/.test(retryAfter.trim()) ? Date.now() + Number(retryAfter) * 1000 : Date.parse(retryAfter);
+    if (readableTime(at)) return new Date(at).toISOString();
   }
   const reset = headers.get("x-ratelimit-reset");
-  if (reset !== null && /^\d+$/.test(reset.trim())) candidates.push(Number(reset) * 1000);
-  const readable = candidates.filter((at) => Number.isFinite(at) && Math.abs(at) <= latestTime);
-  return readable.length ? new Date(Math.max(...readable)).toISOString() : undefined;
+  if (headers.get("x-ratelimit-remaining") === "0" && reset !== null && /^\d+$/.test(reset.trim())) {
+    const at = Number(reset) * 1000;
+    if (readableTime(at)) return new Date(at).toISOString();
+  }
+  return undefined;
+}
+
+function readableTime(at: number): boolean {
+  return Number.isFinite(at) && Math.abs(at) <= latestTime;
 }
 
 const graphqlReasons: Record<string, PlatformErrorReason> = {
@@ -411,16 +431,16 @@ const graphqlReasons: Record<string, PlatformErrorReason> = {
   RATE_LIMIT: "rateLimited",
 };
 
+// A GraphQL error's reason: its first error's type when GitHub names one,
+// otherwise a rate limit when the response says one stopped it, as GitHub's
+// GraphQL limits may arrive without a type, and otherwise `rejected`.
 function graphqlError(errors: unknown[], status: number, headers: Headers): PlatformError {
   const first = errors[0] as { type?: unknown; message?: unknown } | null;
   const type = typeof first?.type === "string" ? first.type : "";
-  const reason = graphqlReasons[type] ?? "rejected";
+  const messages = errors.map((error) => (error as { message?: unknown } | null)?.message).filter((message) => typeof message === "string");
+  const reason = graphqlReasons[type] ?? (rateLimited(headers, messages) ? "rateLimited" : "rejected");
   const message = typeof first?.message === "string" ? first.message : "GraphQL query failed";
-  const retryAt = reason === "rateLimited" ? retryTime(headers) : undefined;
-  return new PlatformError(reason, `GitHub's GraphQL API answered: ${message}`, {
-    status,
-    ...(retryAt === undefined ? {} : { retryAt }),
-  });
+  return limitError(reason, `GitHub's GraphQL API answered: ${message}`, status, headers);
 }
 
 /** An unreadable response. Within a scope, the scope supplies the status. */

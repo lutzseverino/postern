@@ -108,10 +108,18 @@ jobs:
         with:
           name: release-notes
           path: release-notes
-      - name: Publish the validated tarball through trusted publishing
+      # Trusted publishing authenticates every release. Only the first
+      # publication, before npm accepts a trusted publisher for the package,
+      # uses a short-lived token from the `npm` environment's `NPM_TOKEN`
+      # secret, which is deleted once the trusted publisher is added.
+      - name: Publish the validated tarball with provenance
         working-directory: release
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           sha256sum --check SHA256SUMS
+          if [ -n "$NPM_TOKEN" ]; then export NODE_AUTH_TOKEN="$NPM_TOKEN"; fi
+          unset NPM_TOKEN
           npm publish ./*.tgz --ignore-scripts --access public --provenance --registry=https://registry.npmjs.org
       - name: Publish the GitHub release at the existing tag
         env:

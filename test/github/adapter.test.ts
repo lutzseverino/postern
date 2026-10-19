@@ -53,15 +53,6 @@ describe("GitHub response mapping", () => {
       (error) => assert.equal(error.retryAt, resetAt),
     ],
     [
-      "403 for a secondary limit with Retry-After",
-      { status: 403, headers: { "retry-after": "60" }, body: '{"message":"You have exceeded a secondary rate limit"}' },
-      "rateLimited",
-      (error) => {
-        const delay = Date.parse(error.retryAt ?? "") - Date.now();
-        assert.ok(delay > 50_000 && delay <= 60_000, `retryAt is about a minute away, not ${delay} ms`);
-      },
-    ],
-    [
       "429 without a stated reset",
       { status: 429, body: '{"message":"Too many requests"}' },
       "rateLimited",
@@ -221,6 +212,129 @@ describe("GitHub response mapping", () => {
     const fake = new GitHubFake(path);
     const connection = connect(`https://github.com/${path}`, { credential: "ghp_expired", fetch: fake.fetch });
     await assert.rejects(connection.releaseSource.releases(), failure("unauthenticated"));
+  });
+});
+
+// GitHub's documented rate-limit handling: wait until Retry-After when it is
+// stated, otherwise until `x-ratelimit-reset` when `x-ratelimit-remaining` is
+// `0`; otherwise GitHub states no time and advises waiting at least a minute.
+// The headers are the ones GitHub sends with each limit.
+describe("GitHub rate limits", () => {
+  const now = () => Math.floor(Date.now() / 1000);
+  const quota = (remaining: number, reset: number, resource = "core") => ({
+    "x-ratelimit-limit": "5000",
+    "x-ratelimit-remaining": String(remaining),
+    "x-ratelimit-used": String(5000 - remaining),
+    "x-ratelimit-reset": String(reset),
+    "x-ratelimit-resource": resource,
+  });
+  const primaryMessage = "API rate limit exceeded for user ID 1. If you reach out to GitHub Support for help, please include the request ID 0000:0000:0000000:0000000:00000000.";
+  const secondaryMessage =
+    "You have exceeded a secondary rate limit. Please wait a few minutes before you try again. If you reach out to GitHub Support for help, please include the request ID 0000:0000:0000000:0000000:00000000.";
+  const rest = (message: string) => JSON.stringify({ message, documentation_url: "https://docs.github.com/rest/overview/rate-limits-for-the-rest-api" });
+  const graphql = (error: Record<string, unknown>) => JSON.stringify({ errors: [error] });
+  const about = (seconds: number) => (error: PlatformError) => {
+    const delay = Date.parse(error.retryAt ?? "") - Date.now();
+    assert.ok(delay > (seconds - 10) * 1000 && delay <= seconds * 1000, `retryAt is about ${seconds} s away, not ${delay} ms`);
+  };
+  const at = (reset: number) => (error: PlatformError) => assert.equal(error.retryAt, new Date(reset * 1000).toISOString());
+  const unstated = (error: PlatformError) => assert.equal(error.retryAt, undefined);
+
+  type Case = [string, () => { response: Injected; check: (error: PlatformError) => void }];
+  const restCases: Case[] = [
+    ["a primary limit as 403", () => {
+      const reset = now() + 1800;
+      return { response: { status: 403, headers: quota(0, reset), body: rest(primaryMessage) }, check: at(reset) };
+    }],
+    ["a primary limit as 429", () => {
+      const reset = now() + 1800;
+      return { response: { status: 429, headers: quota(0, reset), body: rest(primaryMessage) }, check: at(reset) };
+    }],
+    ["a secondary limit with Retry-After and quota left", () => ({
+      response: { status: 403, headers: { "retry-after": "60", ...quota(4990, now() + 3000) }, body: rest(secondaryMessage) },
+      check: about(60),
+    })],
+    ["a secondary limit as 429 with Retry-After", () => ({
+      response: { status: 429, headers: { "retry-after": "60", ...quota(4990, now() + 3000) }, body: rest(secondaryMessage) },
+      check: about(60),
+    })],
+    ["a secondary limit without Retry-After and with quota left", () => ({
+      response: { status: 403, headers: quota(4990, now() + 3000), body: rest(secondaryMessage) },
+      check: unstated,
+    })],
+    ["a secondary limit whose Retry-After comes before an exhausted quota's reset", () => ({
+      response: { status: 403, headers: { "retry-after": "60", ...quota(0, now() + 3000) }, body: rest(secondaryMessage) },
+      check: about(60),
+    })],
+    ["an exhausted quota with an unreadable Retry-After", () => {
+      const reset = now() + 1800;
+      return { response: { status: 403, headers: { "retry-after": "soon", ...quota(0, reset) }, body: rest(primaryMessage) }, check: at(reset) };
+    }],
+  ];
+  for (const [name, make] of restCases) {
+    it(`reports retryAt for ${name} on REST`, async () => {
+      const { fake, connection } = setup();
+      const { response, check } = make();
+      fake.inject(response);
+      await assert.rejects(connection.releaseSource.releases(), failure("rateLimited", check));
+    });
+  }
+
+  const graphqlCases: Case[] = [
+    ["a typed primary limit as 200", () => {
+      const reset = now() + 1800;
+      return {
+        response: { status: 200, headers: quota(0, reset, "graphql"), body: graphql({ type: "RATE_LIMITED", message: "API rate limit exceeded for user ID 1." }) },
+        check: at(reset),
+      };
+    }],
+    ["an untyped primary limit as 200 with an exhausted quota", () => {
+      const reset = now() + 1800;
+      return {
+        response: { status: 200, headers: quota(0, reset, "graphql"), body: graphql({ message: "Something went wrong while executing your query." }) },
+        check: at(reset),
+      };
+    }],
+    ["an untyped rate-limit message as 200", () => ({
+      response: { status: 200, headers: quota(4990, now() + 3000, "graphql"), body: graphql({ message: "API rate limit already exceeded for user ID 1." }) },
+      check: unstated,
+    })],
+    ["an untyped secondary limit as 200 with Retry-After", () => ({
+      response: { status: 200, headers: { "retry-after": "60", ...quota(4990, now() + 3000, "graphql") }, body: graphql({ message: secondaryMessage }) },
+      check: about(60),
+    })],
+    ["a typed limit with quota left and no Retry-After", () => ({
+      response: { status: 200, headers: quota(4990, now() + 3000, "graphql"), body: graphql({ type: "RATE_LIMITED", message: secondaryMessage }) },
+      check: unstated,
+    })],
+    ["a secondary limit as 403 with Retry-After and quota left", () => ({
+      response: { status: 403, headers: { "retry-after": "60", ...quota(4990, now() + 3000, "graphql") }, body: rest(secondaryMessage) },
+      check: about(60),
+    })],
+    ["a primary limit as 403 with only its message", () => ({
+      response: { status: 403, body: rest(primaryMessage) },
+      check: unstated,
+    })],
+  ];
+  for (const [name, make] of graphqlCases) {
+    it(`recognizes ${name} on GraphQL and reports its retryAt`, async () => {
+      const { fake, connection } = setup();
+      const { response, check } = make();
+      fake.inject(response);
+      await assert.rejects(connection.issueTracker.issue(1), failure("rateLimited", check));
+    });
+  }
+
+  it("keeps a GraphQL error's own type over an exhausted quota", async () => {
+    const { fake, connection } = setup();
+    fake.inject({ status: 200, headers: quota(0, now() + 1800, "graphql"), body: graphql({ type: "NOT_FOUND", message: "Could not resolve to an Issue." }) });
+    await assert.rejects(connection.issueTracker.issue(1), failure("notFound"));
+  });
+
+  it("rejects an untyped GraphQL error without a rate-limit signal", async () => {
+    const { fake, connection } = setup();
+    fake.inject({ status: 200, headers: quota(4990, now() + 3000, "graphql"), body: graphql({ message: "Field 'nope' doesn't exist on type 'Issue'" }) });
+    await assert.rejects(connection.issueTracker.issue(1), failure("rejected"));
   });
 });
 

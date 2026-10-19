@@ -10,28 +10,66 @@ ruleset lets only the owner create, move or delete `v*` tags, and the
 | State                                                     | Next action                                                                                     |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | A `Release` run is queued or running                      | Wait for it to finish before inspecting or retrying anything.                                   |
-| Trusted publishing is not configured yet                  | Complete **Trusted-publisher setup** below.                                                     |
+| The `npm` environment does not exist yet                  | Ask the orchestrator to create it, as in **The `npm` environment** below.                       |
+| No version is published yet                               | Follow **First publication** below.                                                             |
 | New version, no publication attempted                     | Follow **Publish** below.                                                                       |
 | A publication attempt failed or its outcome is uncertain  | Follow **Recover a publication** below before dispatching another publishing run.               |
 | npm and the GitHub release exist; public checks failed    | Dispatch `Release` with `verify_published: true`, as in **Retry the public checks** below.      |
 
-## Trusted-publisher setup
+## The `npm` environment
 
-The workflow publishes through
+The `Release` workflow publishes from the `npm` GitHub environment. The
+orchestrator creates it before the first dispatch, with deployments
+restricted to `v*` tags and the owner as its required reviewer, so every
+publication waits for the owner's approval. The environment holds no secret
+except the short-lived `NPM_TOKEN` of the first publication.
+
+## Trusted publishing
+
+Every release after the first publishes through
 [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/), which
 exchanges the workflow's OIDC identity for a short-lived publish credential,
-so the repository holds no npm token. npm attaches a provenance attestation
-that ties the tarball to the workflow run.
+so the repository holds no npm token. The trusted publisher on npm names
+GitHub Actions with user `lutzseverino`, repository `postern`, workflow
+filename `release.yml` and environment `npm`. Every publication carries a
+provenance attestation that ties the tarball to the workflow run, and the
+public check fails a version without one.
 
-Before the first release, in the `@lutzseverino/postern` package settings on
-npm, add a trusted publisher for GitHub Actions with user `lutzseverino`,
-repository `postern`, workflow filename `release.yml`, and environment `npm`.
-If npm does not yet allow configuring a package that has never been
-published, publish `1.0.0` once by **Interactive publication** below from the
-tarball a validation run produced, then add the trusted publisher. In GitHub,
-the `npm` environment appears on the first run that uses it; restrict its
-deployments to `v*` tags and require the owner's review if the owner wants a
-second confirmation.
+## First publication
+
+If npm accepts a trusted publisher for the not yet published
+`@lutzseverino/postern`, add it as above and follow **Publish**; no token is
+needed. npm's trusted-publishers documentation does not say whether it does,
+and it requires a new trusted publisher to complete its first publication
+within two days, so add it shortly before dispatching. Otherwise, the
+workflow publishes `1.0.0` with a short-lived token, still with provenance,
+in this order:
+
+1. On npm, create a granular access token that can publish to the
+   `@lutzseverino` scope without two-factor authentication, with the
+   shortest expiration npm offers.
+2. Store it as the `npm` environment's `NPM_TOKEN` secret. The command
+   prompts for the value, so it never reaches the shell history:
+
+   ```sh
+   gh secret set NPM_TOKEN --env npm --repo lutzseverino/postern
+   ```
+
+3. Dispatch `Release` as in **Publish**. The publish step passes the token
+   to npm as `NODE_AUTH_TOKEN` only when the secret is set.
+4. Verify the provenance. The public check fails without it, and npm
+   reports its SLSA provenance attestation:
+
+   ```sh
+   npm view @lutzseverino/postern@1.0.0 dist.attestations --json
+   ```
+
+5. Add the trusted publisher as in **Trusted publishing**.
+6. Delete the token from the environment, and revoke it on npm:
+
+   ```sh
+   gh secret delete NPM_TOKEN --env npm --repo lutzseverino/postern
+   ```
 
 ## Publish
 
@@ -60,14 +98,16 @@ The workflow refuses to publish unless it runs at `refs/tags/v<version>`,
 - validates on Node.js 24 and 26 with `npm run validate`;
 - packs the tarball once, on Node.js 24, with its `SHA256SUMS`, and keeps the
   tarball and notes as the `release-bundle` and `release-notes` artifacts;
-- in the `npm` environment, checks the hashes and publishes that exact
-  tarball with provenance through trusted publishing;
+- in the `npm` environment, after the owner approves the deployment, checks
+  the hashes and publishes that exact tarball with provenance through
+  trusted publishing, or with the first publication's token;
 - creates the GitHub release `v<version>` at the existing tag, with the notes
   as its body and the tarball and `SHA256SUMS` as assets;
 - installs the version from the public registry on Node.js 24 and 26 with
   `scripts/public-smoke.mjs`, after waiting up to ten minutes for it to
-  appear. The check verifies registry signatures and provenance with
-  `npm audit signatures`, reads this repository's releases and tag
+  appear. The check verifies registry signatures with `npm audit
+  signatures`, and requires the version's provenance attestation, which
+  that command does not. It then reads this repository's releases and tag
   anonymously through the installed package, and runs its single file
   copied alone.
 
@@ -88,7 +128,7 @@ leaves the state unknown; it does not prove that publication is absent.
 | Established state                                               | Recovery action                                                                                                                                       |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Validation failed                                               | Nothing was published. Fix the cause on `main`; if the tag must move to a new commit, use a new version instead.                                      |
-| npm lacks the version; the run's `release-bundle` is intact     | Correct the trusted-publisher setup, then dispatch `Release` again at the same tag, or publish the original tarball by **Interactive publication**. |
+| npm lacks the version; the run's `release-bundle` is intact     | Correct the trusted publisher, or for the first publication the `NPM_TOKEN` secret, then dispatch `Release` again at the same tag.                   |
 | npm has the version; its integrity matches the original tarball; the GitHub release is missing | Create the release from the original artifacts, as below.                                                    |
 | npm, the tag and the GitHub release all match                   | Run **Retry the public checks**.                                                                                                                      |
 | Anything differs or cannot be established                       | Stop and resolve the discrepancy, keeping the original artifacts and observations.                                                                    |
@@ -109,23 +149,6 @@ gh run download <run-id> --repo lutzseverino/postern --name release-notes --dir 
 gh release create v<version> <fresh-directory>/* --repo lutzseverino/postern \
   --verify-tag --title "Postern <version>" --notes-file <fresh-notes-directory>/release-notes.md
 ```
-
-## Interactive publication
-
-Use this only for the first publication when npm requires it, or to recover
-when trusted publishing is unavailable. The account needs access to the
-`@lutzseverino` npm scope and two-factor authentication. Publish the tarball a
-validation run produced, never a local rebuild:
-
-```sh
-npm login --registry=https://registry.npmjs.org
-npm publish <original-tarball> --ignore-scripts --access public \
-  --registry=https://registry.npmjs.org
-npm view @lutzseverino/postern@<version> dist --json
-```
-
-A local publication carries no provenance attestation. Log out afterwards,
-and keep no tokens, one-time passwords or authentication logs.
 
 ## Retry the public checks
 
