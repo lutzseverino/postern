@@ -740,6 +740,27 @@ describe("reading what callers pass", () => {
     });
   }
 
+  // `Headers` trims spaces and tabs at either end of a value, so such a
+  // credential would be sent as another token than the one kept for redaction.
+  for (const [where, token] of [
+    ["a leading space", " ghp_abc"],
+    ["a trailing space", "ghp_abc "],
+    ["a leading tab", "\tghp_abc"],
+    ["a trailing tab", "ghp_abc\t"],
+  ] as const) {
+    it(`fails with rejected before any request for a credential with ${where}`, async () => {
+      let fetched = 0;
+      const fetch = async () => {
+        fetched++;
+        return new Response("{}");
+      };
+      assert.throws(() => connect(repository, { credential: token, fetch }), isReason("rejected"));
+      const supplied = connect(repository, { credential: async () => token, fetch });
+      await assert.rejects(supplied.releaseSource.releases(), isReason("rejected"));
+      assert.equal(fetched, 0);
+    });
+  }
+
   it("reads the options of a PlatformError once", () => {
     const reads: Map<PropertyKey, number>[] = [];
     const cause = new Error("inner");

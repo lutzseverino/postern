@@ -417,6 +417,28 @@ describe("GitHub requests", () => {
     assert.equal(fake.requests.length, 1);
   });
 
+  // `fetch` refuses a URL with credentials, and a next page must be the one
+  // GitHub named, so each fails while its page is read, with that page's status.
+  for (const [name, next] of [
+    ["a username", "https://u@api.github.com/releases?page=2"],
+    ["a username and password", "https://u:p@api.github.com/releases?page=2"],
+    ["a password alone", "https://:p@api.github.com/releases?page=2"],
+    ["a non-https scheme", "http://api.github.com/releases?page=2"],
+    ["a non-default port", "https://api.github.com:8443/releases?page=2"],
+    ["a fragment", "https://api.github.com/releases?page=2#top"],
+    ["an empty fragment", "https://api.github.com/releases?page=2#"],
+  ] as const) {
+    it(`never follow a next page with ${name}`, async () => {
+      const { fake, connection } = setup();
+      fake.inject({ status: 203, headers: { link: `<${next}>; rel="next"` }, body: "[]" });
+      await assert.rejects(
+        connection.releaseSource.releases(),
+        failure("invalidResponse", (error) => assert.equal(error.status, 203)),
+      );
+      assert.equal(fake.requests.length, 1);
+    });
+  }
+
   it("report bot logins in REST form from GraphQL", async () => {
     const { fake, connection } = setup();
     fake.issues.set(`${path}#1`, {

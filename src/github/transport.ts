@@ -285,6 +285,10 @@ function nextPage(header: string | null): URL | null {
     const url = new URL(target);
     // A next link that leaves GitHub's API would carry the credential elsewhere.
     if (url.origin !== apiOrigin) throw invalid("GitHub returned a next page on another origin.");
+    // `fetch` refuses a URL with credentials, and drops a fragment, even an empty one.
+    if (url.username !== "" || url.password !== "" || url.href.includes("#")) {
+      throw invalid("GitHub returned a next page that cannot be requested as written.");
+    }
     return url;
   });
 }

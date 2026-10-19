@@ -137,12 +137,14 @@ export function credentialsFrom(source: CredentialSource | undefined, secrets: S
 /**
  * Whether a token can be sent in a request header as it is. One with an
  * unpaired surrogate or a line break would make `fetch` refuse the request.
+ * One with a space or tab at either end would be sent trimmed, or read by
+ * GitHub without it, as a token redaction does not know.
  */
 export function isSendableToken(token: string): boolean {
-  if (!token.isWellFormed()) return false;
+  if (!token.isWellFormed() || /^[ \t]|[ \t]$/.test(token)) return false;
+  const value = `Bearer ${token}`;
   try {
-    new Headers({ authorization: `Bearer ${token}` });
-    return true;
+    return new Headers({ authorization: value }).get("authorization") === value;
   } catch {
     return false;
   }
