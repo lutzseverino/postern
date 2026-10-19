@@ -1,7 +1,7 @@
 {
   "format": "repo-standards/scope-history/v5",
   "evidence": "historical",
-  "inspection": "sha256:d6a340538b4d8d97d0937132af1c2817f1b4839a2693dcfaf8d4d420777a091f",
+  "inspection": "sha256:edffbdf904b4016a4da916f3ce82977c051ba1552bf334220becd788230e6c7c",
   "resolved": {
     "description": "The standard profile plus the factory's repository files and workflow rules, for a repository a factory serves",
     "declarations": [
@@ -71,7 +71,13 @@
         "targets": {
           "paths": [
             "docs/README.md",
-            "docs/development/README.md"
+            "docs/adr/0001-facts-only-ports-with-platform-adapters.md",
+            "docs/adr/README.md",
+            "docs/development/README.md",
+            "docs/development/release.md",
+            "docs/development/source-layout.md",
+            "docs/usage/README.md",
+            "docs/usage/reference.md"
           ],
           "directories": []
         }
@@ -1255,7 +1261,7 @@
     ]
   },
   "discovery": {
-    "identity": "sha256:7b308123e11adc0b8718419db34a9aad316eff0bd98ccc689b6d9ef8c83d53e7",
+    "identity": "sha256:1c04c540047937b30d168483203169e66396498a4178132c3aef9989bb980689",
     "proposal": {
       "format": "repo-standards/scope/v2",
       "declarations": [
@@ -1266,14 +1272,98 @@
             {
               "path": "docs/README.md",
               "decision": "include",
-              "reason": "The index of the documentation root `docs`, to create.",
-              "evidence": []
+              "reason": "A file under the documentation root `docs`.",
+              "evidence": [
+                "docs/README.md"
+              ]
+            },
+            {
+              "path": "docs/adr/0001-facts-only-ports-with-platform-adapters.md",
+              "decision": "include",
+              "reason": "A file under the documentation root `docs`.",
+              "evidence": [
+                "docs/adr/0001-facts-only-ports-with-platform-adapters.md"
+              ]
+            },
+            {
+              "path": "docs/adr/README.md",
+              "decision": "include",
+              "reason": "A file under the documentation root `docs`.",
+              "evidence": [
+                "docs/adr/README.md"
+              ]
+            },
+            {
+              "path": "docs/agents/README.md",
+              "decision": "exclude",
+              "reason": "Owned by the `agent-configuration-index` declaration.",
+              "evidence": [
+                "docs/agents/README.md"
+              ]
+            },
+            {
+              "path": "docs/agents/domain.md",
+              "decision": "exclude",
+              "reason": "Owned by the `domain-configuration` declaration.",
+              "evidence": [
+                "docs/agents/domain.md"
+              ]
+            },
+            {
+              "path": "docs/agents/issue-tracker.md",
+              "decision": "exclude",
+              "reason": "Owned by the `issue-tracker-configuration` declaration.",
+              "evidence": [
+                "docs/agents/issue-tracker.md"
+              ]
+            },
+            {
+              "path": "docs/agents/triage-labels.md",
+              "decision": "exclude",
+              "reason": "Owned by the `triage-label-configuration` declaration.",
+              "evidence": [
+                "docs/agents/triage-labels.md"
+              ]
             },
             {
               "path": "docs/development/README.md",
               "decision": "include",
-              "reason": "The development guide, which the contribution guide requires, to create.",
-              "evidence": []
+              "reason": "A file under the documentation root `docs`.",
+              "evidence": [
+                "docs/development/README.md"
+              ]
+            },
+            {
+              "path": "docs/development/release.md",
+              "decision": "include",
+              "reason": "A file under the documentation root `docs`.",
+              "evidence": [
+                "docs/development/release.md"
+              ]
+            },
+            {
+              "path": "docs/development/source-layout.md",
+              "decision": "include",
+              "reason": "A file under the documentation root `docs`.",
+              "evidence": [
+                "docs/development/source-layout.md"
+              ]
+            },
+            {
+              "path": "docs/usage/README.md",
+              "decision": "include",
+              "reason": "A file under the documentation root `docs`.",
+              "evidence": [
+                "docs/usage/README.md"
+              ]
+            },
+            {
+              "path": "docs/usage/reference.md",
+              "decision": "include",
+              "reason": "A file under the documentation root `docs`.",
+              "evidence": [
+                "docs/usage/reference.md"
+              ]
             }
           ],
           "unresolved": []
@@ -1286,42 +1376,60 @@
         },
         {
           "id": "github-repository-configuration",
-          "coverage": "Intentionally empty: remote GitHub configuration and read-only reviewer validation. PUBLIC visibility, repository REPO_CANON_RUNS_ON absent (unset), user owner has no organization inheritance. Remote labels and merge settings approved; rulesets and protection prohibited. Reviewer file stays absent during adoption by maintainer decision.",
+          "coverage": "Intentionally empty: remote GitHub configuration and read-only validation of the repository-owned reviewer file, which this declaration does not write. Confirmed through gh: visibility is public; repository-level REPO_CANON_RUNS_ON is absent (unset). Owner lutzseverino is a User, so no organization-level variable inheritance applies; installed jobs use the ubuntu-latest hosted default.",
           "candidates": [],
           "unresolved": []
         },
         {
           "id": "project-readmes",
-          "coverage": "No non-root Projects: tracked tree contains only LICENSE and root README.md, with no manifests, workspace/build configuration, maintained source, or component boundaries.",
+          "coverage": "No non-root Projects: the repository root holds the only package.",
           "candidates": [],
           "unresolved": []
         }
       ]
     },
-    "absence": [
-      {
-        "kind": "absence",
-        "path": "docs/README.md",
-        "identity": "sha256:6740fbeb577b8cebcdd39e3e5eecae3ee57acb0a18e7e3e34fe901febad15901"
-      },
-      {
-        "kind": "absence",
-        "path": "docs/development/README.md",
-        "identity": "sha256:af17e6ccccfc3d404358dfd85c9afc4a45dc6454e1331e35549d61ed355ef169"
-      }
-    ],
+    "absence": [],
     "named": {
       "targets": {
         "docs/README.md": {
-          "type": "missing"
+          "type": "file",
+          "sha256": "20a8c0fa0773ccb8edadc9a46a5aa9959519f68545796c92b6acbc94f2f49b9e",
+          "executable": false
+        },
+        "docs/adr/0001-facts-only-ports-with-platform-adapters.md": {
+          "type": "file",
+          "sha256": "e95212bcbed60778e5c7174325fca7d6c938f2c598c645a910adc0d4f6b2ba2b",
+          "executable": false
+        },
+        "docs/adr/README.md": {
+          "type": "file",
+          "sha256": "6b369962bc5c104b3629fa8e95ca2a1cb623736ebd521f2f859b88d7edf17da0",
+          "executable": false
         },
         "docs/development/README.md": {
-          "type": "missing"
-        }
-      },
-      "boundaries": {
-        "docs": {
-          "type": "missing"
+          "type": "file",
+          "sha256": "febd293e569f9ad685791e930b975cfaf38b107b34a8cb3224237b043ecaa9db",
+          "executable": false
+        },
+        "docs/development/release.md": {
+          "type": "file",
+          "sha256": "49eb0f45e74a2573790af2964b856bbf6d070abe857a3e1b3c632fe58d24d33b",
+          "executable": false
+        },
+        "docs/development/source-layout.md": {
+          "type": "file",
+          "sha256": "90bc7061a0103fdb026745a96624db55883f57899bac3fc4a56722254fffaf92",
+          "executable": false
+        },
+        "docs/usage/README.md": {
+          "type": "file",
+          "sha256": "94634ee68060ec4d470173cf6894a6a697bd2507f1bd2b5c9f262846d270f3cc",
+          "executable": false
+        },
+        "docs/usage/reference.md": {
+          "type": "file",
+          "sha256": "80ce077061b3d7ae56331689ba66412b840dffeee59fd045349054c0af76811a",
+          "executable": false
         }
       }
     },
@@ -1353,6 +1461,457 @@
     ],
     "observation": {
       "files": {
+        ".agents/skills/LICENSE.humanlayer-skills": {
+          "type": "file",
+          "sha256": "5f13c18ea00ea5c1384f41745feeca774079164f7f59a92e4ac0899ad217b26f",
+          "executable": false
+        },
+        ".agents/skills/LICENSE.mattpocock-skills": {
+          "type": "file",
+          "sha256": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5",
+          "executable": false
+        },
+        ".agents/skills/babysit/SKILL.md": {
+          "type": "file",
+          "sha256": "5e3a33c571b8d09983b6a18600ecf7b218b487c5ea111712728fe1a808241387",
+          "executable": false
+        },
+        ".agents/skills/babysit/merge.mjs": {
+          "type": "file",
+          "sha256": "f1ba69545f9e7234666e76e1bb64283378419f9e6af963753d141107438b8d3e",
+          "executable": false
+        },
+        ".agents/skills/babysit/pull-request-reviewer.mjs": {
+          "type": "file",
+          "sha256": "661a5832f8386352d9f9f7e4f58c6f467a63b56b6b49edb41514266a4ed858d1",
+          "executable": false
+        },
+        ".agents/skills/babysit/reviewer.mjs": {
+          "type": "file",
+          "sha256": "bda1879ccbf256b0da6ab17857e158555068bde14f4f277307ba3d99a110275d",
+          "executable": false
+        },
+        ".agents/skills/babysit/wait.mjs": {
+          "type": "file",
+          "sha256": "93e4f0658510fb799009bf7681ff1844679ed496db648fb6fd8fe90ec9d72124",
+          "executable": false
+        },
+        ".agents/skills/code-review/SKILL.md": {
+          "type": "file",
+          "sha256": "47f4e52c21694def9c7c11cbfbf891ca35eac7a93e395797515be3c8a409ae50",
+          "executable": false
+        },
+        ".agents/skills/code-review/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "8229ca854e11dc8e6aef2131ee03f31fb1561cf905fab9ccc325180cf3331352",
+          "executable": false
+        },
+        ".agents/skills/codebase-design/DEEPENING.md": {
+          "type": "file",
+          "sha256": "f3dd099ce99289bd213914d8ee3e2429b78309c3957ca4583f7659551b1d53c1",
+          "executable": false
+        },
+        ".agents/skills/codebase-design/DESIGN-IT-TWICE.md": {
+          "type": "file",
+          "sha256": "52b52e75655a27aea59c6966b410bac82448968ad46ef1ebb9f07c274e3ae010",
+          "executable": false
+        },
+        ".agents/skills/codebase-design/SKILL.md": {
+          "type": "file",
+          "sha256": "2c20617f87ec8af6a434859f381b2f061a69b530444e74eb39e78bb016a6d1e2",
+          "executable": false
+        },
+        ".agents/skills/codebase-design/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "edebc9e4fcfe102114012575eaa9600b9b5fd08c311664f389c36e7bc717740f",
+          "executable": false
+        },
+        ".agents/skills/diagnosing-bugs/SKILL.md": {
+          "type": "file",
+          "sha256": "9168404abda0967a5d32977e3498cd95fda6807018852f3de736a78357c82b40",
+          "executable": false
+        },
+        ".agents/skills/diagnosing-bugs/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "3e430dbe4334a87597488c060cb3dc3786bb00c9182877d6f5ec41f62490e90b",
+          "executable": false
+        },
+        ".agents/skills/diagnosing-bugs/scripts/hitl-loop.template.sh": {
+          "type": "file",
+          "sha256": "35103539fc36873eea36074769ad454f9379d6fc8b2dc0e26ce987fd3bfe5503",
+          "executable": false
+        },
+        ".agents/skills/domain-modeling/ADR-FORMAT.md": {
+          "type": "file",
+          "sha256": "944c92aa790e8fbdc9199640b170979abb8a34ba8d0fe18c2a01a63bce140ca0",
+          "executable": false
+        },
+        ".agents/skills/domain-modeling/GLOSSARY-FORMAT.md": {
+          "type": "file",
+          "sha256": "21dcc40cdec8e151a829b98ab1517c1867bc444e3665134a98c6983411996801",
+          "executable": false
+        },
+        ".agents/skills/domain-modeling/SKILL.md": {
+          "type": "file",
+          "sha256": "7b925d7b1e341a2eeae33ad68a8a8c0ab889a38ddd22a7598e4c240e5a7556a3",
+          "executable": false
+        },
+        ".agents/skills/domain-modeling/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "f6bf2aa996c6e6f53fdd0708e18a0d16a56aed8322cca59fedbe3c0d2c75f06b",
+          "executable": false
+        },
+        ".agents/skills/grill-with-docs/SKILL.md": {
+          "type": "file",
+          "sha256": "7de372c13488f1ee96cc11cd8907b56b6809cc93eef776eeddd37de6b6cbe3fe",
+          "executable": false
+        },
+        ".agents/skills/grill-with-docs/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "94cd0ab161fb468a836349f5ed482ba58ce8e709a05c57ce533d739dbd35cca9",
+          "executable": false
+        },
+        ".agents/skills/grilling/SKILL.md": {
+          "type": "file",
+          "sha256": "10ff989e7498b23b5acb49d5048f11dcd906757d2f79c5cdf8a00001381296f2",
+          "executable": false
+        },
+        ".agents/skills/grilling/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "1411d7df7d99b7e621a1ff8283c8133cc2464be63d064e52d8ce169c6800ee9b",
+          "executable": false
+        },
+        ".agents/skills/implement/SKILL.md": {
+          "type": "file",
+          "sha256": "6d3fd9e83b8f36e5213854779db49b256a457a7ebb4a503e53fa7dcff696adc3",
+          "executable": false
+        },
+        ".agents/skills/implement/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "8970a8596ade0c28ab427f41a4ea242d6bdf6186c59ebf55e1238dbecaab79dc",
+          "executable": false
+        },
+        ".agents/skills/improve-codebase-architecture/HTML-REPORT.md": {
+          "type": "file",
+          "sha256": "581e8bb5a521e46bbda8ca7e19b15948bed882187108092ebb90c62513b77528",
+          "executable": false
+        },
+        ".agents/skills/improve-codebase-architecture/SKILL.md": {
+          "type": "file",
+          "sha256": "552240a5ab5cec6b67c15dd1ad6e9f6962b1bca6ce870059a8c2713760c20392",
+          "executable": false
+        },
+        ".agents/skills/improve-codebase-architecture/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "c8cb20f68ebf0edb4e497bc11ae5fcaa196004e661cd189015b04f4109ced7f1",
+          "executable": false
+        },
+        ".agents/skills/pr/CREDITS.md": {
+          "type": "file",
+          "sha256": "a7a087127665d7298a72280ef6e19c41ad8404523712a788c8dc3ab414bc2497",
+          "executable": false
+        },
+        ".agents/skills/pr/SKILL.md": {
+          "type": "file",
+          "sha256": "ab63f1cf78647389edcd386c9427c5dfca27ed2836930c24773ffee834c19bcd",
+          "executable": false
+        },
+        ".agents/skills/pr/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "2295b586624db4ef546f3fd4695492f039d941a46d8a1593a702ce3ca511b8ad",
+          "executable": false
+        },
+        ".agents/skills/prototype/LOGIC.md": {
+          "type": "file",
+          "sha256": "f61c7d249e786a79ef289018901c348271e1798dd0b0bc5607b5c6f4d4a01ab9",
+          "executable": false
+        },
+        ".agents/skills/prototype/SKILL.md": {
+          "type": "file",
+          "sha256": "714de632d116bb73f65cdb5a882db15b9369a6713b9a47c0fad827848f0bfbe3",
+          "executable": false
+        },
+        ".agents/skills/prototype/UI.md": {
+          "type": "file",
+          "sha256": "723211e878acbc7b6ff09755263f3295cde724ba902ff0064da41eed51d45ad3",
+          "executable": false
+        },
+        ".agents/skills/prototype/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "5af65e43ab41a350436697b81e27b7f848d36782043b73c322bb2c9fa9cc55dc",
+          "executable": false
+        },
+        ".agents/skills/repository-standards/SKILL.md": {
+          "type": "file",
+          "sha256": "4e331d32a27f003027cfbcfce376f49c8e0743142dc6cd653fe7e31052f61450",
+          "executable": false
+        },
+        ".agents/skills/repository-standards/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935",
+          "executable": false
+        },
+        ".agents/skills/research/SKILL.md": {
+          "type": "file",
+          "sha256": "985569f15739c713d6784887c3d186d4ef9ac85bec5ad9c068d25bf0739928e4",
+          "executable": false
+        },
+        ".agents/skills/research/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "9b4c470d63221c1f68f22df70b83e2f12401b317babe0d1b7b5f24a974474d0d",
+          "executable": false
+        },
+        ".agents/skills/tdd/SKILL.md": {
+          "type": "file",
+          "sha256": "93ea419b76e9caaf26153b828e984f7c3fb136f4caa67b14af95f32ea965a1cc",
+          "executable": false
+        },
+        ".agents/skills/tdd/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "ea6f01cf1b8c06a4b0f5b649d74b1b8ce8685e72af1b38d70d877693e092af0b",
+          "executable": false
+        },
+        ".agents/skills/tdd/mocking.md": {
+          "type": "file",
+          "sha256": "3ceb807fdf4a47d6a93d4d9a891e5ba6d362a6247bd08adc451feebfc17361ef",
+          "executable": false
+        },
+        ".agents/skills/tdd/tests.md": {
+          "type": "file",
+          "sha256": "859f9e592c188fda4fc7277dd180e4ce9c7a2e13f6efe1f6f29eccc9d28c106a",
+          "executable": false
+        },
+        ".agents/skills/to-spec/SKILL.md": {
+          "type": "file",
+          "sha256": "43ad9cf318e5e7d3d1fa360253a37021796dc87a0c2e595ad262661a10f85088",
+          "executable": false
+        },
+        ".agents/skills/to-spec/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "1c5b4d1e3d8e52287ef19cc2742fdbbfae1914ac75d33af3e4c8174f08cc55bb",
+          "executable": false
+        },
+        ".agents/skills/to-tickets/SKILL.md": {
+          "type": "file",
+          "sha256": "5c9fba69845c2519b9b35b9af42ae5142c21f8ca15ac2123dc2722002c8058ae",
+          "executable": false
+        },
+        ".agents/skills/to-tickets/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "21bc6215fffcd7614e9f772bb1760e87cc5fc7dcc707e7d282bc9414267a6090",
+          "executable": false
+        },
+        ".agents/skills/triage/AGENT-BRIEF.md": {
+          "type": "file",
+          "sha256": "f308022030970cefcc69167df642641e4a5419f5e8c4fe34c7453f5aa17b2d32",
+          "executable": false
+        },
+        ".agents/skills/triage/CREDITS.md": {
+          "type": "file",
+          "sha256": "6193dee40b565d8b6da1c527005ea6ae5881ef6c5e451b6c63405dafd1ef9196",
+          "executable": false
+        },
+        ".agents/skills/triage/OUT-OF-SCOPE.md": {
+          "type": "file",
+          "sha256": "1fbf9b432130c6380aa65813b55553cfda150309b27c595e183f8e335b8a190d",
+          "executable": false
+        },
+        ".agents/skills/triage/SKILL.md": {
+          "type": "file",
+          "sha256": "b271b22439d2ce8a1c19367723b24d17a2034446b3ff6804c54bbdd81368c548",
+          "executable": false
+        },
+        ".agents/skills/triage/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "2e683717720cf456d165d0bb1a68bb600d0b6a8ccb61841c172e50d26f95351c",
+          "executable": false
+        },
+        ".agents/skills/wayfinder/SKILL.md": {
+          "type": "file",
+          "sha256": "fee6e1d0c50f0e736b4ef8a599060c959afae904c9a97d82c97f049fcc3aa0f1",
+          "executable": false
+        },
+        ".agents/skills/wayfinder/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "88bc81a11a6d52ac67aeaa76b8b619e387020d47c5133a4dd4927fd15c4ad073",
+          "executable": false
+        },
+        ".agents/skills/writing-for-agents/SKILL-MECHANICS.md": {
+          "type": "file",
+          "sha256": "c768e6307c7c10728c401c213f2c4ba71c542127eeb7ad2956aabd15a0fa0059",
+          "executable": false
+        },
+        ".agents/skills/writing-for-agents/SKILL.md": {
+          "type": "file",
+          "sha256": "551adca942227b44192edba88acd4e8db911f0121ce58ad16944ccf6a896a74a",
+          "executable": false
+        },
+        ".agents/skills/writing-for-agents/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "eacb24b2a618cfb81dacb0416f4fdd75ddf3a8060f8ddb99aae1b1e301907e4b",
+          "executable": false
+        },
+        ".claude/skills/babysit": {
+          "type": "symlink",
+          "target": "../../.agents/skills/babysit"
+        },
+        ".claude/skills/code-review": {
+          "type": "symlink",
+          "target": "../../.agents/skills/code-review"
+        },
+        ".claude/skills/codebase-design": {
+          "type": "symlink",
+          "target": "../../.agents/skills/codebase-design"
+        },
+        ".claude/skills/diagnosing-bugs": {
+          "type": "symlink",
+          "target": "../../.agents/skills/diagnosing-bugs"
+        },
+        ".claude/skills/domain-modeling": {
+          "type": "symlink",
+          "target": "../../.agents/skills/domain-modeling"
+        },
+        ".claude/skills/grill-with-docs": {
+          "type": "symlink",
+          "target": "../../.agents/skills/grill-with-docs"
+        },
+        ".claude/skills/grilling": {
+          "type": "symlink",
+          "target": "../../.agents/skills/grilling"
+        },
+        ".claude/skills/implement": {
+          "type": "symlink",
+          "target": "../../.agents/skills/implement"
+        },
+        ".claude/skills/improve-codebase-architecture": {
+          "type": "symlink",
+          "target": "../../.agents/skills/improve-codebase-architecture"
+        },
+        ".claude/skills/pr": {
+          "type": "symlink",
+          "target": "../../.agents/skills/pr"
+        },
+        ".claude/skills/prototype": {
+          "type": "symlink",
+          "target": "../../.agents/skills/prototype"
+        },
+        ".claude/skills/repository-standards": {
+          "type": "symlink",
+          "target": "../../.agents/skills/repository-standards"
+        },
+        ".claude/skills/research": {
+          "type": "symlink",
+          "target": "../../.agents/skills/research"
+        },
+        ".claude/skills/tdd": {
+          "type": "symlink",
+          "target": "../../.agents/skills/tdd"
+        },
+        ".claude/skills/to-spec": {
+          "type": "symlink",
+          "target": "../../.agents/skills/to-spec"
+        },
+        ".claude/skills/to-tickets": {
+          "type": "symlink",
+          "target": "../../.agents/skills/to-tickets"
+        },
+        ".claude/skills/triage": {
+          "type": "symlink",
+          "target": "../../.agents/skills/triage"
+        },
+        ".claude/skills/wayfinder": {
+          "type": "symlink",
+          "target": "../../.agents/skills/wayfinder"
+        },
+        ".claude/skills/writing-for-agents": {
+          "type": "symlink",
+          "target": "../../.agents/skills/writing-for-agents"
+        },
+        ".factory/Dockerfile": {
+          "type": "file",
+          "sha256": "eb8bbe4439c67956bba4da86620a757bcf1d7c49d8dcd9a19c50f22ef0cce97d",
+          "executable": false
+        },
+        ".factory/config.json": {
+          "type": "file",
+          "sha256": "9de48af731c45f963a613a6b77668ce9727834ae5a2d9b92af1c5ffcb18a1c07",
+          "executable": false
+        },
+        ".github/ISSUE_TEMPLATE/bug-report.yml": {
+          "type": "file",
+          "sha256": "5fca3bab67073fdb827cd5eb88d9c413ac1e1df2891a85c7938420dcb1e3dfed",
+          "executable": false
+        },
+        ".github/ISSUE_TEMPLATE/feature-request.yml": {
+          "type": "file",
+          "sha256": "d3df4f5c27dd7b7a22d0baec1a52a1dc3301c002549f8634392a3abd26566505",
+          "executable": false
+        },
+        ".github/ISSUE_TEMPLATE/implementation-ticket.yml": {
+          "type": "file",
+          "sha256": "d452da0ad9e39173f681b699d3848a00ab3466b55be508cc3f36d7731083bff6",
+          "executable": false
+        },
+        ".github/ISSUE_TEMPLATE/specification.yml": {
+          "type": "file",
+          "sha256": "77b6359750ff03695a1dc19ee121e664787f4a6954cd9847277ab40fb6b22dfd",
+          "executable": false
+        },
+        ".github/PULL_REQUEST_TEMPLATE.md": {
+          "type": "file",
+          "sha256": "7dcc5881eef1c342a08519750b9beae700f4620d1fdf23c2eb0d9b2dfaec5fd0",
+          "executable": false
+        },
+        ".github/pull-request-reviewer.json": {
+          "type": "file",
+          "sha256": "23871284e178d7da40b87e9b42c4fbc292aac47a781c95543375a084f133a428",
+          "executable": false
+        },
+        ".github/scripts/validate-pr-metadata.mjs": {
+          "type": "file",
+          "sha256": "967c93f5cb5057d50e1fd7b7315fd520ae10558e47f45ef5d286e79ab5fadcf0",
+          "executable": false
+        },
+        ".github/workflows/ci.yml": {
+          "type": "file",
+          "sha256": "bbd420b456e20f8f25f5fbcdffdf3140e7d77e63f12034dacf6de587946ea739",
+          "executable": false
+        },
+        ".github/workflows/issue-contracts.yml": {
+          "type": "file",
+          "sha256": "edcc96d6d8e040a55cd30ea2109d1291322a85bb66ea9d3a5dbbb43fa00a4588",
+          "executable": false
+        },
+        ".github/workflows/pr-metadata.yml": {
+          "type": "file",
+          "sha256": "cb718da096023298e44b962dbb60a42fb0dce52ec0c98f25b9a6307d9e94eac3",
+          "executable": false
+        },
+        ".github/workflows/release.yml": {
+          "type": "file",
+          "sha256": "9ea59d2bb4c941371f260515de81a67b8fab4607d4acbb8ece516ca7747b103a",
+          "executable": false
+        },
+        ".github/workflows/sandbox-image.yml": {
+          "type": "file",
+          "sha256": "598ab9931a8cfc63a3e1d2487fb151eca9b134a5e9a4e3bfa20d4b87b96399b3",
+          "executable": false
+        },
+        ".gitignore": {
+          "type": "file",
+          "sha256": "3fdd6f211c886a86da718ba5353174d7ec51936679d184fd28ba2f17b9c61d81",
+          "executable": false
+        },
+        "AGENTS.md": {
+          "type": "file",
+          "sha256": "b07aea42b68e26527216b901bd262e69347e6993d387ad04c6a234766e728937",
+          "executable": false
+        },
+        "CONTRIBUTING.md": {
+          "type": "file",
+          "sha256": "956a4dec63a5c557e205ce291441ee17a51de14a0d72c290412d8556deb34a81",
+          "executable": false
+        },
         "LICENSE": {
           "type": "file",
           "sha256": "a4b5f0efcfeb828c1b344150f3c93af8031174df6147219e00b6a0bd995db6ef",
@@ -1360,17 +1919,814 @@
         },
         "README.md": {
           "type": "file",
-          "sha256": "8c01dd1d36e907069ab09c46574acb3054a04d6c20685d7fde4f3e137bb56367",
+          "sha256": "6522f85019faba0f91e39eba845bee526181feaf9efcb078c07ee78575e9cbd1",
+          "executable": false
+        },
+        "docs/README.md": {
+          "type": "file",
+          "sha256": "20a8c0fa0773ccb8edadc9a46a5aa9959519f68545796c92b6acbc94f2f49b9e",
+          "executable": false
+        },
+        "docs/adr/0001-facts-only-ports-with-platform-adapters.md": {
+          "type": "file",
+          "sha256": "e95212bcbed60778e5c7174325fca7d6c938f2c598c645a910adc0d4f6b2ba2b",
+          "executable": false
+        },
+        "docs/adr/README.md": {
+          "type": "file",
+          "sha256": "6b369962bc5c104b3629fa8e95ca2a1cb623736ebd521f2f859b88d7edf17da0",
+          "executable": false
+        },
+        "docs/agents/README.md": {
+          "type": "file",
+          "sha256": "a78a8a4934c9de37cfcd11be23ce3dd58462108fa53b6cdaead4af18ca7e773b",
+          "executable": false
+        },
+        "docs/agents/domain.md": {
+          "type": "file",
+          "sha256": "593a7042218689f1d24df89df14eaf0a20e19e0d0a7d479a01947ac78f0784b9",
+          "executable": false
+        },
+        "docs/agents/issue-tracker.md": {
+          "type": "file",
+          "sha256": "afd6852a80185217bd28aa5cbe456bef1e85be25be7bd1fba382d5b8ee428325",
+          "executable": false
+        },
+        "docs/agents/triage-labels.md": {
+          "type": "file",
+          "sha256": "4f53c9b40ce2651e3611aa090eaedbd6dbc9b71ef8c5f7e65eac0d8263190d0d",
+          "executable": false
+        },
+        "docs/development/README.md": {
+          "type": "file",
+          "sha256": "febd293e569f9ad685791e930b975cfaf38b107b34a8cb3224237b043ecaa9db",
+          "executable": false
+        },
+        "docs/development/release.md": {
+          "type": "file",
+          "sha256": "49eb0f45e74a2573790af2964b856bbf6d070abe857a3e1b3c632fe58d24d33b",
+          "executable": false
+        },
+        "docs/development/source-layout.md": {
+          "type": "file",
+          "sha256": "90bc7061a0103fdb026745a96624db55883f57899bac3fc4a56722254fffaf92",
+          "executable": false
+        },
+        "docs/usage/README.md": {
+          "type": "file",
+          "sha256": "94634ee68060ec4d470173cf6894a6a697bd2507f1bd2b5c9f262846d270f3cc",
+          "executable": false
+        },
+        "docs/usage/reference.md": {
+          "type": "file",
+          "sha256": "80ce077061b3d7ae56331689ba66412b840dffeee59fd045349054c0af76811a",
+          "executable": false
+        },
+        "operations/lib/rendered-markdown.mjs": {
+          "type": "file",
+          "sha256": "b885d1cd1650e61c616b6f2917b4074bc752282626b4d5eee01df4d5a923b267",
+          "executable": false
+        },
+        "package-lock.json": {
+          "type": "file",
+          "sha256": "27ec10e7b3bf799324f1aa7ec7fffb4d4a70e63405259c45ebd7b125bbae150e",
+          "executable": false
+        },
+        "package.json": {
+          "type": "file",
+          "sha256": "94fff6bf0659c6ac12f082e7a081ad82d0faa09b72136ac94586044696e19829",
+          "executable": false
+        },
+        "scripts/build.mjs": {
+          "type": "file",
+          "sha256": "4c8674a30749b9567b95ea74f1cd934bbcb176677b8da787dacad5460655a273",
+          "executable": false
+        },
+        "scripts/public-smoke.mjs": {
+          "type": "file",
+          "sha256": "8d936b167ca5031675794043dffdc415d40961a5e31383ba10c5599c778c1dca",
+          "executable": false
+        },
+        "scripts/validate-issue-contract.mjs": {
+          "type": "file",
+          "sha256": "f7e604f218f7aab8eaa53e537aa8bdd079f9208be4f8866b5333278d92d9ea3e",
+          "executable": false
+        },
+        "src/connection.ts": {
+          "type": "file",
+          "sha256": "975716c641d5359dc8269cbd1773e944425d0e537157e28c3e66dde3f99029d9",
+          "executable": false
+        },
+        "src/detect.ts": {
+          "type": "file",
+          "sha256": "560eaf86eb6beebac933227d49ac1137526e100045ff53c8d6a81e0dd6e6b4e0",
+          "executable": false
+        },
+        "src/errors.ts": {
+          "type": "file",
+          "sha256": "591ee1d03c855550f352d35687b7c9b86b22aa0b2e7bb874b66ee685b02523ed",
+          "executable": false
+        },
+        "src/github/adapter.ts": {
+          "type": "file",
+          "sha256": "84f147a065fc79a31a31fe6b531fc69ea0a78c09d43352d0fee3501167b84a38",
+          "executable": false
+        },
+        "src/github/transport.ts": {
+          "type": "file",
+          "sha256": "a1df316f011cd3f814a3e31e825e8ce85213979979751af6d65fe803c7c4f39e",
+          "executable": false
+        },
+        "src/index.ts": {
+          "type": "file",
+          "sha256": "43dca50343c8a89b32d020f6696850583b3df4914acaef67085dc283ac0b57ba",
+          "executable": false
+        },
+        "src/ports.ts": {
+          "type": "file",
+          "sha256": "4c8a799a5570b4227f1076d994f3ed513ed67d9f3545394be036ddb0883dcf7a",
+          "executable": false
+        },
+        "src/secrets.ts": {
+          "type": "file",
+          "sha256": "87fd383bffd0820d7739639655a8fbff3b3e7fc07eb4ba899ac502fa8b323dec",
+          "executable": false
+        },
+        "src/snapshot.ts": {
+          "type": "file",
+          "sha256": "65b8427939333c5fbe56a37d4dc4342f0928c5fab2c742bfdb68c918727562c1",
+          "executable": false
+        },
+        "test/connection.test.ts": {
+          "type": "file",
+          "sha256": "f719a53254fe728a4eca137905b6b7bc2c787af05294c1c1ed2792ef2314afbc",
+          "executable": false
+        },
+        "test/contract/harness.ts": {
+          "type": "file",
+          "sha256": "248831c64068d08d1af93d8f741a9f8ac72bc905aa4df679c0a4209185613a2d",
+          "executable": false
+        },
+        "test/contract/sectioned.test.ts": {
+          "type": "file",
+          "sha256": "4a483ec7ad0b5aed374641cab20bb0d019169e6562da179250b2b1387c4475e3",
+          "executable": false
+        },
+        "test/contract/suite.ts": {
+          "type": "file",
+          "sha256": "b9295e502dff42eab0a93658e8bd8d3e3e610813e6a92bca9de17db6d4eb3afa",
+          "executable": false
+        },
+        "test/detect.test.ts": {
+          "type": "file",
+          "sha256": "2cf540de93ea64efddd271af92e2cfb62e07996a24c55c18ff13644f31d4df98",
+          "executable": false
+        },
+        "test/github/adapter.test.ts": {
+          "type": "file",
+          "sha256": "ba81340930e9c4322b40f609ff596b0f9752eabc827f3216a92f760e1bcabf65",
+          "executable": false
+        },
+        "test/github/contract.test.ts": {
+          "type": "file",
+          "sha256": "a3140003cae182ea40a765c1c3b7487b0a97aacf026980d547f7eb42cf2045e4",
+          "executable": false
+        },
+        "test/github/fake.ts": {
+          "type": "file",
+          "sha256": "04ca8f16eb7080a67c902507caa34b195b205e0194dd141abdbc3ecd235f2059",
+          "executable": false
+        },
+        "test/github/harness.ts": {
+          "type": "file",
+          "sha256": "528a6fb71b1aef112c712192ffed5de9a8dd9fbb8142e81433d9be621e9a6b4c",
+          "executable": false
+        },
+        "test/github/reads.ts": {
+          "type": "file",
+          "sha256": "def612384c240d3e84fdb26dd91db2108cc97316d3f8a382221f8aea6e419d39",
+          "executable": false
+        },
+        "test/github/without-bot-marking.test.ts": {
+          "type": "file",
+          "sha256": "fa4a7b4deb9ba8b9075d22eb5caac7ba3d965b34442bcc890e3636d493a9f7cc",
+          "executable": false
+        },
+        "test/package.test.ts": {
+          "type": "file",
+          "sha256": "e066ce53ad7929345fb5c65e3c3307d096ff5d3d217401ad7d42ef8898c0842a",
+          "executable": false
+        },
+        "test/property/inputs.test.ts": {
+          "type": "file",
+          "sha256": "b5e6de637abc22c22ff3eff612f6ddf3b0fbb935cb8d44b677ed9c146b2d9572",
+          "executable": false
+        },
+        "test/property/random.ts": {
+          "type": "file",
+          "sha256": "a4cb864b8b531c8ad8267aafaa50045f7f3f30109e3fa78666cb76013f3b1f74",
+          "executable": false
+        },
+        "test/property/responses.test.ts": {
+          "type": "file",
+          "sha256": "8e8faaa454e5ef140b084c137379f2dc953f23f85d4e24dc525c0daa0aedf4a5",
+          "executable": false
+        },
+        "test/public-smoke.test.ts": {
+          "type": "file",
+          "sha256": "e6280c6cfb0e5e4b86d0b51c96716d2f92416f24a7e4c2602ed7d334d2dd6c8a",
+          "executable": false
+        },
+        "test/secrets.test.ts": {
+          "type": "file",
+          "sha256": "2e0e30e79b33240bdfdda38536b4ab4779d2c7be4d0921132015aeb1edfbe90c",
+          "executable": false
+        },
+        "tsconfig.build.json": {
+          "type": "file",
+          "sha256": "b37e6c144004011c76d56633e0ea3566a7abd5ee46f8d87df7d16dc9c9962274",
+          "executable": false
+        },
+        "tsconfig.json": {
+          "type": "file",
+          "sha256": "f839e2e280affe346e0dd8ee2db59ebace054683fc61829802b981fd522d7385",
+          "executable": false
+        },
+        "vendor/marked/LICENSE": {
+          "type": "file",
+          "sha256": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
+          "executable": false
+        },
+        "vendor/marked/README.md": {
+          "type": "file",
+          "sha256": "c1f9e95c649e297b482a842c72814efa04b0277f1a3a3c181e637d949b5bedc7",
+          "executable": false
+        },
+        "vendor/marked/marked.esm.js": {
+          "type": "file",
+          "sha256": "2e70fea3ee49f98ab67ee395e5af51cc6bee4fafed15910da9ccb7f650df8014",
+          "executable": false
+        },
+        "vendor/parse5/LICENSE.entities": {
+          "type": "file",
+          "sha256": "cb992345949ccd6e8394b2cd6c465f7b897c864f845937dbf64e8997f389e164",
+          "executable": false
+        },
+        "vendor/parse5/LICENSE.parse5": {
+          "type": "file",
+          "sha256": "8c535800331e1e4439835555b3f9edc7fe9dee2fab0d8bbbd5a982e8b8343d4d",
+          "executable": false
+        },
+        "vendor/parse5/README.md": {
+          "type": "file",
+          "sha256": "8f285afdb9d5eca93648d2ffbea58ea0cea94485f18c3eec6f5825ef1e0446bf",
+          "executable": false
+        },
+        "vendor/parse5/parse5.esm.js": {
+          "type": "file",
+          "sha256": "bdf861eb0bce411afe5fcc312c770c3fe18dac9b5296771d40217d52a6ae7a93",
           "executable": false
         }
       },
       "inventories": {
         ".": [
+          ".agents",
+          ".claude",
+          ".factory",
+          ".github",
+          ".gitignore",
+          "AGENTS.md",
+          "CONTRIBUTING.md",
           "LICENSE",
-          "README.md"
+          "README.md",
+          "docs",
+          "operations",
+          "package-lock.json",
+          "package.json",
+          "scripts",
+          "src",
+          "test",
+          "tsconfig.build.json",
+          "tsconfig.json",
+          "vendor"
+        ],
+        ".agents": [
+          ".agents/skills"
+        ],
+        ".agents/skills": [
+          ".agents/skills/LICENSE.humanlayer-skills",
+          ".agents/skills/LICENSE.mattpocock-skills",
+          ".agents/skills/babysit",
+          ".agents/skills/code-review",
+          ".agents/skills/codebase-design",
+          ".agents/skills/diagnosing-bugs",
+          ".agents/skills/domain-modeling",
+          ".agents/skills/grill-with-docs",
+          ".agents/skills/grilling",
+          ".agents/skills/implement",
+          ".agents/skills/improve-codebase-architecture",
+          ".agents/skills/pr",
+          ".agents/skills/prototype",
+          ".agents/skills/repository-standards",
+          ".agents/skills/research",
+          ".agents/skills/tdd",
+          ".agents/skills/to-spec",
+          ".agents/skills/to-tickets",
+          ".agents/skills/triage",
+          ".agents/skills/wayfinder",
+          ".agents/skills/writing-for-agents"
+        ],
+        ".agents/skills/babysit": [
+          ".agents/skills/babysit/SKILL.md",
+          ".agents/skills/babysit/merge.mjs",
+          ".agents/skills/babysit/pull-request-reviewer.mjs",
+          ".agents/skills/babysit/reviewer.mjs",
+          ".agents/skills/babysit/wait.mjs"
+        ],
+        ".agents/skills/code-review": [
+          ".agents/skills/code-review/SKILL.md",
+          ".agents/skills/code-review/agents"
+        ],
+        ".agents/skills/code-review/agents": [
+          ".agents/skills/code-review/agents/openai.yaml"
+        ],
+        ".agents/skills/codebase-design": [
+          ".agents/skills/codebase-design/DEEPENING.md",
+          ".agents/skills/codebase-design/DESIGN-IT-TWICE.md",
+          ".agents/skills/codebase-design/SKILL.md",
+          ".agents/skills/codebase-design/agents"
+        ],
+        ".agents/skills/codebase-design/agents": [
+          ".agents/skills/codebase-design/agents/openai.yaml"
+        ],
+        ".agents/skills/diagnosing-bugs": [
+          ".agents/skills/diagnosing-bugs/SKILL.md",
+          ".agents/skills/diagnosing-bugs/agents",
+          ".agents/skills/diagnosing-bugs/scripts"
+        ],
+        ".agents/skills/diagnosing-bugs/agents": [
+          ".agents/skills/diagnosing-bugs/agents/openai.yaml"
+        ],
+        ".agents/skills/diagnosing-bugs/scripts": [
+          ".agents/skills/diagnosing-bugs/scripts/hitl-loop.template.sh"
+        ],
+        ".agents/skills/domain-modeling": [
+          ".agents/skills/domain-modeling/ADR-FORMAT.md",
+          ".agents/skills/domain-modeling/GLOSSARY-FORMAT.md",
+          ".agents/skills/domain-modeling/SKILL.md",
+          ".agents/skills/domain-modeling/agents"
+        ],
+        ".agents/skills/domain-modeling/agents": [
+          ".agents/skills/domain-modeling/agents/openai.yaml"
+        ],
+        ".agents/skills/grill-with-docs": [
+          ".agents/skills/grill-with-docs/SKILL.md",
+          ".agents/skills/grill-with-docs/agents"
+        ],
+        ".agents/skills/grill-with-docs/agents": [
+          ".agents/skills/grill-with-docs/agents/openai.yaml"
+        ],
+        ".agents/skills/grilling": [
+          ".agents/skills/grilling/SKILL.md",
+          ".agents/skills/grilling/agents"
+        ],
+        ".agents/skills/grilling/agents": [
+          ".agents/skills/grilling/agents/openai.yaml"
+        ],
+        ".agents/skills/implement": [
+          ".agents/skills/implement/SKILL.md",
+          ".agents/skills/implement/agents"
+        ],
+        ".agents/skills/implement/agents": [
+          ".agents/skills/implement/agents/openai.yaml"
+        ],
+        ".agents/skills/improve-codebase-architecture": [
+          ".agents/skills/improve-codebase-architecture/HTML-REPORT.md",
+          ".agents/skills/improve-codebase-architecture/SKILL.md",
+          ".agents/skills/improve-codebase-architecture/agents"
+        ],
+        ".agents/skills/improve-codebase-architecture/agents": [
+          ".agents/skills/improve-codebase-architecture/agents/openai.yaml"
+        ],
+        ".agents/skills/pr": [
+          ".agents/skills/pr/CREDITS.md",
+          ".agents/skills/pr/SKILL.md",
+          ".agents/skills/pr/agents"
+        ],
+        ".agents/skills/pr/agents": [
+          ".agents/skills/pr/agents/openai.yaml"
+        ],
+        ".agents/skills/prototype": [
+          ".agents/skills/prototype/LOGIC.md",
+          ".agents/skills/prototype/SKILL.md",
+          ".agents/skills/prototype/UI.md",
+          ".agents/skills/prototype/agents"
+        ],
+        ".agents/skills/prototype/agents": [
+          ".agents/skills/prototype/agents/openai.yaml"
+        ],
+        ".agents/skills/repository-standards": [
+          ".agents/skills/repository-standards/SKILL.md",
+          ".agents/skills/repository-standards/agents"
+        ],
+        ".agents/skills/repository-standards/agents": [
+          ".agents/skills/repository-standards/agents/openai.yaml"
+        ],
+        ".agents/skills/research": [
+          ".agents/skills/research/SKILL.md",
+          ".agents/skills/research/agents"
+        ],
+        ".agents/skills/research/agents": [
+          ".agents/skills/research/agents/openai.yaml"
+        ],
+        ".agents/skills/tdd": [
+          ".agents/skills/tdd/SKILL.md",
+          ".agents/skills/tdd/agents",
+          ".agents/skills/tdd/mocking.md",
+          ".agents/skills/tdd/tests.md"
+        ],
+        ".agents/skills/tdd/agents": [
+          ".agents/skills/tdd/agents/openai.yaml"
+        ],
+        ".agents/skills/to-spec": [
+          ".agents/skills/to-spec/SKILL.md",
+          ".agents/skills/to-spec/agents"
+        ],
+        ".agents/skills/to-spec/agents": [
+          ".agents/skills/to-spec/agents/openai.yaml"
+        ],
+        ".agents/skills/to-tickets": [
+          ".agents/skills/to-tickets/SKILL.md",
+          ".agents/skills/to-tickets/agents"
+        ],
+        ".agents/skills/to-tickets/agents": [
+          ".agents/skills/to-tickets/agents/openai.yaml"
+        ],
+        ".agents/skills/triage": [
+          ".agents/skills/triage/AGENT-BRIEF.md",
+          ".agents/skills/triage/CREDITS.md",
+          ".agents/skills/triage/OUT-OF-SCOPE.md",
+          ".agents/skills/triage/SKILL.md",
+          ".agents/skills/triage/agents"
+        ],
+        ".agents/skills/triage/agents": [
+          ".agents/skills/triage/agents/openai.yaml"
+        ],
+        ".agents/skills/wayfinder": [
+          ".agents/skills/wayfinder/SKILL.md",
+          ".agents/skills/wayfinder/agents"
+        ],
+        ".agents/skills/wayfinder/agents": [
+          ".agents/skills/wayfinder/agents/openai.yaml"
+        ],
+        ".agents/skills/writing-for-agents": [
+          ".agents/skills/writing-for-agents/SKILL-MECHANICS.md",
+          ".agents/skills/writing-for-agents/SKILL.md",
+          ".agents/skills/writing-for-agents/agents"
+        ],
+        ".agents/skills/writing-for-agents/agents": [
+          ".agents/skills/writing-for-agents/agents/openai.yaml"
+        ],
+        ".claude": [
+          ".claude/skills"
+        ],
+        ".claude/skills": [
+          ".claude/skills/babysit",
+          ".claude/skills/code-review",
+          ".claude/skills/codebase-design",
+          ".claude/skills/diagnosing-bugs",
+          ".claude/skills/domain-modeling",
+          ".claude/skills/grill-with-docs",
+          ".claude/skills/grilling",
+          ".claude/skills/implement",
+          ".claude/skills/improve-codebase-architecture",
+          ".claude/skills/pr",
+          ".claude/skills/prototype",
+          ".claude/skills/repository-standards",
+          ".claude/skills/research",
+          ".claude/skills/tdd",
+          ".claude/skills/to-spec",
+          ".claude/skills/to-tickets",
+          ".claude/skills/triage",
+          ".claude/skills/wayfinder",
+          ".claude/skills/writing-for-agents"
+        ],
+        ".factory": [
+          ".factory/Dockerfile",
+          ".factory/config.json"
+        ],
+        ".github": [
+          ".github/ISSUE_TEMPLATE",
+          ".github/PULL_REQUEST_TEMPLATE.md",
+          ".github/pull-request-reviewer.json",
+          ".github/scripts",
+          ".github/workflows"
+        ],
+        ".github/ISSUE_TEMPLATE": [
+          ".github/ISSUE_TEMPLATE/bug-report.yml",
+          ".github/ISSUE_TEMPLATE/feature-request.yml",
+          ".github/ISSUE_TEMPLATE/implementation-ticket.yml",
+          ".github/ISSUE_TEMPLATE/specification.yml"
+        ],
+        ".github/scripts": [
+          ".github/scripts/validate-pr-metadata.mjs"
+        ],
+        ".github/workflows": [
+          ".github/workflows/ci.yml",
+          ".github/workflows/issue-contracts.yml",
+          ".github/workflows/pr-metadata.yml",
+          ".github/workflows/release.yml",
+          ".github/workflows/sandbox-image.yml"
+        ],
+        "docs": [
+          "docs/README.md",
+          "docs/adr",
+          "docs/agents",
+          "docs/development",
+          "docs/usage"
+        ],
+        "docs/adr": [
+          "docs/adr/0001-facts-only-ports-with-platform-adapters.md",
+          "docs/adr/README.md"
+        ],
+        "docs/agents": [
+          "docs/agents/README.md",
+          "docs/agents/domain.md",
+          "docs/agents/issue-tracker.md",
+          "docs/agents/triage-labels.md"
+        ],
+        "docs/development": [
+          "docs/development/README.md",
+          "docs/development/release.md",
+          "docs/development/source-layout.md"
+        ],
+        "docs/usage": [
+          "docs/usage/README.md",
+          "docs/usage/reference.md"
+        ],
+        "operations": [
+          "operations/lib"
+        ],
+        "operations/lib": [
+          "operations/lib/rendered-markdown.mjs"
+        ],
+        "scripts": [
+          "scripts/build.mjs",
+          "scripts/public-smoke.mjs",
+          "scripts/validate-issue-contract.mjs"
+        ],
+        "src": [
+          "src/connection.ts",
+          "src/detect.ts",
+          "src/errors.ts",
+          "src/github",
+          "src/index.ts",
+          "src/ports.ts",
+          "src/secrets.ts",
+          "src/snapshot.ts"
+        ],
+        "src/github": [
+          "src/github/adapter.ts",
+          "src/github/transport.ts"
+        ],
+        "test": [
+          "test/connection.test.ts",
+          "test/contract",
+          "test/detect.test.ts",
+          "test/github",
+          "test/package.test.ts",
+          "test/property",
+          "test/public-smoke.test.ts",
+          "test/secrets.test.ts"
+        ],
+        "test/contract": [
+          "test/contract/harness.ts",
+          "test/contract/sectioned.test.ts",
+          "test/contract/suite.ts"
+        ],
+        "test/github": [
+          "test/github/adapter.test.ts",
+          "test/github/contract.test.ts",
+          "test/github/fake.ts",
+          "test/github/harness.ts",
+          "test/github/reads.ts",
+          "test/github/without-bot-marking.test.ts"
+        ],
+        "test/property": [
+          "test/property/inputs.test.ts",
+          "test/property/random.ts",
+          "test/property/responses.test.ts"
+        ],
+        "vendor": [
+          "vendor/marked",
+          "vendor/parse5"
+        ],
+        "vendor/marked": [
+          "vendor/marked/LICENSE",
+          "vendor/marked/README.md",
+          "vendor/marked/marked.esm.js"
+        ],
+        "vendor/parse5": [
+          "vendor/parse5/LICENSE.entities",
+          "vendor/parse5/LICENSE.parse5",
+          "vendor/parse5/README.md",
+          "vendor/parse5/parse5.esm.js"
         ]
       },
-      "boundaries": {},
+      "boundaries": {
+        ".agents": {
+          "type": "directory"
+        },
+        ".agents/skills": {
+          "type": "directory"
+        },
+        ".agents/skills/babysit": {
+          "type": "directory"
+        },
+        ".agents/skills/code-review": {
+          "type": "directory"
+        },
+        ".agents/skills/code-review/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/codebase-design": {
+          "type": "directory"
+        },
+        ".agents/skills/codebase-design/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/diagnosing-bugs": {
+          "type": "directory"
+        },
+        ".agents/skills/diagnosing-bugs/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/diagnosing-bugs/scripts": {
+          "type": "directory"
+        },
+        ".agents/skills/domain-modeling": {
+          "type": "directory"
+        },
+        ".agents/skills/domain-modeling/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/grill-with-docs": {
+          "type": "directory"
+        },
+        ".agents/skills/grill-with-docs/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/grilling": {
+          "type": "directory"
+        },
+        ".agents/skills/grilling/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/implement": {
+          "type": "directory"
+        },
+        ".agents/skills/implement/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/improve-codebase-architecture": {
+          "type": "directory"
+        },
+        ".agents/skills/improve-codebase-architecture/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/pr": {
+          "type": "directory"
+        },
+        ".agents/skills/pr/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/prototype": {
+          "type": "directory"
+        },
+        ".agents/skills/prototype/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/repository-standards": {
+          "type": "directory"
+        },
+        ".agents/skills/repository-standards/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/research": {
+          "type": "directory"
+        },
+        ".agents/skills/research/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/tdd": {
+          "type": "directory"
+        },
+        ".agents/skills/tdd/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/to-spec": {
+          "type": "directory"
+        },
+        ".agents/skills/to-spec/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/to-tickets": {
+          "type": "directory"
+        },
+        ".agents/skills/to-tickets/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/triage": {
+          "type": "directory"
+        },
+        ".agents/skills/triage/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/wayfinder": {
+          "type": "directory"
+        },
+        ".agents/skills/wayfinder/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/writing-for-agents": {
+          "type": "directory"
+        },
+        ".agents/skills/writing-for-agents/agents": {
+          "type": "directory"
+        },
+        ".claude": {
+          "type": "directory"
+        },
+        ".claude/skills": {
+          "type": "directory"
+        },
+        ".factory": {
+          "type": "directory"
+        },
+        ".github": {
+          "type": "directory"
+        },
+        ".github/ISSUE_TEMPLATE": {
+          "type": "directory"
+        },
+        ".github/scripts": {
+          "type": "directory"
+        },
+        ".github/workflows": {
+          "type": "directory"
+        },
+        "docs": {
+          "type": "directory"
+        },
+        "docs/adr": {
+          "type": "directory"
+        },
+        "docs/agents": {
+          "type": "directory"
+        },
+        "docs/development": {
+          "type": "directory"
+        },
+        "docs/usage": {
+          "type": "directory"
+        },
+        "operations": {
+          "type": "directory"
+        },
+        "operations/lib": {
+          "type": "directory"
+        },
+        "scripts": {
+          "type": "directory"
+        },
+        "src": {
+          "type": "directory"
+        },
+        "src/github": {
+          "type": "directory"
+        },
+        "test": {
+          "type": "directory"
+        },
+        "test/contract": {
+          "type": "directory"
+        },
+        "test/github": {
+          "type": "directory"
+        },
+        "test/property": {
+          "type": "directory"
+        },
+        "vendor": {
+          "type": "directory"
+        },
+        "vendor/marked": {
+          "type": "directory"
+        },
+        "vendor/parse5": {
+          "type": "directory"
+        }
+      },
       "targets": {},
       "settings": {
         "core.ignorecase": null,
@@ -1390,6 +2746,200 @@
           "executable": false
         },
         ".gitignore": {
+          "type": "file",
+          "sha256": "3fdd6f211c886a86da718ba5353174d7ec51936679d184fd28ba2f17b9c61d81",
+          "executable": false
+        },
+        ".agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/babysit/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/code-review/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/code-review/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/codebase-design/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/codebase-design/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/diagnosing-bugs/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/diagnosing-bugs/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/diagnosing-bugs/scripts/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/domain-modeling/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/domain-modeling/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/grill-with-docs/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/grill-with-docs/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/grilling/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/grilling/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/implement/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/implement/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/improve-codebase-architecture/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/improve-codebase-architecture/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/pr/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/pr/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/prototype/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/prototype/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/repository-standards/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/repository-standards/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/research/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/research/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/tdd/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/tdd/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/to-spec/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/to-spec/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/to-tickets/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/to-tickets/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/triage/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/triage/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/wayfinder/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/wayfinder/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/writing-for-agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/writing-for-agents/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".claude/.gitignore": {
+          "type": "missing"
+        },
+        ".claude/skills/.gitignore": {
+          "type": "missing"
+        },
+        ".factory/.gitignore": {
+          "type": "missing"
+        },
+        ".github/.gitignore": {
+          "type": "missing"
+        },
+        ".github/ISSUE_TEMPLATE/.gitignore": {
+          "type": "missing"
+        },
+        ".github/scripts/.gitignore": {
+          "type": "missing"
+        },
+        ".github/workflows/.gitignore": {
+          "type": "missing"
+        },
+        "docs/.gitignore": {
+          "type": "missing"
+        },
+        "docs/adr/.gitignore": {
+          "type": "missing"
+        },
+        "docs/agents/.gitignore": {
+          "type": "missing"
+        },
+        "docs/development/.gitignore": {
+          "type": "missing"
+        },
+        "docs/usage/.gitignore": {
+          "type": "missing"
+        },
+        "operations/.gitignore": {
+          "type": "missing"
+        },
+        "operations/lib/.gitignore": {
+          "type": "missing"
+        },
+        "scripts/.gitignore": {
+          "type": "missing"
+        },
+        "src/.gitignore": {
+          "type": "missing"
+        },
+        "src/github/.gitignore": {
+          "type": "missing"
+        },
+        "test/.gitignore": {
+          "type": "missing"
+        },
+        "test/contract/.gitignore": {
+          "type": "missing"
+        },
+        "test/github/.gitignore": {
+          "type": "missing"
+        },
+        "test/property/.gitignore": {
+          "type": "missing"
+        },
+        "vendor/.gitignore": {
+          "type": "missing"
+        },
+        "vendor/marked/.gitignore": {
+          "type": "missing"
+        },
+        "vendor/parse5/.gitignore": {
           "type": "missing"
         }
       },
@@ -1405,8 +2955,12 @@
     {
       "id": "documentation",
       "additions": [
-        "docs/README.md",
-        "docs/development/README.md"
+        "docs/adr/0001-facts-only-ports-with-platform-adapters.md",
+        "docs/adr/README.md",
+        "docs/development/release.md",
+        "docs/development/source-layout.md",
+        "docs/usage/README.md",
+        "docs/usage/reference.md"
       ],
       "removals": []
     }

@@ -6,7 +6,13 @@ Run `repo-standards rules <path>` to print the rules that cover a path.
 
 - [`documentation`](documentation.md) covers:
   - `docs/README.md`
+  - `docs/adr/0001-facts-only-ports-with-platform-adapters.md`
+  - `docs/adr/README.md`
   - `docs/development/README.md`
+  - `docs/development/release.md`
+  - `docs/development/source-layout.md`
+  - `docs/usage/README.md`
+  - `docs/usage/reference.md`
 - [`factory-sandbox-image`](factory-sandbox-image.md) covers:
   - `.factory/Dockerfile`
 - [`factory-workflow`](factory-workflow.md) covers the whole repository.
