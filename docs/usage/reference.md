@@ -175,9 +175,10 @@ connection's credential, and neither are the headers `fetch` sets itself:
 `transfer-encoding` and `upgrade`. Its `body`, sent only with a method other
 than `GET` or `HEAD`, holds only plain objects, arrays, strings, finite
 numbers, booleans and `null`, without cycles. A value JSON would drop or
-coerce, such as `undefined`, `NaN`, a function or a `Date`, is not accepted,
-and neither is an array with a hole or any field besides its items, such as a
-named or symbol-keyed one, or an object with an enumerable symbol key. A
+coerce, such as `undefined`, `NaN`, `-0` (which JSON writes as `0`), a function
+or a `Date`, is not accepted, and neither is an array with a hole or any field
+besides its items, such as a named or symbol-keyed one, or an object with an
+enumerable symbol key. A
 request that breaks any of these fails with `rejected` before it is sent. Postern sends a copy it makes while
 checking, so a later change to the objects passed in never reaches the
 platform. A failing status rejects with

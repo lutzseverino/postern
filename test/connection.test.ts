@@ -313,6 +313,9 @@ describe("the shared port layer", () => {
     ["an undefined body field", { path: "/user", method: "POST", body: { x: undefined, n: 1 } }],
     ["a NaN body field", { path: "/user", method: "POST", body: { n: Number.NaN } }],
     ["an infinite body item", { path: "/user", method: "POST", body: [Number.POSITIVE_INFINITY] }],
+    ["a negative zero body", { path: "/user", method: "POST", body: -0 }],
+    ["a negative zero body field", { path: "/user", method: "POST", body: { a: { n: -0 } } }],
+    ["a negative zero body item", { path: "/user", method: "POST", body: [1, -0] }],
     ["an undefined body item", { path: "/user", method: "POST", body: [undefined] }],
     ["a sparse body array", { path: "/user", method: "POST", body: [1, , 2] }],
     ["a nested function", { path: "/user", method: "POST", body: { a: { f: () => 1 } } }],
@@ -394,7 +397,7 @@ describe("the shared port layer", () => {
     const connection = createConnection(repository, doubleAdapter({}), {});
     const shared = { a: 1 };
     const bare = Object.assign(Object.create(null) as Record<string, unknown>, { b: "x" });
-    const body = { one: shared, two: [shared], bare, list: [null, true, -0, 1.5, "s", []] };
+    const body = { one: shared, two: [shared], bare, list: [null, true, 0, 1.5, "s", []] };
     const response = await connection.access.request({ path: "/user", method: "POST", body });
     assert.equal(JSON.stringify((response.data as { body: unknown }).body), JSON.stringify(body));
   });

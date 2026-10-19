@@ -122,6 +122,12 @@ function jsonModel(random: Random, depth: number, pool: object[]): unknown {
   }
 }
 
+function hasNegativeZero(model: unknown): boolean {
+  if (typeof model === "number") return Object.is(model, -0);
+  if (model === null || typeof model !== "object") return false;
+  return Object.values(model).some(hasNegativeZero);
+}
+
 function define(target: object, name: PropertyKey, value: unknown, enumerable = true): void {
   Object.defineProperty(target, name, { value, enumerable, writable: true, configurable: true });
 }
@@ -329,8 +335,10 @@ function transportRequest(random: Random): Generated {
   if (random.chance(0.4)) parts.headers = headers(random, shared);
   const verb = typeof method === "string" ? method.toUpperCase() : "GET";
   if (random.chance(verb === "GET" || verb === "HEAD" ? 0.05 : 0.8)) {
-    const body = realize(random, jsonModel(random, 3, []), [], shared);
-    parts.body = verb === "GET" || verb === "HEAD" ? { ...body, expected: "rejected" } : body;
+    const model = jsonModel(random, 3, []);
+    const body = realize(random, model, [], shared);
+    // JSON writes -0 as 0, so a body holding it is not the value validated.
+    parts.body = verb === "GET" || verb === "HEAD" || hasNegativeZero(model) ? { ...body, expected: "rejected" } : body;
   }
   // A field given as undefined is absent.
   for (const [name, part] of Object.entries(parts)) if (part.value === undefined) delete parts[name];
