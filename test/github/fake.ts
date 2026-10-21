@@ -90,6 +90,8 @@ export class GitHubFake {
   /** Tokens the fake accepts, with the account each authenticates. */
   readonly tokens = new Map<string, FakeUser>();
   readonly requests: FakeRequest[] = [];
+  /** Responses served by the contract suite's authenticated transport fixture. */
+  readonly transportPages: { status: number; data: unknown; headers: Record<string, string> }[] = [];
   /** The largest page the fake serves, whatever size a request asks for. */
   maxPageSize = 100;
   readonly #injected: Injected[] = [];
@@ -166,6 +168,11 @@ export class GitHubFake {
   }
 
   #route(method: string, url: URL, body: unknown, viewer: FakeUser | null): Response {
+    if (url.pathname === "/contract-pages" && method === "GET") {
+      if (!viewer) return json(401, { message: "Requires authentication" });
+      const page = this.transportPages[Number(url.searchParams.get("page"))];
+      return page ? json(page.status, page.data, page.headers) : notFound();
+    }
     if (url.pathname === "/graphql" && method === "POST") {
       if (!viewer) return json(401, { message: "This endpoint requires you to be authenticated." });
       return this.#graphql(body as { query: string; variables: Json });

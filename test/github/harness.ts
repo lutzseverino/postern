@@ -143,6 +143,17 @@ export function startGitHub(open: Opener = connect): { platform: ContractPlatfor
       const credential = anonymous ? {} : { credential: tokenFunction ? async () => token : token };
       return open(`https://github.com/${path}.git`, { ...options, ...credential, fetch: fake.fetch });
     },
+    serveTransportPages(pages) {
+      fake.transportPages.splice(0, fake.transportPages.length, ...pages.map((page) => {
+        const next = page.next;
+        const link = next === undefined ? {} : {
+          link: next === "unreadable" ? "not a Link header" :
+            `<${next === "foreign" ? "https://elsewhere.example/items" : `https://api.github.com/contract-pages?page=${next}`}>; rel="next"`,
+        };
+        return { status: page.status, data: page.data, headers: { ...page.headers, ...link } };
+      }));
+      return "/contract-pages?page=0";
+    },
     pageSize(size) {
       fake.maxPageSize = size;
     },

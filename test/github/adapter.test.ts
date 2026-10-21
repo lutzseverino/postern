@@ -32,6 +32,28 @@ const failure = (reason: PlatformErrorReason, check: (error: PlatformError) => v
 };
 
 describe("GitHub response mapping", () => {
+  it("reports the first GraphQL error's platformMessage with credentials removed", async () => {
+    const { fake, connection } = setup();
+    fake.inject({ status: 200, body: JSON.stringify({ errors: [
+      { type: "NOT_FOUND", message: `Could not resolve ${token}` },
+      { type: "FORBIDDEN", message: "A different failure" },
+    ] }) });
+    await assert.rejects(connection.issueTracker.issue(1), failure("notFound", (error) => {
+      assert.equal(error.status, 200);
+      assert.equal(error.platformMessage, "Could not resolve <REDACTED>");
+      assert.equal(error.message, "GitHub's GraphQL API answered: Could not resolve <REDACTED>");
+    }));
+  });
+
+  it("retains an explicitly empty platform message", async () => {
+    const { fake, connection } = setup();
+    fake.inject({ status: 404, body: '{"message":""}' });
+    await assert.rejects(connection.access.request({ path: "/user" }), failure("notFound", (error) => {
+      assert.equal(error.platformMessage, "");
+      assert.equal(error.message, "GitHub answered GET /user with 404");
+    }));
+  });
+
   const resetEpoch = 1_900_000_000;
   const resetAt = new Date(resetEpoch * 1000).toISOString();
   const cases: [string, Injected, PlatformErrorReason, ((error: PlatformError) => void)?][] = [
@@ -1052,5 +1074,55 @@ describe("GitHub request path encoding", () => {
       await assert.rejects(call(), failure("rejected"));
     }
     assert.equal(fake.requests.length, 0);
+  });
+});
+
+
+describe("GitHub paginated transport", () => {
+  it("sends the requested query on the first page and the headers and current credential on every page", async () => {
+    const { platform, fake } = startGitHub();
+    const tokens = ["page-token-1", "page-token-2", "page-token-3"];
+    for (const token of tokens) fake.tokens.set(token, { login: "octocat", type: "User" });
+    platform.serveTransportPages([
+      { status: 200, data: [tokens[0]], next: 1 },
+      { status: 200, data: { previous: tokens[0], current: tokens[1] }, next: 2 },
+      { status: 200, data: tokens, headers: { "x-echo": tokens.join(",") } },
+    ]);
+    let tokenIndex = 0;
+    const connection = connect(platform.remote, { fetch: fake.fetch, credential: () => tokens[tokenIndex++] });
+    const pages = await connection.access.requestPages({
+      path: "/contract-pages", query: { page: 0, per_page: 10 }, headers: { "x-custom": "value" },
+    });
+    assert.deepEqual(fake.requests.map((request) => ({
+      url: request.url.href, method: request.method, authorization: request.headers.get("authorization"),
+      custom: request.headers.get("x-custom"),
+    })), [
+      { url: "https://api.github.com/contract-pages?page=0&per_page=10", method: "GET", authorization: "Bearer page-token-1", custom: "value" },
+      { url: "https://api.github.com/contract-pages?page=1", method: "GET", authorization: "Bearer page-token-2", custom: "value" },
+      { url: "https://api.github.com/contract-pages?page=2", method: "GET", authorization: "Bearer page-token-3", custom: "value" },
+    ]);
+    assert.deepEqual(pages.map((page) => page.data), [
+      ["<REDACTED>"], { previous: "<REDACTED>", current: "<REDACTED>" }, ["<REDACTED>", "<REDACTED>", "<REDACTED>"],
+    ]);
+    assert.equal(pages[2]!.headers["x-echo"], "<REDACTED>,<REDACTED>,<REDACTED>");
+  });
+
+  it("rejects every non-GET method before fetching", async () => {
+    const { fake, connection } = setup();
+    for (const method of ["HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]) {
+      await assert.rejects(connection.access.requestPages({ path: "/user", method }), failure("rejected"));
+    }
+    assert.equal(fake.requests.length, 0);
+  });
+
+  it("detects a loop to the first page after following multiple pages", async () => {
+    const { platform, fake } = startGitHub();
+    const path = platform.serveTransportPages([
+      { status: 200, data: [], next: 1 }, { status: 203, data: [], next: 0 },
+    ]);
+    await assert.rejects(platform.connect().access.requestPages({ path }), failure("invalidResponse", (error) => {
+      assert.equal(error.status, 203);
+    }));
+    assert.equal(fake.requests.length, 2);
   });
 });

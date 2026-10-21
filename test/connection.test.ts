@@ -90,6 +90,7 @@ function doubleAdapter(
           throw new Error(`viewer failed for token ${token}`);
         },
         role: unexpected,
+        requestPages: unexpected,
         request: async (request) => ({ status: 200, headers: {}, data: { ...request } }),
       },
     };
@@ -287,6 +288,7 @@ describe("the shared port layer", () => {
     it(`rejects the transport method ${JSON.stringify(method)} before calling the adapter`, async () => {
       const connection = createConnection(repository, doubleAdapter({}), {});
       await assert.rejects(connection.access.request({ path: "/user", method } as never), isReason("rejected"));
+      await assert.rejects(connection.access.requestPages({ path: "/user", method } as never), isReason("rejected"));
     });
   }
 
@@ -377,6 +379,7 @@ describe("the shared port layer", () => {
     it(`rejects a transport request with ${name} before calling the adapter`, async () => {
       const connection = createConnection(repository, doubleAdapter({}), {});
       await assert.rejects(connection.access.request(request as never), isReason("rejected"));
+      await assert.rejects(connection.access.requestPages(request as never), isReason("rejected"));
     });
   }
 
@@ -565,7 +568,11 @@ describe("reading what callers pass", () => {
           squashMerge: record("c0ffee"),
         },
         releaseSource: ports.releaseSource,
-        access: { ...ports.access, request: record({ status: 200, headers: {}, data: null }) },
+        access: {
+          ...ports.access,
+          request: record({ status: 200, headers: {}, data: null }),
+          requestPages: record([{ status: 200, headers: {}, data: null }]),
+        },
       };
     };
   }
@@ -620,12 +627,16 @@ describe("reading what callers pass", () => {
         reads,
       ),
     );
+    await connection.access.requestPages(fickle({
+      path: "/user", method: "get", query: fickle({ page: 1 }, reads), headers: fickle({ "x-a": "1" }, reads),
+    }, reads));
     assert.deepEqual(calls, [
       [{ state: "closed", label: "bug" }],
       [7, ["bug", "help"]],
       [{ name: "bug", color: "ededed", description: "" }],
       [7, { expectedHead: "abc", title: "t", body: "b" }],
       [{ path: "/user", method: "POST", query: { page: 2 }, headers: { "x-a": "1" }, body: { items: [1, { n: "x" }] } }],
+      [{ path: "/user", method: "GET", query: { page: 1 }, headers: { "x-a": "1" } }],
     ]);
     readOnce(reads);
   });

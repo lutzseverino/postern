@@ -157,6 +157,7 @@ conclusions are the platform's own words.
 | `viewer()`                                      | The authenticated account, or `null` when the connection is anonymous. |
 | `role(login)`                                   | The account's repository role as the platform names it, or `null`.     |
 | `request({ method?, path, query?, body?, headers? })` | `{ status, headers, data }` from the platform's API.              |
+| `requestPages({ method?, path, query?, headers? })` | An ordered array of `{ status, headers, data }`, one per page. |
 
 `request` sends the connection's credential, so its `path` must stay on the
 platform's API: it starts with a single `/`. The path is sent as written, so
@@ -184,6 +185,20 @@ checking, so a later change to the objects passed in never reaches the
 platform. A failing status rejects with
 `PlatformError`, mapped like any other operation.
 
+`requestPages` takes the same `TransportRequest` and applies the same checks
+as `request`, but accepts only `GET` (the default, in any case), with no body.
+Any other method fails with `rejected` before a request. It follows the
+platform's pagination, preserving each page's status, headers and parsed data
+without interpreting or joining its items. A response with no next link ends
+the list and returns one page even when its data is empty. On GitHub it follows
+`Link: rel="next"`; an unreadable link, a next link on another origin, or a
+link back to a page already read fails with `invalidResponse` and that page's
+status. Every page sends the connection's credential and the supplied headers;
+`query` applies to the first request, then pagination supplies the next URL.
+A failing page rejects the whole read with its own `PlatformError`. Credentials
+are removed from every returned page. This operation paginates REST responses,
+not GraphQL connections.
+
 ## Errors
 
 | Reason            | Meaning                                                              |
@@ -205,6 +220,16 @@ response the adapter cannot read, such as unreadable headers, a missing
 field, an unreadable identifier, a time that is not ISO 8601 in the
 platform's shape or that does not exist, such as February 30, or a page
 without its cursor, on every page of a list.
+
+`PlatformError.platformMessage`, also accepted by `PlatformErrorOptions`, is
+the platform's own failure message with credentials removed. It is absent
+when the response states no message. GitHub supplies the failing REST
+response's `message`, or the first GraphQL error's `message`, on every
+operation, including `access.request` and `access.requestPages`. Use it with
+`status` and `reason` to distinguish, for example, two `notFound` 404s whose
+messages are `Branch not protected` and `Not Found`. The error's `message`
+remains a description of the failed operation; `platformMessage` provides
+the platform's message separately.
 
 A list continues only while a page says, exactly, that another page follows
 and gives its cursor, and ends only on a page that says, exactly, that none

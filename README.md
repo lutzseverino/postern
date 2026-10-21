@@ -25,6 +25,7 @@ The package has no runtime dependencies. Its runtime is one self-contained ESM f
 - Reads pull requests, reviews, review threads and checks, and squash-merges against an expected head.
 - Lists releases and resolves tags to commits.
 - Reports the authenticated account and repository roles, and sends other API requests authenticated.
+- Reads every API page with `access.requestPages` and reports failures with their status and redacted platform message.
 
 ## Usage
 

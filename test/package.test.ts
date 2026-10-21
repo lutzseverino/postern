@@ -46,7 +46,7 @@ describe("the published package", () => {
       assert.equal(field in manifest, false, `package.json has ${field}`);
     }
     assert.equal(manifest.name, "@lutzseverino/postern");
-    assert.equal(manifest.version, "1.0.0");
+    assert.equal(manifest.version, "1.1.0");
     assert.equal(manifest.type, "module");
     assert.equal(manifest.license, "MIT");
     assert.deepEqual(manifest.engines, { node: "^24.0.0 || ^26.0.0" });

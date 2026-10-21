@@ -66,6 +66,15 @@ export type Malformation =
   /** Every page in the response, nested ones included, states whether another page follows as something other than yes or no. */
   | "pageFlagWrongType";
 
+/** One response in a transport fixture, using the platform's pagination metadata. */
+export interface TransportPage {
+  status: number;
+  data: unknown;
+  headers?: Record<string, string>;
+  /** The next page's zero-based index, an unreadable cursor, or another origin; absent on the last page. */
+  next?: number | "unreadable" | "foreign";
+}
+
 export interface ContractPlatform {
   /** The connected repository's Git remote URL. */
   readonly remote: string;
@@ -91,6 +100,8 @@ export interface ContractPlatform {
   connect(options?: Omit<ConnectOptions, "fetch" | "credential"> & { anonymous?: boolean; tokenFunction?: boolean }): Connection;
   /** Makes the fake serve at most this many items per page. */
   pageSize(size: number): void;
+  /** Serves these authenticated transport pages and returns the first page's request path. */
+  serveTransportPages(pages: TransportPage[]): string;
 
   addIssue(seed?: IssueSeed): number;
   /** An issue body holding these named sections, each referencing issues in the platform's syntax. */

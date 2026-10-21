@@ -491,6 +491,11 @@ function access(transport: GitHubTransport, context: AdapterContext, repo: strin
         (response) => ({ status: response.status, headers: Object.fromEntries(response.headers), data: response.data }),
       );
     },
+    async requestPages(request) {
+      return transport.restPageResponses(request.path, request, (response) => ({
+        status: response.status, headers: Object.fromEntries(response.headers), data: response.data,
+      }));
+    },
   };
 }
 

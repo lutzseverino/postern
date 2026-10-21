@@ -286,6 +286,8 @@ export interface Access {
    * operations no port covers. A failing status rejects with `PlatformError`.
    */
   request(request: TransportRequest): Promise<TransportResponse>;
+  /** Every page of an authenticated GET, in order, without interpreting or joining the pages' data. */
+  requestPages(request: TransportRequest): Promise<TransportResponse[]>;
 }
 
 /** The names of every capability flag, per port. */

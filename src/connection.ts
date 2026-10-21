@@ -360,6 +360,11 @@ function guardAccess(port: Access, { guard, account }: Layer): Access {
         return port.role(login);
       }),
     request: (request: TransportRequest) => guard(async () => port.request(checkTransportRequest(request))),
+    requestPages: (request: TransportRequest) => guard(async () => {
+      const checked = checkTransportRequest(request);
+      if (checked.method !== "GET") reject("A paginated request uses GET.");
+      return port.requestPages(checked);
+    }),
   });
 }
 

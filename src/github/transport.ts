@@ -52,18 +52,30 @@ export class GitHubTransport {
     options: { query?: RestOptions["query"]; items?: string },
     read: (item: unknown) => T,
   ): Promise<T[]> {
+    const pages = await this.restPageResponses(path, { query: { per_page: 100, ...options.query } }, (response) => {
+      const page = options.items ? (response.data as Json | null)?.[options.items] : response.data;
+      if (!Array.isArray(page)) throw invalid(`GitHub returned no list for ${path}.`);
+      return page.map((item) => read(item));
+    });
+    return pages.flat();
+  }
+
+  /** Every REST page, following the same strict next-page reader as the ports' lists. */
+  async restPageResponses<T>(
+    path: string,
+    options: RestOptions,
+    read: (response: RawResponse) => T | Promise<T>,
+  ): Promise<T[]> {
     const results: T[] = [];
     const followed = new Set<string>();
     let target: string | URL | null = path;
-    let query: RestOptions["query"] = { per_page: 100, ...options.query };
+    let query = options.query;
     while (target) {
-      const response = await this.#send(target, { query });
+      const response = await this.#send(target, { ...options, query });
       query = undefined;
       followed.add(response.url.href);
-      target = await scope(response, () => {
-        const page = options.items ? (response.data as Json | null)?.[options.items] : response.data;
-        if (!Array.isArray(page)) throw invalid(`GitHub returned no list for ${path}.`);
-        for (const item of page) results.push(read(item));
+      target = await scope(response, async () => {
+        results.push(await read(response));
         const next = nextPage(response.headers.get("link"));
         if (next && followed.has(next.href)) throw invalid("GitHub returned a next page it already served.");
         return next;
@@ -211,6 +223,7 @@ async function scope<T>(response: RawResponse, read: () => T | Promise<T>): Prom
       failure = new PlatformError(error.reason, error.message, {
         status: response.status,
         ...(error.retryAt === undefined ? {} : { retryAt: error.retryAt }),
+        ...(error.platformMessage === undefined ? {} : { platformMessage: error.platformMessage }),
         ...(error.cause === undefined ? {} : { cause: error.cause }),
       });
     }
@@ -354,7 +367,7 @@ function statusError(status: number, headers: Headers, data: unknown, request: s
   const message = (data as { message?: unknown } | null)?.message;
   const detail = typeof message === "string" && message ? `: ${message}` : "";
   const reason = statusReason(status, headers, typeof message === "string" ? message : "");
-  return limitError(reason, `GitHub answered ${request} with ${status}${detail}`, status, headers);
+  return limitError(reason, `GitHub answered ${request} with ${status}${detail}`, status, headers, typeof message === "string" ? message : undefined);
 }
 
 // What a failing status says, read against the error reasons. A request the
@@ -400,10 +413,17 @@ function rateLimited(headers: Headers, messages: string[]): boolean {
 
 // A platform error, with `retryAt` when it is `rateLimited` and GitHub states
 // when to retry.
-function limitError(reason: PlatformErrorReason, message: string, status: number, headers: Headers): PlatformError {
+function limitError(
+  reason: PlatformErrorReason,
+  message: string,
+  status: number,
+  headers: Headers,
+  platformMessage?: string,
+): PlatformError {
   const retryAt = reason === "rateLimited" ? retryTime(headers) : undefined;
   return new PlatformError(reason, message, {
     status,
+    ...(platformMessage === undefined ? {} : { platformMessage }),
     ...(retryAt === undefined ? {} : { retryAt }),
   });
 }
@@ -469,7 +489,7 @@ function graphqlError(errors: GraphqlError[], status: number, headers: Headers):
   const [first] = errors as [GraphqlError, ...GraphqlError[]];
   const messages = errors.map((error) => error.message);
   const reason = graphqlReasons[first.type ?? ""] ?? (rateLimited(headers, messages) ? "rateLimited" : "rejected");
-  return limitError(reason, `GitHub's GraphQL API answered: ${first.message}`, status, headers);
+  return limitError(reason, `GitHub's GraphQL API answered: ${first.message}`, status, headers, first.message);
 }
 
 /** An unreadable response. Within a scope, the scope supplies the status. */
