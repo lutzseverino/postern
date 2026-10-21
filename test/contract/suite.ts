@@ -532,6 +532,76 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
     });
 
     group("access", () => {
+      it("returns every transport page in order with its status, headers and uninterpreted data", async () => {
+        const platform = harness.start();
+        const path = platform.serveTransportPages([
+          { status: 200, headers: { "x-page": "first" }, data: [{ id: 1 }], next: 1 },
+          { status: 202, headers: { "x-page": "second" }, data: { items: [2] }, next: 2 },
+          { status: 203, headers: { "x-page": "third" }, data: [3] },
+        ]);
+        const pages = await platform.connect().access.requestPages({ path });
+        assert.deepEqual(pages.map(({ status, headers, data }) => ({ status, page: headers["x-page"], data })), [
+          { status: 200, page: "first", data: [{ id: 1 }] },
+          { status: 202, page: "second", data: { items: [2] } },
+          { status: 203, page: "third", data: [3] },
+        ]);
+      });
+
+      it("returns a single transport page without a next link, including a body that is not a list", async () => {
+        const platform = harness.start();
+        const path = platform.serveTransportPages([{ status: 200, data: { count: 0 } }]);
+        const pages = await platform.connect().access.requestPages({ path, method: "get" });
+        assert.equal(pages.length, 1);
+        assert.deepEqual(pages[0]!.data, { count: 0 });
+      });
+
+      for (const next of [0, "unreadable", "foreign"] as const) {
+        it(`rejects transport pagination with invalidResponse and its page's status for ${next}`, async () => {
+          const platform = harness.start();
+          const path = platform.serveTransportPages([{ status: 202, data: [], next }]);
+          await assert.rejects(platform.connect().access.requestPages({ path }), (error) => {
+            isReason("invalidResponse")(error);
+            assert.equal((error as PlatformError).status, 202);
+            return true;
+          });
+        });
+      }
+
+      it("rejects a transport list with the failing page's error", async () => {
+        const platform = harness.start();
+        const path = platform.serveTransportPages([
+          { status: 200, data: [1], next: 1 },
+          { status: 404, data: { message: "Page disappeared" } },
+        ]);
+        await assert.rejects(platform.connect().access.requestPages({ path }), (error) => {
+          isReason("notFound")(error);
+          assert.equal((error as PlatformError).status, 404);
+          assert.equal((error as PlatformError).platformMessage, "Page disappeared");
+          return true;
+        });
+      });
+
+      it("refuses non-GET paginated requests", async () => {
+        const access = harness.start().connect().access;
+        for (const method of ["HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]) {
+          await assert.rejects(access.requestPages({ path: "/user", method }), isReason("rejected"));
+        }
+      });
+
+      it("removes credentials from every transport page's headers and data", async () => {
+        const platform = harness.start();
+        const path = platform.serveTransportPages([
+          { status: 200, headers: { "x-echo": platform.token }, data: [platform.token], next: 1 },
+          { status: 200, data: { [platform.token]: platform.token }, next: 2 },
+          { status: 200, data: platform.token },
+        ]);
+        const pages = await platform.connect({ tokenFunction: true }).access.requestPages({ path });
+        assert.equal(pages[0]!.headers["x-echo"], "<REDACTED>");
+        assert.deepEqual(pages.map((page) => page.data), [
+          ["<REDACTED>"], { "<REDACTED>": "<REDACTED>" }, "<REDACTED>",
+        ]);
+      });
+
       it("reports the authenticated account, or none when anonymous", async () => {
         const platform = harness.start();
         assert.deepEqual(await platform.connect().access.viewer(), reported(platform.viewer));
@@ -572,6 +642,63 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
     });
 
     group("errors", () => {
+      it("reports the platform's failure message through transport and port operations", async () => {
+        const platform = harness.start();
+        const connection = platform.connect();
+        for (const call of [
+          () => connection.access.request({ path: "/user" }),
+          () => connection.releaseSource.releases(),
+        ]) {
+          platform.failNext({ reason: "notFound", echo: "distinct failure" });
+          await assert.rejects(call(), (error) => {
+            isReason("notFound")(error);
+            assert.equal((error as PlatformError).status, 404);
+            assert.match((error as PlatformError).platformMessage!, /distinct failure/);
+            return true;
+          });
+        }
+      });
+
+      it("distinguishes failures with the same status by platformMessage", async () => {
+        const platform = harness.start();
+        const access = platform.connect().access;
+        for (const message of ["Branch not protected", "Not Found"]) {
+          const path = platform.serveTransportPages([{ status: 404, data: { message } }]);
+          await assert.rejects(access.request({ path }), (error) => {
+            isReason("notFound")(error);
+            assert.equal((error as PlatformError).status, 404);
+            assert.equal((error as PlatformError).platformMessage, message);
+            return true;
+          });
+        }
+      });
+
+      it("leaves platformMessage unset when the failing response states none", async () => {
+        const platform = harness.start();
+        for (const data of [{}, { message: null }, { message: 42 }]) {
+          const path = platform.serveTransportPages([{ status: 403, data }]);
+          await assert.rejects(platform.connect().access.request({ path }), (error) => {
+            isReason("forbidden")(error);
+            assert.equal((error as PlatformError).platformMessage, undefined);
+            return true;
+          });
+        }
+      });
+
+      it("redacts the platformMessage on both a request and a failing later page", async () => {
+        const platform = harness.start();
+        const connection = platform.connect();
+        for (const paged of [false, true]) {
+          const bad = { status: 403, data: { message: `Refused ${platform.token}` } };
+          const path = platform.serveTransportPages(paged ? [{ status: 200, data: [], next: 1 }, bad] : [bad]);
+          await assert.rejects(paged ? connection.access.requestPages({ path }) : connection.access.request({ path }), (error) => {
+            isReason("forbidden")(error);
+            assert.equal((error as PlatformError).platformMessage, "Refused <REDACTED>");
+            return true;
+          });
+        }
+      });
+
       const reasons = ["unauthenticated", "forbidden", "notFound", "conflict", "rejected", "rateLimited", "unavailable", "invalidResponse"] as const;
       const operations: [string, (connection: Connection) => Promise<unknown>][] = [
         ["an issue read", (connection) => connection.issueTracker.issue(1)],

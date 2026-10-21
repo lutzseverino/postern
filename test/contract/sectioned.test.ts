@@ -81,7 +81,7 @@ function sectionedAdapter(issues: Map<number, StoredIssue>) {
         squashMerge: unused,
       },
       releaseSource: { capabilities: {}, releases: unused, tagCommit: unused },
-      access: { capabilities: {}, viewer: unused, role: unused, request: unused },
+      access: { capabilities: {}, viewer: unused, role: unused, request: unused, requestPages: unused },
     };
   };
 }
@@ -102,6 +102,7 @@ const sectionedHarness: AdapterHarness = {
       connect: ({ anonymous: _anonymous, tokenFunction: _tokenFunction, ...options } = {}) =>
         createConnection({ platform: "github", host: "example.test", path }, sectionedAdapter(issues), options),
       pageSize: () => {},
+      serveTransportPages: unused,
       addIssue(seed = {}) {
         if (seed.parent !== undefined || seed.blockedBy !== undefined) unused();
         const number = issues.size + 1;

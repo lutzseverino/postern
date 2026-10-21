@@ -65,6 +65,7 @@ export class Secrets {
       return new PlatformError(error.reason, this.redactText(error.message), {
         ...(error.retryAt === undefined ? {} : { retryAt: error.retryAt }),
         ...(error.status === undefined ? {} : { status: error.status }),
+        ...(error.platformMessage === undefined ? {} : { platformMessage: this.redactText(error.platformMessage) }),
         ...(error.cause === undefined ? {} : { cause: this.#sanitizeCause(error.cause) }),
       });
     }

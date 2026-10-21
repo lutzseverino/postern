@@ -31,6 +31,8 @@ export interface PlatformErrorOptions {
   retryAt?: string;
   /** The HTTP status of the response whose reading raised the failure, when one did. */
   status?: number;
+  /** The platform's own failure message, with credentials removed, when stated. */
+  platformMessage?: string;
   cause?: unknown;
 }
 
@@ -40,9 +42,10 @@ export class PlatformError extends Error {
   readonly reason: PlatformErrorReason;
   readonly retryAt?: string;
   readonly status?: number;
+  readonly platformMessage?: string;
 
   constructor(reason: PlatformErrorReason, message: string, options: PlatformErrorOptions = {}) {
-    const { retryAt, status, cause } = options;
+    const { retryAt, status, platformMessage, cause } = options;
     super(message, cause === undefined ? undefined : { cause });
     if (!platformErrorReasons.includes(reason)) {
       throw new TypeError(`Unknown platform error reason: ${String(reason)}`);
@@ -50,5 +53,6 @@ export class PlatformError extends Error {
     this.reason = reason;
     if (retryAt !== undefined) this.retryAt = retryAt;
     if (status !== undefined) this.status = status;
+    if (platformMessage !== undefined) this.platformMessage = platformMessage;
   }
 }
