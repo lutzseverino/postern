@@ -23,8 +23,10 @@ import type {
   ReleaseSource,
   Review,
   ReviewThread,
+  TransportResponse,
 } from "../ports.ts";
 import { GitHubTransport, connectionPage, invalid } from "./transport.ts";
+import type { RawResponse } from "./transport.ts";
 
 type Json = Record<string, unknown>;
 
@@ -488,15 +490,17 @@ function access(transport: GitHubTransport, context: AdapterContext, repo: strin
       return transport.rest(
         request.path,
         { method: request.method ?? "GET", query: request.query, body: request.body, headers: request.headers },
-        (response) => ({ status: response.status, headers: Object.fromEntries(response.headers), data: response.data }),
+        transportResponse,
       );
     },
     async requestPages(request) {
-      return transport.restPageResponses(request.path, request, (response) => ({
-        status: response.status, headers: Object.fromEntries(response.headers), data: response.data,
-      }));
+      return transport.restPageResponses(request.path, request, transportResponse);
     },
   };
+}
+
+function transportResponse({ status, headers, data }: RawResponse): TransportResponse {
+  return { status, headers: Object.fromEntries(headers), data };
 }
 
 // Reading GitHub's values; anything unexpected is an unreadable response.
