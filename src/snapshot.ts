@@ -79,3 +79,23 @@ function read<T>(operation: () => T): T {
 function reject(message: string): never {
   throw new PlatformError("rejected", message);
 }
+
+/** A parsed event payload, copied before the adapter reads its platform fields. */
+export function payloadCopy(value: unknown, copies = new Map<object, unknown>(), ancestors = new Set<object>()): unknown {
+  if (value === null || typeof value !== "object") return value;
+  if (ancestors.has(value)) throw new PlatformError("invalidResponse", "An event payload has a cycle.");
+  if (copies.has(value)) return copies.get(value);
+  const kind = shape(value);
+  if (kind === null) throw new PlatformError("invalidResponse", "An event payload holds an unreadable object.");
+  ancestors.add(value);
+  try {
+    const copy = kind === "array"
+      ? items(value, "An event payload holds an unreadable array.").map((item) => payloadCopy(item, copies, ancestors))
+      : Object.fromEntries(entries(value, "An event payload holds an unreadable object.")
+        .map(([key, item]) => [key, payloadCopy(item, copies, ancestors)]));
+    copies.set(value, copy);
+    return copy;
+  } finally {
+    ancestors.delete(value);
+  }
+}

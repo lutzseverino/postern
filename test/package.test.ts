@@ -94,8 +94,11 @@ console.log(JSON.stringify({ identity, tags: releases.map((release) => release.t
     execFileSync(npm, ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--offline", tarball], { cwd: consumer, stdio: "pipe" });
     writeFileSync(
       join(consumer, "index.ts"),
-      `import { connect, PlatformError, type Issue, type IssueTracker } from "@lutzseverino/postern";
+      `import { connect, PlatformError, type Issue, type IssueTracker, type IssueEvent, type IssueEventKind, type PlatformEvent } from "@lutzseverino/postern";
 const tracker: IssueTracker = connect("https://github.com/octo/hello").issueTracker;
+const event: PlatformEvent = { name: "issues", payload: {} };
+export const normalize = (): Promise<IssueEvent | null> => tracker.issueEvent(event);
+export const kind: IssueEventKind = "commentDeleted";
 export const read = async (): Promise<Issue | string> => tracker.issue(1).catch((error: unknown) => error instanceof PlatformError ? error.reason : "other");
 `,
     );

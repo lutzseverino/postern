@@ -59,6 +59,7 @@ function sectionedAdapter(issues: Map<number, StoredIssue>) {
           if (!stored) throw new PlatformError("notFound", `No issue ${number}`);
           return read(stored);
         },
+        issueEvent: unused,
         labelChanges: unused,
         comments: unused,
         addLabels: unused,
@@ -103,6 +104,7 @@ const sectionedHarness: AdapterHarness = {
         createConnection({ platform: "github", host: "example.test", path }, sectionedAdapter(issues), options),
       pageSize: () => {},
       serveTransportPages: unused,
+      issueEvent: unused,
       addIssue(seed = {}) {
         if (seed.parent !== undefined || seed.blockedBy !== undefined) unused();
         const number = issues.size + 1;

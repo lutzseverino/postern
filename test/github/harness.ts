@@ -3,6 +3,7 @@
 import { connect } from "../../src/index.ts";
 import type { Account, ConnectOptions, Connection } from "../../src/index.ts";
 import type { AdapterHarness, ContractPlatform, Failure, Malformation, SeedReference } from "../contract/harness.ts";
+import { githubIssueEvent } from "./events.ts";
 import { GitHubFake } from "./fake.ts";
 import type { FakeUser, Injected, Malformed } from "./fake.ts";
 
@@ -157,6 +158,7 @@ export function startGitHub(open: Opener = connect): { platform: ContractPlatfor
     pageSize(size) {
       fake.maxPageSize = size;
     },
+    issueEvent: (seed, variation) => githubIssueEvent({ ...seed, repository: seed.repository ?? path }, variation),
     addIssue(seed = {}) {
       const repository = seed.repository ?? path;
       const number = fake.nextNumber(repository);

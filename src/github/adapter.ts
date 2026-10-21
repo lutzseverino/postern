@@ -13,6 +13,8 @@ import type {
   CheckResult,
   Comment,
   Issue,
+  IssueEvent,
+  IssueEventKind,
   IssueReference,
   IssueTracker,
   Label,
@@ -36,7 +38,7 @@ export function githubAdapter(context: AdapterContext): AdapterPorts {
   const repo = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
   const coordinates = { owner, name };
   return {
-    issueTracker: issueTracker(transport, repo, coordinates),
+    issueTracker: issueTracker(transport, repo, coordinates, context.repository.path),
     pullRequests: pullRequests(transport, repo, coordinates),
     releaseSource: releaseSource(transport, repo),
     access: access(transport, context, repo),
@@ -81,9 +83,16 @@ const issueConnectionQueries = {
 }`,
 };
 
+const issueActions: Record<string, IssueEventKind> = {
+  opened: "opened", reopened: "reopened", closed: "closed", edited: "edited", labeled: "labeled", unlabeled: "unlabeled",
+};
+const commentActions: Record<string, IssueEventKind> = {
+  created: "commentCreated", edited: "commentEdited", deleted: "commentDeleted",
+};
+
 const ignore = () => undefined;
 
-function issueTracker(transport: GitHubTransport, repo: string, coordinates: Json): IssueTracker {
+function issueTracker(transport: GitHubTransport, repo: string, coordinates: Json, repository: string): IssueTracker {
   // An issue with every page of its nested connections. A follow-up query
   // starts from the first page again and replaces what the issue held.
   const complete = async (value: unknown): Promise<Issue> => {
@@ -102,6 +111,43 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
   };
   return {
     capabilities: { nativeParent: true, nativeBlockers: true, bodyEditTime: true, linkTime: true, botMarking: true },
+    async issueEvent(event) {
+      if (event.name !== "issues" && event.name !== "issue_comment") return null;
+      const payload = object(event.payload);
+      const source = repositoryPath(object(payload.repository).full_name);
+      if (source.toLowerCase() !== repository.toLowerCase()) {
+        throw new PlatformError("rejected", "The event belongs to another repository.");
+      }
+      const action = word(payload.action);
+      const actions = event.name === "issues" ? issueActions : commentActions;
+      if (!Object.hasOwn(actions, action)) return null;
+      const issue = object(payload.issue);
+      if (issue.pull_request !== undefined && issue.pull_request !== null) {
+        object(issue.pull_request);
+        return null;
+      }
+      const kind = actions[action]!;
+      const result: IssueEvent = {
+        platform: "github", repository, issue: id(issue.number), kind,
+        actor: eventActor(payload.sender), label: null,
+        openingLabels: null, bodyChanged: null, comment: null,
+      };
+      if (kind === "opened") {
+        if (!Array.isArray(issue.labels)) throw invalid("GitHub returned unreadable opening labels.");
+        result.openingLabels = issue.labels.map(labelName);
+      }
+      if (kind === "labeled" || kind === "unlabeled") result.label = labelName(payload.label);
+      if (kind === "edited") {
+        const changes = object(payload.changes);
+        result.bodyChanged = Object.hasOwn(changes, "body");
+        if (result.bodyChanged) nullable(object(changes.body).from, text);
+      }
+      if (event.name === "issue_comment") {
+        const comment = object(payload.comment);
+        result.comment = { id: id(comment.id), body: text(comment.body) };
+      }
+      return result;
+    },
     async issues(filter = {}) {
       return transport.graphqlPages(
         issuesQuery,
@@ -171,6 +217,16 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
       await transport.rest(`${repo}/issues/${number}`, { method: "PATCH", body: { state: "closed" } }, ignore);
     },
   };
+}
+
+// Webhooks require the triggering account; a missing sender is never a guessed actor.
+function eventActor(value: unknown): Account {
+  const sender = object(value);
+  const type = word(sender.type);
+  if (type !== "User" && type !== "Bot" && type !== "App" && type !== "Organization") {
+    throw invalid("GitHub returned an unreadable sender type.");
+  }
+  return { login: word(sender.login), bot: type === "Bot" || type === "App" };
 }
 
 // An issue with the first page of each nested connection, and which of them

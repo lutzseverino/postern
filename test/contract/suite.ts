@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { PlatformError, capabilityFlags } from "../../src/index.ts";
-import type { Account, Connection, PlatformErrorReason } from "../../src/index.ts";
+import type { Account, Connection, IssueEventKind, PlatformErrorReason } from "../../src/index.ts";
 import type { AdapterHarness, ContractPlatform, Malformation } from "./harness.ts";
 
 const mona: Account = { login: "mona", bot: false };
@@ -23,6 +23,7 @@ const isReason = (reason: PlatformErrorReason) => (error: unknown) => {
 /** The suite's groups of cases. */
 export type ContractGroup =
   | "capability flags"
+  | "issue events"
   | "issue tracker reads"
   | "issue relationships"
   | "issue tracker writes"
@@ -73,6 +74,81 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         for (const port of [connection.issueTracker, connection.pullRequests, connection.releaseSource, connection.access]) {
           assert.equal("release" in port, false);
         }
+      });
+    });
+
+    group("issue events", () => {
+      for (const variation of ["pullRequest", "unsupportedAction", "unsupportedEvent"] as const) {
+        it(`ignores ${variation} events`, async () => {
+          const platform = harness.start();
+          const event = platform.issueEvent({ kind: "commentCreated", issue: 42, actor: mona,
+            comment: { id: 123, body: "A comment" } }, variation);
+          assert.equal(await platform.connect().issueTracker.issueEvent(event), null);
+        });
+      }
+
+      it("rejects malformed payloads without an HTTP status", async () => {
+        const platform = harness.start();
+        const event = platform.issueEvent({ kind: "opened", issue: 42, actor: mona }, "malformed");
+        await assert.rejects(platform.connect().issueTracker.issueEvent(event), (error: unknown) => {
+          isReason("invalidResponse")(error);
+          assert.equal((error as PlatformError).status, undefined);
+          return true;
+        });
+      });
+
+      it("rejects an invalid event argument", async () => {
+        const tracker = harness.start().connect().issueTracker;
+        await assert.rejects(tracker.issueEvent({ name: "issues", payload: [] }), isReason("rejected"));
+      });
+
+      it("rejects an event from another repository", async () => {
+        const platform = harness.start();
+        const event = platform.issueEvent({ kind: "closed", issue: 42, actor: mona, repository: "elsewhere/project" });
+        await assert.rejects(platform.connect().issueTracker.issueEvent(event), isReason("rejected"));
+      });
+
+      it("redacts previously used tokens from an event's deleted body", async () => {
+        const platform = harness.start();
+        const connection = platform.connect({ tokenFunction: true });
+        await connection.access.viewer();
+        const event = platform.issueEvent({ kind: "commentDeleted", issue: 42, actor: mona,
+          comment: { id: 123, body: `Contains ${platform.token}` } });
+        assert.equal((await connection.issueTracker.issueEvent(event))?.comment?.body, "Contains <REDACTED>");
+      });
+
+      const kinds: IssueEventKind[] = ["reopened", "closed", "edited", "labeled", "unlabeled",
+        "commentCreated", "commentEdited", "commentDeleted"];
+      for (const kind of kinds) {
+        it(`normalizes ${kind} with only its applicable fields`, async () => {
+          const platform = harness.start();
+          const connection = platform.connect();
+          const event = platform.issueEvent({ kind, issue: 42, actor: robot, label: "ready",
+            bodyChanged: true, comment: { id: 123, body: "Event body, including after deletion" } });
+          assert.deepEqual(await connection.issueTracker.issueEvent(event), {
+            platform: connection.repository.platform, repository: platform.path, issue: 42, kind,
+            actor: reported(robot), label: kind === "labeled" || kind === "unlabeled" ? "ready" : null,
+            openingLabels: null, bodyChanged: kind === "edited" ? true : null,
+            comment: kind.startsWith("comment") ? { id: 123, body: "Event body, including after deletion" } : null,
+          });
+        });
+      }
+
+      it("distinguishes a title-only edit from a body edit", async () => {
+        const platform = harness.start();
+        const event = platform.issueEvent({ kind: "edited", issue: 42, actor: mona, bodyChanged: false });
+        assert.equal((await platform.connect().issueTracker.issueEvent(event))?.bodyChanged, false);
+      });
+
+      it("reports the labels an issue was opened with and no current state", async () => {
+        const platform = harness.start();
+        const connection = platform.connect();
+        const event = platform.issueEvent({ kind: "opened", issue: 42, actor: mona, openingLabels: ["bug", "ready"] });
+        assert.deepEqual(await connection.issueTracker.issueEvent(event), {
+          platform: connection.repository.platform, repository: platform.path, issue: 42,
+          kind: "opened", actor: reported(mona), label: null, openingLabels: ["bug", "ready"],
+          bodyChanged: null, comment: null,
+        });
       });
     });
 

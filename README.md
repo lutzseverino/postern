@@ -21,6 +21,7 @@ The package has no runtime dependencies. Its runtime is one self-contained ESM f
 
 - Detects the platform and repository path from a Git remote URL.
 - Reads issues with their labels, parent, sub-issues, blockers, edit and link times.
+- Normalizes issue webhook events into platform-neutral event facts without requests.
 - Reads label changes and comments, and writes labels, comments and issue state.
 - Reads pull requests, reviews, review threads and checks, and squash-merges against an expected head.
 - Lists releases and resolves tags to commits.

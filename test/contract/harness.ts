@@ -75,6 +75,21 @@ export interface TransportPage {
   next?: number | "unreadable" | "foreign";
 }
 
+/** Event facts the harness encodes in its platform's webhook shape. */
+export interface IssueEventSeed {
+  kind: "opened" | "reopened" | "closed" | "edited" | "labeled" | "unlabeled"
+    | "commentCreated" | "commentEdited" | "commentDeleted";
+  issue: number;
+  actor: Account;
+  repository?: string;
+  label?: string;
+  openingLabels?: string[];
+  bodyChanged?: boolean;
+  comment?: { id: number; body: string };
+}
+
+export type IssueEventVariation = "pullRequest" | "unsupportedAction" | "unsupportedEvent" | "malformed";
+
 export interface ContractPlatform {
   /** The connected repository's Git remote URL. */
   readonly remote: string;
@@ -103,6 +118,8 @@ export interface ContractPlatform {
   /** Serves these authenticated transport pages and returns the first page's request path. */
   serveTransportPages(pages: TransportPage[]): string;
 
+  /** A platform event with these facts; independent of the fake's current state. */
+  issueEvent(seed: IssueEventSeed, variation?: IssueEventVariation): { name: string; payload: unknown };
   addIssue(seed?: IssueSeed): number;
   /** An issue body holding these named sections, each referencing issues in the platform's syntax. */
   sectionBody(sections: Record<string, SeedReference[]>): string;
