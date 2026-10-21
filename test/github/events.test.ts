@@ -111,6 +111,12 @@ describe("GitHub issue events", () => {
     });
   }
 
+  it("reports a sparse opening-label list as malformed platform data", async () => {
+    const event = opened();
+    event.payload.issue = { number: 42, labels: Array(1) };
+    await assert.rejects(tracker().issueEvent(event), reason("invalidResponse"));
+  });
+
   it("preserves empty comment bodies", async () => {
     const event = githubIssueEvent({ kind: "commentDeleted", issue: 42, actor, repository,
       comment: { id: 123, body: "" } });

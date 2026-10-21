@@ -19,15 +19,19 @@ export function fields<Name extends string>(value: unknown, names: readonly Name
  * array, or one with holes or any own field besides its items and `length`,
  * such as a named or symbol-keyed one, fails with `message`.
  */
-export function items(value: unknown, message: string): unknown[] {
-  if (!read(() => Array.isArray(value))) reject(message);
+export function items(
+  value: unknown,
+  message: string,
+  reason: "rejected" | "invalidResponse" = "rejected",
+): unknown[] {
+  if (!read(() => Array.isArray(value))) reject(message, reason);
   const array = value as unknown[];
   const length = read(() => array.length);
-  if (!Number.isSafeInteger(length)) reject(message);
+  if (!Number.isSafeInteger(length)) reject(message, reason);
   const keys = read(() => Reflect.ownKeys(array));
-  if (keys.length !== length + 1) reject(message);
+  if (keys.length !== length + 1) reject(message, reason);
   for (const key of keys) {
-    if (key !== "length" && !(typeof key === "string" && isIndex(key, length))) reject(message);
+    if (key !== "length" && !(typeof key === "string" && isIndex(key, length))) reject(message, reason);
   }
   return Array.from({ length }, (_, index) => read(() => array[index]));
 }
@@ -41,13 +45,17 @@ function isIndex(key: string, length: number): boolean {
  * The own enumerable fields of a plain object, each read once. Anything but a
  * plain object, or one with an enumerable symbol key, fails with `message`.
  */
-export function entries(value: unknown, message: string): [string, unknown][] {
-  if (!read(() => isPlainObject(value))) reject(message);
+export function entries(
+  value: unknown,
+  message: string,
+  reason: "rejected" | "invalidResponse" = "rejected",
+): [string, unknown][] {
+  if (!read(() => isPlainObject(value))) reject(message, reason);
   const object = value as Record<PropertyKey, unknown>;
   const result: [string, unknown][] = [];
   for (const key of read(() => Reflect.ownKeys(object))) {
     if (!read(() => Reflect.getOwnPropertyDescriptor(object, key))?.enumerable) continue;
-    if (typeof key === "symbol") reject(message);
+    if (typeof key === "symbol") reject(message, reason);
     result.push([key, read(() => object[key])]);
   }
   return result;
@@ -76,8 +84,8 @@ function read<T>(operation: () => T): T {
   }
 }
 
-function reject(message: string): never {
-  throw new PlatformError("rejected", message);
+function reject(message: string, reason: "rejected" | "invalidResponse" = "rejected"): never {
+  throw new PlatformError(reason, message);
 }
 
 /** A parsed event payload, copied before the adapter reads its platform fields. */
@@ -90,8 +98,8 @@ export function payloadCopy(value: unknown, copies = new Map<object, unknown>(),
   ancestors.add(value);
   try {
     const copy = kind === "array"
-      ? items(value, "An event payload holds an unreadable array.").map((item) => payloadCopy(item, copies, ancestors))
-      : Object.fromEntries(entries(value, "An event payload holds an unreadable object.")
+      ? items(value, "An event payload holds an unreadable array.", "invalidResponse").map((item) => payloadCopy(item, copies, ancestors))
+      : Object.fromEntries(entries(value, "An event payload holds an unreadable object.", "invalidResponse")
         .map(([key, item]) => [key, payloadCopy(item, copies, ancestors)]));
     copies.set(value, copy);
     return copy;
