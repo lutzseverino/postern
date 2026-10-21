@@ -44,6 +44,7 @@ function doubleAdapter(
         capabilities: issueFlags,
         issues: async () => [structuredClone(sampleIssue)],
         issue: async () => structuredClone(sampleIssue),
+        issueEvent: unexpected,
         labelChanges: unexpected,
         comments: unexpected,
         addLabels: unexpected,

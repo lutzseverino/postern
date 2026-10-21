@@ -92,6 +92,7 @@ the same host, so links may cross repositories.
 
 | Operation                          | Result                                                                    |
 | ---------------------------------- | ------------------------------------------------------------------------- |
+| `issueEvent({ name, payload })`    | An `IssueEvent`, or `null` for an unsupported event or action; sends no request. |
 | `issues({ state?, label? })`       | Issues in the state (default `open`), with the label when given, oldest first. |
 | `issue(number)`                    | One issue in any state.                                                   |
 | `labelChanges(number)`             | `{ id, action: "added" \| "removed", label, actor, time }`, in platform order. |
@@ -118,6 +119,48 @@ meets a larger one fails with `invalidResponse`. `bodyEditTime` is when the body
 and `linkTime` when the latest sub-issue was linked; each is `null` when that
 never happened. A comment is `{ id, nodeId, url, author, body, createdAt,
 updatedAt }`.
+
+#### Issue events
+
+Available from 1.1.0. Pass the platform event name and parsed webhook payload
+as a `PlatformEvent`: `{ name: string, payload: unknown }`. `issueEvent`
+returns an `IssueEvent` with every field below present:
+
+| Field           | Meaning |
+| --------------- | ------- |
+| `platform`      | The connection's `PlatformName`, currently `"github"`. |
+| `repository`    | The connection's `RepositoryIdentity.path`. |
+| `issue`         | The issue number, a positive safe integer. |
+| `kind`          | An `IssueEventKind`, listed below. |
+| `actor`         | The triggering `Account`, `{ login, bot }`; `bot` is `null` without `botMarking`. |
+| `label`         | The label name for `labeled` and `unlabeled`; otherwise `null`. |
+| `openingLabels` | The labels the issue was created with for `opened`; otherwise `null`. |
+| `bodyChanged`   | Whether an `edited` event changed the body; otherwise `null`. |
+| `comment`       | `{ id, body }` for comment events, including the deleted body for `commentDeleted`; otherwise `null`. |
+
+`IssueEventKind` is `opened`, `reopened`, `closed`, `edited`, `labeled`,
+`unlabeled`, `commentCreated`, `commentEdited` or `commentDeleted`.
+
+```js
+const event = await repository.issueTracker.issueEvent({
+  name: webhookEventName,
+  payload: parsedWebhookPayload,
+});
+if (event?.kind === "commentDeleted") console.log(event.comment.body);
+```
+
+These are triggering-event facts. Read current labels, body, comments,
+timeline, roles, relationships and times through the other port operations;
+a stale or replayed payload never supplies current state. Postern applies no
+readiness or authorization policy. The caller obtains the payload and verifies
+any webhook signature.
+
+An invalid argument, including a non-string name or a payload that is not a
+plain object, fails with `rejected`. A payload for another repository also
+fails with `rejected`. Missing or unreadable fields needed for a supported
+kind, including an unsafe numeric identifier, fail with `invalidResponse`
+without an HTTP `status`. Each event field is read once, and every token the
+connection has used is redacted from the result, as on other operations.
 
 ### `pullRequests`
 
@@ -247,6 +290,17 @@ The GitHub adapter serves `github.com` repositories and offers every flag.
   `unauthenticated`. Label changes, comments, reviews, checks, releases, tags,
   roles and `viewer` use the REST API and work anonymously where GitHub
   allows it.
+- `issueEvent` maps GitHub's [webhook payloads](https://docs.github.com/en/webhooks/webhook-events-and-payloads):
+  `issues` actions `opened`, `reopened`, `closed`, `edited`, `labeled` and
+  `unlabeled` keep those kinds; `issue_comment` actions `created`, `edited`
+  and `deleted` become `commentCreated`, `commentEdited` and `commentDeleted`.
+  Pull-request comments, other names and other actions return `null`.
+  The actor comes from `sender`, opening labels from `issue.labels`, the
+  changed label from `label.name`, and the comment from `comment.id` and
+  `comment.body`. An issue edit changes the body when `changes.body` is
+  present; a title-only edit reports `false`. Repository names are compared
+  without regard to case. No API request or credential lookup is needed,
+  including on anonymous connections.
 - Bot accounts carry GitHub's REST login, such as `dependabot[bot]`, from both
   APIs.
 - `role` reports GitHub's role name, such as `admin`, `maintain`, `write`,

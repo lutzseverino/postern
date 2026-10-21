@@ -2,11 +2,37 @@
 // Times are ISO 8601 strings as the platform reports them. A field that
 // depends on a capability flag the port does not offer is `null`.
 
+import type { PlatformName } from "./detect.ts";
+
 /** An account as the platform reports it. */
 export interface Account {
   login: string;
   /** Whether the platform marks the account as a bot; `null` where it cannot tell. */
   bot: boolean | null;
+}
+
+/** A platform event name and its parsed webhook payload, supplied by the caller. */
+export interface PlatformEvent {
+  name: string;
+  payload: unknown;
+}
+
+export type IssueEventKind =
+  | "opened" | "reopened" | "closed" | "edited" | "labeled" | "unlabeled"
+  | "commentCreated" | "commentEdited" | "commentDeleted";
+
+/** Facts known from the triggering event alone; current state stays with the ports. */
+export interface IssueEvent {
+  platform: PlatformName;
+  repository: string;
+  issue: number;
+  kind: IssueEventKind;
+  actor: Account;
+  label: string | null;
+  openingLabels: string[] | null;
+  bodyChanged: boolean | null;
+  /** Includes the deleted body for `commentDeleted`. */
+  comment: { id: number; body: string } | null;
 }
 
 export type IssueState = "open" | "closed";
@@ -102,6 +128,8 @@ export interface IssueTrackerCapabilities {
  */
 export interface IssueTracker {
   readonly capabilities: IssueTrackerCapabilities;
+  /** Normalizes an event without requests; null for unsupported events or actions. */
+  issueEvent(event: PlatformEvent): Promise<IssueEvent | null>;
   /** Issues in a state, by default open, optionally only those with a label. */
   issues(filter?: IssueFilter): Promise<Issue[]>;
   /** One issue in any state. */

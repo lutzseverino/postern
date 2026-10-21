@@ -16,6 +16,7 @@ import type {
   IssueFilter,
   IssueTracker,
   Label,
+  PlatformEvent,
   PullRequest,
   PullRequests,
   ReleaseSource,
@@ -24,7 +25,7 @@ import type {
 } from "./ports.ts";
 import { Secrets, credentialsFrom, isSendableToken } from "./secrets.ts";
 import type { CredentialSource, Credentials } from "./secrets.ts";
-import { entries, fields, items, shape } from "./snapshot.ts";
+import { entries, fields, items, payloadCopy, shape } from "./snapshot.ts";
 
 /** The body section names an adapter without native links reads relationships from. */
 export interface RelationshipSections {
@@ -195,6 +196,15 @@ function guardIssueTracker(
   });
   return Object.freeze({
     capabilities,
+    issueEvent: (event: PlatformEvent) =>
+      guard(async () => {
+        const { name, payload } = fields(event, ["name", "payload"], "An event needs a name and a plain-object payload.");
+        if (typeof name !== "string" || shape(payload) !== "object") {
+          reject("An event needs a string name and a plain-object payload.");
+        }
+        const result = await port.issueEvent({ name, payload: payloadCopy(payload) });
+        return result === null ? null : { ...result, actor: account(result.actor)! };
+      }),
     issues: (filter: IssueFilter = {}) =>
       guard(async () => (await port.issues(checkIssueFilter(filter))).map(issueFacts)),
     issue: (number: number) =>
