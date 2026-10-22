@@ -28,23 +28,36 @@ any other path fails with `rejected`. Its options are:
 | `fetch`                | A `fetch`-compatible function. Defaults to the global `fetch`.                                                                        |
 | `timeoutMs`            | The time one request may take before it fails with `unavailable`: whole milliseconds from 1 to 2147483647. Defaults to 30000.         |
 
-`connect()` returns `ConnectionWithLabels`, whose issue tracker is an
-`IssueTrackerWithLabels`: an extension of `IssueTracker` with the required
-`labels()` and `updateLabel()` methods. These additive types are exported for
-consumers and adapter contract harnesses. The existing `Connection` and
-`IssueTracker` types retain their earlier structural requirements, so objects
-and test doubles implementing them do not need either new method. A concrete
-connection and its tracker remain assignable to those earlier types.
+`connect()` returns `ConnectionWithLabels`, with an
+`IssueTrackerWithLabels` and an `AccessWithPages`. These exported additive
+contracts require all the 1.1 operations: `issueEvent`, `labels` and
+`updateLabel` on the tracker, and `requestPages` on Access. Concrete adapters
+and contract harnesses also require these stronger contracts.
 
-Keep the inferred `connect()` result or use the additive types when calling
-the new operations. An explicit `Connection` or `IssueTracker` annotation
-exposes the earlier surface:
+The named `Connection`, `IssueTracker` and `Access` contracts retain their
+published 1.0.0 members and signatures. Existing implementations and test
+doubles need none of the additions. Enhanced ports and connections remain
+assignable to their legacy counterparts. An explicit legacy annotation exposes
+only that 1.0.0 surface; keep inference or name an additive contract when
+calling new operations:
 
 ```ts
-import { connect, type IssueTrackerWithLabels } from "@lutzseverino/postern";
+import {
+  connect,
+  type AccessWithPages,
+  type ConnectionWithLabels,
+  type IssueTrackerWithLabels,
+} from "@lutzseverino/postern";
 
-const tracker: IssueTrackerWithLabels = connect("https://github.com/octo/hello").issueTracker;
+const repository = connect("https://github.com/octo/hello");
+const event = await repository.issueTracker.issueEvent({ name: "ping", payload: {} });
+const pages = await repository.access.requestPages({ path: "/repos/octo/hello/labels" });
+
+const connection: ConnectionWithLabels = repository;
+const tracker: IssueTrackerWithLabels = connection.issueTracker;
+const access: AccessWithPages = connection.access;
 const labels = await tracker.labels();
+const updated = await tracker.updateLabel("old", { name: "new", color: "abcdef", description: "" });
 ```
 
 Invalid options and arguments fail with `rejected` before any request. So

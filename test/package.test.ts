@@ -94,8 +94,8 @@ console.log(JSON.stringify({ identity, tags: releases.map((release) => release.t
     execFileSync(npm, ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--offline", tarball], { cwd: consumer, stdio: "pipe" });
     writeFileSync(
       join(consumer, "index.ts"),
-      `import { connect, PlatformError, type Issue, type IssueTracker, type IssueEvent, type IssueEventKind, type PlatformEvent } from "@lutzseverino/postern";
-const tracker: IssueTracker = connect("https://github.com/octo/hello").issueTracker;
+      `import { connect, PlatformError, type Issue, type IssueEvent, type IssueEventKind, type PlatformEvent } from "@lutzseverino/postern";
+const tracker = connect("https://github.com/octo/hello").issueTracker;
 const event: PlatformEvent = { name: "issues", payload: {} };
 export const normalize = (): Promise<IssueEvent | null> => tracker.issueEvent(event);
 export const kind: IssueEventKind = "commentDeleted";
@@ -109,6 +109,8 @@ export const read = async (): Promise<Issue | string> => tracker.issue(1).catch(
           module: "nodenext",
           moduleResolution: "nodenext",
           strict: true,
+          exactOptionalPropertyTypes: true,
+          noUncheckedIndexedAccess: true,
           noEmit: true,
           lib: ["es2024"],
           types: ["node"],
@@ -116,7 +118,9 @@ export const read = async (): Promise<Issue | string> => tracker.issue(1).catch(
         },
       }),
     );
-    copyFileSync(join(root, "test/fixtures/label-types.ts.txt"), join(consumer, "label-types.ts"));
+    for (const fixture of ["published-1.0.0.d.ts", "legacy-types.ts", "additive-types.ts"]) {
+      copyFileSync(join(root, `test/fixtures/${fixture}.txt`), join(consumer, fixture));
+    }
     execFileSync(process.execPath, [join(root, "node_modules/typescript/bin/tsc"), "-p", consumer], { stdio: "pipe" });
     const output = execFileSync(
       process.execPath,
