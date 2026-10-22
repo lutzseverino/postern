@@ -85,7 +85,8 @@ export interface IssueEventSeed {
   label?: string;
   openingLabels?: string[];
   bodyChanged?: boolean;
-  comment?: { id: number; body: string };
+  /** Omit `nodeId` when the event does not supply a global identifier. */
+  comment?: { id: number; nodeId?: string; body: string };
 }
 
 export type IssueEventVariation = "pullRequest" | "unsupportedAction" | "unsupportedEvent" | "malformed";

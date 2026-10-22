@@ -108,13 +108,15 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         await assert.rejects(platform.connect().issueTracker.issueEvent(event), isReason("rejected"));
       });
 
-      it("redacts previously used tokens from an event's deleted body", async () => {
+      it("redacts previously used tokens from an event's deleted comment", async () => {
         const platform = harness.start();
         const connection = platform.connect({ tokenFunction: true });
         await connection.access.viewer();
         const event = platform.issueEvent({ kind: "commentDeleted", issue: 42, actor: mona,
-          comment: { id: 123, body: `Contains ${platform.token}` } });
-        assert.equal((await connection.issueTracker.issueEvent(event))?.comment?.body, "Contains <REDACTED>");
+          comment: { id: 123, nodeId: platform.token, body: `Contains ${platform.token}` } });
+        assert.deepEqual((await connection.issueTracker.issueEvent(event))?.comment, {
+          id: 123, nodeId: "<REDACTED>", body: "Contains <REDACTED>",
+        });
       });
 
       const kinds: IssueEventKind[] = ["reopened", "closed", "edited", "labeled", "unlabeled",
@@ -124,12 +126,23 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
           const platform = harness.start();
           const connection = platform.connect();
           const event = platform.issueEvent({ kind, issue: 42, actor: robot, label: "ready",
-            bodyChanged: true, comment: { id: 123, body: "Event body, including after deletion" } });
+            bodyChanged: true, comment: { id: 123, nodeId: "COMMENT_123", body: "Event body, including after deletion" } });
           assert.deepEqual(await connection.issueTracker.issueEvent(event), {
             platform: connection.repository.platform, repository: platform.path, issue: 42, kind,
             actor: reported(robot), label: kind === "labeled" || kind === "unlabeled" ? "ready" : null,
             openingLabels: null, bodyChanged: kind === "edited" ? true : null,
-            comment: kind.startsWith("comment") ? { id: 123, body: "Event body, including after deletion" } : null,
+            comment: kind.startsWith("comment") ? { id: 123, nodeId: "COMMENT_123", body: "Event body, including after deletion" } : null,
+          });
+        });
+      }
+
+      for (const kind of ["commentCreated", "commentEdited", "commentDeleted"] as const) {
+        it(`reports a missing global identifier as null for ${kind}`, async () => {
+          const platform = harness.start();
+          const event = platform.issueEvent({ kind, issue: 42, actor: mona,
+            comment: { id: 123, body: "Event body" } });
+          assert.deepEqual((await platform.connect().issueTracker.issueEvent(event))?.comment, {
+            id: 123, nodeId: null, body: "Event body",
           });
         });
       }

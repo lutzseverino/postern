@@ -32,7 +32,15 @@ export interface IssueEvent {
   openingLabels: string[] | null;
   bodyChanged: boolean | null;
   /** Includes the deleted body for `commentDeleted`. */
-  comment: { id: number; body: string } | null;
+  comment: {
+    id: number;
+    /**
+     * The same global API identifier as `Comment.nodeId`. Adapters always
+     * set it; optional so producers written against 1.1.0 remain compatible.
+     */
+    nodeId?: string | null;
+    body: string;
+  } | null;
 }
 
 export type IssueState = "open" | "closed";

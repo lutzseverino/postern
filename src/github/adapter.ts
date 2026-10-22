@@ -144,7 +144,11 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
       }
       if (event.name === "issue_comment") {
         const comment = object(payload.comment);
-        result.comment = { id: id(comment.id), body: text(comment.body) };
+        result.comment = {
+          id: id(comment.id),
+          nodeId: Object.hasOwn(comment, "node_id") ? word(comment.node_id) : null,
+          body: text(comment.body),
+        };
       }
       return result;
     },

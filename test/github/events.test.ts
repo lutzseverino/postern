@@ -37,9 +37,37 @@ describe("GitHub issue events", () => {
       fetch: async () => { assert.fail("Event normalization sent a request"); },
     });
     const event = githubIssueEvent({ kind: "commentDeleted", issue: 999, actor, repository,
-      comment: { id: 456, body: "Deleted body" } });
-    assert.deepEqual((await connection.issueTracker.issueEvent(event))?.comment, { id: 456, body: "Deleted body" });
+      comment: { id: 456, nodeId: "IC_deleted", body: "Deleted body" } });
+    assert.deepEqual((await connection.issueTracker.issueEvent(event))?.comment, {
+      id: 456, nodeId: "IC_deleted", body: "Deleted body",
+    });
   });
+
+  for (const kind of ["commentCreated", "commentEdited", "commentDeleted"] as const) {
+    it(`reports comment.node_id for ${kind} without requests or credential lookup`, async () => {
+      const event = githubIssueEvent({ kind, issue: 999, actor, repository,
+        comment: { id: 456, nodeId: "IC_payload", body: "Event body" } });
+      assert.deepEqual((await tracker().issueEvent(event))?.comment, {
+        id: 456, nodeId: "IC_payload", body: "Event body",
+      });
+    });
+
+    it(`reports an absent comment.node_id as null for ${kind}`, async () => {
+      const event = githubIssueEvent({ kind, issue: 999, actor, repository,
+        comment: { id: 456, body: "Event body" } });
+      assert.deepEqual((await tracker().issueEvent(event))?.comment, {
+        id: 456, nodeId: null, body: "Event body",
+      });
+    });
+
+    for (const nodeId of ["", null, undefined, 123, false, {}, []]) {
+      it(`rejects present malformed comment.node_id ${JSON.stringify(nodeId)} for ${kind}`, async () => {
+        const event = githubIssueEvent({ kind, issue: 999, actor, repository });
+        event.payload.comment = { id: 456, node_id: nodeId, body: "Event body" };
+        await assert.rejects(tracker().issueEvent(event), reason("invalidResponse"));
+      });
+    }
+  }
 
   it("reads each event field once, including nested getter values", async () => {
     const reads = new Map<string, number>();
@@ -56,8 +84,10 @@ describe("GitHub issue events", () => {
       });
     };
     const event = githubIssueEvent({ kind: "commentCreated", issue: 42, actor, repository,
-      comment: { id: 123, body: "First value" } });
-    assert.equal((await tracker().issueEvent(once(event, "event") as PlatformEvent))?.comment?.body, "First value");
+      comment: { id: 123, nodeId: "IC_first", body: "First value" } });
+    assert.deepEqual((await tracker().issueEvent(once(event, "event") as PlatformEvent))?.comment, {
+      id: 123, nodeId: "IC_first", body: "First value",
+    });
     assert.ok([...reads.values()].every((count) => count === 1));
   });
 
