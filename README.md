@@ -23,6 +23,7 @@ The package has no runtime dependencies. Its runtime is one self-contained ESM f
 - Reads issues with their labels, parent, sub-issues, blockers, edit and link times.
 - Normalizes issue webhook events into platform-neutral event facts without requests.
 - Reads label changes and comments, and writes labels, comments and issue state.
+- Lists repository labels and updates their names, colors and descriptions.
 - Reads pull requests, reviews, review threads and checks, and squash-merges against an expected head.
 - Lists releases and resolves tags to commits.
 - Reports the authenticated account and repository roles, and sends other API requests authenticated.

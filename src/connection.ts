@@ -15,6 +15,7 @@ import type {
   Issue,
   IssueFilter,
   IssueTracker,
+  IssueTrackerWithLabels,
   Label,
   PlatformEvent,
   PullRequest,
@@ -56,6 +57,11 @@ export interface Connection {
   readonly access: Access;
 }
 
+/** A concrete connection with repository label management on its issue tracker. */
+export interface ConnectionWithLabels extends Connection {
+  readonly issueTracker: IssueTrackerWithLabels;
+}
+
 /** What an adapter receives to build its ports. */
 export interface AdapterContext {
   repository: RepositoryIdentity;
@@ -66,7 +72,7 @@ export interface AdapterContext {
 }
 
 export interface AdapterPorts {
-  issueTracker: IssueTracker;
+  issueTracker: IssueTrackerWithLabels;
   pullRequests: PullRequests;
   releaseSource: ReleaseSource;
   access: Access;
@@ -110,7 +116,7 @@ const headerValue = /^(?:[\x21-\x7e\x80-\xff](?:[\t\x20-\x7e\x80-\xff]*[\x21-\x7
  * Fails with `unsupported` for a platform no adapter serves and with
  * `rejected` for invalid options.
  */
-export function connect(repository: string | RepositoryIdentity, options: ConnectOptions = {}): Connection {
+export function connect(repository: string | RepositoryIdentity, options: ConnectOptions = {}): ConnectionWithLabels {
   const identity = typeof repository === "string" ? detectPlatform(repository) : checkIdentity(repository);
   const adapter = adapters[identity.platform];
   return createConnection(identity, adapter, options);
@@ -121,7 +127,7 @@ export function createConnection(
   repository: RepositoryIdentity,
   adapter: PlatformAdapter,
   options: ConnectOptions,
-): Connection {
+): ConnectionWithLabels {
   const checked = checkOptions(options);
   const secrets = new Secrets();
   const context: AdapterContext = {
@@ -179,11 +185,11 @@ async function shielded<T>(secrets: Secrets, operation: () => Promise<T>): Promi
 }
 
 function guardIssueTracker(
-  port: IssueTracker,
+  port: IssueTrackerWithLabels,
   capabilities: IssueTracker["capabilities"],
   context: AdapterContext,
   { guard, account }: Layer,
-): IssueTracker {
+): IssueTrackerWithLabels {
   const sections = context.relationshipSections !== null;
   const issueFacts = (issue: Issue): Issue => ({
     ...issue,
@@ -236,19 +242,12 @@ function guardIssueTracker(
         checkText(label, "label");
         await port.removeLabel(number, label);
       }),
-    createLabel: (label: Label) =>
+    labels: () => guard(() => port.labels()),
+    createLabel: (label: Label) => guard(async () => port.createLabel(checkLabel(label))),
+    updateLabel: (name: string, label: Label) =>
       guard(async () => {
-        const { name, color, description } = fields(
-          label,
-          ["name", "color", "description"],
-          "A label needs a name, color and description.",
-        );
         checkText(name, "label name");
-        if (typeof color !== "string" || !/^[0-9a-fA-F]{6}$/.test(color)) {
-          reject("A label color is six hexadecimal digits without '#'.");
-        }
-        if (!isText(description)) reject("A label description is a string.");
-        return port.createLabel({ name, color, description });
+        return port.updateLabel(name, checkLabel(label));
       }),
     createComment: (number: number, body: string) =>
       guard(async () => {
@@ -561,6 +560,20 @@ function checkIssueFilter(filter: IssueFilter): IssueFilter {
   }
   if (label !== undefined) checkText(label, "label");
   return { ...(state === undefined ? {} : { state }), ...(label === undefined ? {} : { label }) };
+}
+
+function checkLabel(label: Label): Label {
+  const { name, color, description } = fields(
+    label,
+    ["name", "color", "description"],
+    "A label needs a name, color and description.",
+  );
+  checkText(name, "label name");
+  if (typeof color !== "string" || !/^[0-9a-fA-F]{6}$/.test(color)) {
+    reject("A label color is six hexadecimal digits without '#'.");
+  }
+  if (!isText(description)) reject("A label description is a string.");
+  return { name, color, description };
 }
 
 function checkNumber(value: number, what: string): void {

@@ -1,0 +1,64 @@
+// This fixture compiles against the installed tarball, not Postern's sources.
+import {
+  connect,
+  type Connection,
+  type ConnectionWithLabels,
+  type IssueTracker,
+  type IssueTrackerWithLabels,
+  type Label,
+} from "@lutzseverino/postern";
+
+const unused = (): never => { throw new Error("compile fixture only"); };
+
+// Freeze the pre-label-management producer shape: neither new method is needed.
+export const legacyTracker: IssueTracker = {
+  capabilities: {},
+  issueEvent: unused,
+  issues: unused,
+  issue: unused,
+  labelChanges: unused,
+  comments: unused,
+  addLabels: unused,
+  removeLabel: unused,
+  createLabel: unused,
+  createComment: unused,
+  updateComment: unused,
+  closeIssue: unused,
+};
+
+declare const pullRequests: Connection["pullRequests"];
+declare const releaseSource: Connection["releaseSource"];
+declare const access: Connection["access"];
+export const legacyConnection: Connection = {
+  repository: { platform: "github", host: "github.com", path: "octo/hello" },
+  issueTracker: legacyTracker,
+  pullRequests,
+  releaseSource,
+  access,
+};
+
+type Assert<T extends true> = T;
+export type LegacyTrackerHasNoLabelOperations = Assert<
+  Extract<keyof IssueTracker, "labels" | "updateLabel"> extends never ? true : false
+>;
+
+const concrete = connect("https://github.com/octo/hello");
+export const labels: Promise<Label[]> = concrete.issueTracker.labels();
+export const updated: Promise<Label> = concrete.issueTracker.updateLabel("old", {
+  name: "new", color: "abcdef", description: "",
+});
+
+// The stronger inferred result is still assignable to the old named contracts.
+export const oldConnection: Connection = concrete;
+export const oldTracker: IssueTracker = concrete.issueTracker;
+export const refined: ConnectionWithLabels = concrete;
+export const extended: IssueTrackerWithLabels = concrete.issueTracker;
+
+// Adapter harnesses can name the additive contract and require both methods.
+export function harness(tracker: IssueTrackerWithLabels): Promise<Label[]> {
+  const required: {
+    labels(): Promise<Label[]>;
+    updateLabel(name: string, label: Label): Promise<Label>;
+  } = tracker;
+  return required.labels();
+}

@@ -28,6 +28,25 @@ any other path fails with `rejected`. Its options are:
 | `fetch`                | A `fetch`-compatible function. Defaults to the global `fetch`.                                                                        |
 | `timeoutMs`            | The time one request may take before it fails with `unavailable`: whole milliseconds from 1 to 2147483647. Defaults to 30000.         |
 
+`connect()` returns `ConnectionWithLabels`, whose issue tracker is an
+`IssueTrackerWithLabels`: an extension of `IssueTracker` with the required
+`labels()` and `updateLabel()` methods. These additive types are exported for
+consumers and adapter contract harnesses. The existing `Connection` and
+`IssueTracker` types retain their earlier structural requirements, so objects
+and test doubles implementing them do not need either new method. A concrete
+connection and its tracker remain assignable to those earlier types.
+
+Keep the inferred `connect()` result or use the additive types when calling
+the new operations. An explicit `Connection` or `IssueTracker` annotation
+exposes the earlier surface:
+
+```ts
+import { connect, type IssueTrackerWithLabels } from "@lutzseverino/postern";
+
+const tracker: IssueTrackerWithLabels = connect("https://github.com/octo/hello").issueTracker;
+const labels = await tracker.labels();
+```
+
 Invalid options and arguments fail with `rejected` before any request. So
 does any string Postern would send, in a path, query, header or body, that
 holds an unpaired surrogate, such as `"\uD800"`, because it has no UTF-8
@@ -100,9 +119,29 @@ the same host, so links may cross repositories.
 | `addLabels(number, labels)`        | Adds the labels.                                                          |
 | `removeLabel(number, label)`       | Removes the label; `notFound` when the issue lacks it.                    |
 | `createLabel({ name, color, description })` | The created label; `color` is six hexadecimal digits without `#`. |
+| `labels()`                        | Every repository label in platform order, across all pages; `[]` when there are none. |
+| `updateLabel(name, { name, color, description })` | The updated repository label, selected by its current name. |
 | `createComment(number, body)`      | The created comment.                                                      |
 | `updateComment(id, body)`          | The updated comment.                                                      |
 | `closeIssue(number)`               | Closes the issue.                                                         |
+
+`labels()` and `updateLabel()` are available from 1.1.0 through the refined
+connection and tracker types. Each label is `{ name, color, description }`;
+GitHub's null description becomes an empty string. `updateLabel` sets the
+complete desired name, color and description, so it can rename a label or
+clear its description with `""`. Names are non-empty, well-formed strings;
+colors are six hexadecimal digits without `#`, and descriptions are
+well-formed strings, empty included. Invalid arguments fail with `rejected`
+before a request. On GitHub the selected name is encoded as one path segment.
+
+An update of a missing label fails with `notFound`; a platform validation
+failure, including GitHub's 422, fails with `rejected`. Other failures keep
+the usual error mapping, response status and redacted platform message. An
+update never creates a missing label or retries as creation, and creating an
+existing label still fails with `rejected`. Listing never returns a partial
+list: an unreadable label or pagination, even on a later page, fails with
+`invalidResponse` and that page's HTTP status. Ownership and the decision to
+create or update a label stay with the caller.
 
 A number names an issue. Where pull requests share the issue number space,
 as on GitHub, `issue` and `closeIssue` fail with `notFound` for a pull

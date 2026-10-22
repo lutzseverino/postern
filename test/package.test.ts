@@ -116,6 +116,7 @@ export const read = async (): Promise<Issue | string> => tracker.issue(1).catch(
         },
       }),
     );
+    copyFileSync(join(root, "test/fixtures/label-types.ts.txt"), join(consumer, "label-types.ts"));
     execFileSync(process.execPath, [join(root, "node_modules/typescript/bin/tsc"), "-p", consumer], { stdio: "pipe" });
     const output = execFileSync(
       process.execPath,

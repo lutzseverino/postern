@@ -146,6 +146,14 @@ export interface IssueTracker {
   closeIssue(number: number): Promise<void>;
 }
 
+/** The issue tracker returned by `connect`, including repository label management. */
+export interface IssueTrackerWithLabels extends IssueTracker {
+  /** Every repository label, in platform order. */
+  labels(): Promise<Label[]>;
+  /** Updates the selected label to the complete desired name, color and description. */
+  updateLabel(name: string, label: Label): Promise<Label>;
+}
+
 export type PullRequestState = "open" | "closed" | "merged";
 
 export interface PullRequest {

@@ -65,6 +65,8 @@ function sectionedAdapter(issues: Map<number, StoredIssue>) {
         addLabels: unused,
         removeLabel: unused,
         createLabel: unused,
+        labels: unused,
+        updateLabel: unused,
         createComment: unused,
         updateComment: unused,
         closeIssue: unused,
