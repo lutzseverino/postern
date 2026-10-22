@@ -188,7 +188,13 @@ returns an `IssueEvent` with every field below present:
 | `label`         | The label name for `labeled` and `unlabeled`; otherwise `null`. |
 | `openingLabels` | The labels the issue was created with for `opened`; otherwise `null`. |
 | `bodyChanged`   | Whether an `edited` event changed the body; otherwise `null`. |
-| `comment`       | `{ id, body }` for comment events, including the deleted body for `commentDeleted`; otherwise `null`. |
+| `comment`       | `{ id, nodeId, body }` for comment events, including the deleted body for `commentDeleted`; otherwise `null`. |
+
+From 1.2.0, `comment.nodeId` reports the platform's global API identifier for
+the comment, the same value as `Comment.nodeId`, or `null` when the event does
+not supply one. Every adapter result sets it. The declaration field is
+optional (`nodeId?: string | null`) so 1.1.0 producers and test doubles that
+return `{ id, body }` still compile. No capability flag is needed.
 
 `IssueEventKind` is `opened`, `reopened`, `closed`, `edited`, `labeled`,
 `unlabeled`, `commentCreated`, `commentEdited` or `commentDeleted`.
@@ -348,8 +354,12 @@ The GitHub adapter serves `github.com` repositories and offers every flag.
   and `deleted` become `commentCreated`, `commentEdited` and `commentDeleted`.
   Pull-request comments, other names and other actions return `null`.
   The actor comes from `sender`, opening labels from `issue.labels`, the
-  changed label from `label.name`, and the comment from `comment.id` and
-  `comment.body`. An issue edit changes the body when `changes.body` is
+  changed label from `label.name`, and the comment from `comment.id`,
+  `comment.node_id` and `comment.body`. An absent `comment.node_id` reports
+  `nodeId: null`; a present value that is not a non-empty string, including
+  `null`, fails with `invalidResponse` without an HTTP `status`. The global
+  identifier is never derived from the numeric ID or read from current state.
+  An issue edit changes the body when `changes.body` is
   present; a title-only edit reports `false`. Repository names are compared
   without regard to case. No API request or credential lookup is needed,
   including on anonymous connections.

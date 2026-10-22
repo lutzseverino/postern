@@ -1,0 +1,42 @@
+// Strict installed-tarball consumer of the frozen published 1.1.0 port types.
+import { connect, type IssueEvent, type IssueTrackerWithLabels } from "@lutzseverino/postern";
+import type * as Published from "./published-1.1.0.js";
+
+const unused = (): never => { throw new Error("compile fixture only"); };
+
+// A producer written against 1.1.0 supplies only the original comment fields.
+const publishedEvent: Published.IssueEvent = {
+  platform: "github", repository: "octo/hello", issue: 42,
+  kind: "commentDeleted", actor: { login: "mona", bot: false },
+  label: null, openingLabels: null, bodyChanged: null,
+  comment: { id: 123, body: "Deleted body" },
+};
+const publishedTracker: Published.IssueTrackerWithLabels = {
+  capabilities: {},
+  issues: unused,
+  issue: unused,
+  issueEvent: async () => publishedEvent,
+  labelChanges: unused,
+  comments: unused,
+  addLabels: unused,
+  removeLabel: unused,
+  createLabel: unused,
+  labels: unused,
+  updateLabel: unused,
+  createComment: unused,
+  updateComment: unused,
+  closeIssue: unused,
+};
+export const compatibleEvent: IssueEvent = publishedEvent;
+export const compatibleTracker: IssueTrackerWithLabels = publishedTracker;
+
+// Normal connect() inference exposes the new, optional comment identifier.
+const concrete = connect("https://github.com/octo/hello");
+export const nodeId = async () => {
+  const event = await concrete.issueTracker.issueEvent({ name: "issue_comment", payload: {} });
+  return event?.comment?.nodeId;
+};
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Assert<T extends true> = T;
+export type InferredNodeId = Assert<Equal<ReturnType<typeof nodeId>, Promise<string | null | undefined>>>;

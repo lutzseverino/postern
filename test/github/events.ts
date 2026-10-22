@@ -18,7 +18,11 @@ export function githubIssueEvent(seed: IssueEventSeed & { repository: string }, 
       ...(seed.kind !== "edited" ? {} : {
         changes: seed.bodyChanged ? { body: { from: "Previous body" } } : { title: { from: "Previous title" } },
       }),
-      ...(seed.comment === undefined ? {} : { comment: { ...seed.comment } }),
+      ...(seed.comment === undefined ? {} : { comment: {
+        id: seed.comment.id,
+        ...(seed.comment.nodeId === undefined ? {} : { node_id: seed.comment.nodeId }),
+        body: seed.comment.body,
+      } }),
     },
   };
   switch (variation) {

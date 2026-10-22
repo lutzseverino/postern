@@ -46,7 +46,7 @@ describe("the published package", () => {
       assert.equal(field in manifest, false, `package.json has ${field}`);
     }
     assert.equal(manifest.name, "@lutzseverino/postern");
-    assert.equal(manifest.version, "1.1.0");
+    assert.equal(manifest.version, "1.2.0");
     assert.equal(manifest.type, "module");
     assert.equal(manifest.license, "MIT");
     assert.deepEqual(manifest.engines, { node: "^24.0.0 || ^26.0.0" });
@@ -118,10 +118,31 @@ export const read = async (): Promise<Issue | string> => tracker.issue(1).catch(
         },
       }),
     );
-    for (const fixture of ["published-1.0.0.d.ts", "legacy-types.ts", "additive-types.ts"]) {
+    for (const fixture of ["published-1.0.0.d.ts", "legacy-types.ts", "additive-types.ts", "published-1.1.0.d.ts", "event-types.ts"]) {
       copyFileSync(join(root, `test/fixtures/${fixture}.txt`), join(consumer, fixture));
     }
     execFileSync(process.execPath, [join(root, "node_modules/typescript/bin/tsc"), "-p", consumer], { stdio: "pipe" });
+    // Prove the published producer catches a required-field regression, using
+    // only the installed candidate declaration; restore it before runtime use.
+    const ports = join(consumer, "node_modules/@lutzseverino/postern/dist/types/ports.d.ts");
+    const declaration = readFileSync(ports, "utf8");
+    assert.equal(declaration.split("nodeId?: string | null;").length, 2);
+    try {
+      writeFileSync(ports, declaration.replace("nodeId?: string | null;", "nodeId: string | null;"));
+      assert.throws(
+        () => execFileSync(process.execPath, [join(root, "node_modules/typescript/bin/tsc"), "-p", consumer], { stdio: "pipe" }),
+        (error: unknown) => {
+          const failure = error as { status?: number; stdout?: Buffer };
+          assert.equal(failure.status, 1);
+          const output = String(failure.stdout);
+          assert.match(output, /event-types\.ts/);
+          assert.match(output, /Property 'nodeId' is missing/);
+          return true;
+        },
+      );
+    } finally {
+      writeFileSync(ports, declaration);
+    }
     const output = execFileSync(
       process.execPath,
       ["--input-type=module", "-e", `import { detectPlatform } from "@lutzseverino/postern"; console.log(detectPlatform("https://github.com/a/b").path);`],
