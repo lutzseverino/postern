@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { PlatformError, capabilityFlags } from "../../src/index.ts";
-import type { Account, Connection, IssueEventKind, PlatformErrorReason } from "../../src/index.ts";
+import type { Account, ConnectionWithLabels, IssueEventKind, PlatformErrorReason } from "../../src/index.ts";
 import type { AdapterHarness, ContractPlatform, Malformation } from "./harness.ts";
 
 const mona: Account = { login: "mona", bot: false };
@@ -153,6 +153,22 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
     });
 
     group("issue tracker reads", () => {
+      it("lists every repository label across pages in platform order", async () => {
+        const platform = harness.start();
+        platform.pageSize(1);
+        const labels = [
+          { name: "needs-info", color: "d4c5f9", description: "Waiting" },
+          { name: "bug", color: "D73A4A", description: "" },
+          { name: "triaged", color: "abcdef", description: "Reviewed" },
+        ];
+        for (const label of labels) platform.defineLabel(label);
+        assert.deepEqual(await platform.connect().issueTracker.labels(), labels);
+      });
+
+      it("returns an empty repository label list", async () => {
+        assert.deepEqual(await harness.start().connect().issueTracker.labels(), []);
+      });
+
       it("lists open issues across pages, oldest first", async () => {
         const platform = harness.start();
         platform.pageSize(2);
@@ -348,6 +364,29 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         const label = { name: "bug", color: "d73a4a", description: "Broken" };
         platform.defineLabel(label);
         await assert.rejects(platform.connect().issueTracker.createLabel(label), isReason("rejected"));
+      });
+
+      it("updates and renames one repository label, including clearing its description", async () => {
+        const platform = harness.start();
+        const other = { name: "other", color: "123456", description: "Keep" };
+        platform.defineLabel(other);
+        const name = "needs / info % 🐛";
+        platform.defineLabel({ name, color: "abcdef", description: "Before" });
+        const tracker = platform.connect().issueTracker;
+        const updated = { name, color: "D73A4A", description: "After" };
+        assert.deepEqual(await tracker.updateLabel(name, updated), updated);
+        const renamed = { name: "triaged", color: "d4c5f9", description: "" };
+        assert.deepEqual(await tracker.updateLabel(name, renamed), renamed);
+        assert.equal(platform.label(name), undefined);
+        assert.deepEqual(platform.label("triaged"), renamed);
+        assert.deepEqual(platform.label("other"), other);
+      });
+
+      it("does not create a missing label when updating it", async () => {
+        const platform = harness.start();
+        const desired = { name: "new", color: "abcdef", description: "" };
+        await assert.rejects(platform.connect().issueTracker.updateLabel("missing", desired), isReason("notFound"));
+        assert.equal(platform.label("new"), undefined);
       });
 
       it("creates and updates comments", async () => {
@@ -776,10 +815,12 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
       });
 
       const reasons = ["unauthenticated", "forbidden", "notFound", "conflict", "rejected", "rateLimited", "unavailable", "invalidResponse"] as const;
-      const operations: [string, (connection: Connection) => Promise<unknown>][] = [
+      const operations: [string, (connection: ConnectionWithLabels) => Promise<unknown>][] = [
         ["an issue read", (connection) => connection.issueTracker.issue(1)],
         ["a release listing", (connection) => connection.releaseSource.releases()],
         ["a label write", (connection) => connection.issueTracker.addLabels(1, ["bug"])],
+        ["a repository label listing", (connection) => connection.issueTracker.labels()],
+        ["a repository label update", (connection) => connection.issueTracker.updateLabel("bug", { name: "bug", color: "ededed", description: "" })],
       ];
       for (const reason of reasons) {
         for (const [what, operation] of operations) {
@@ -802,7 +843,7 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
       // Every operation that reads a response, as a call prepared on a seeded
       // platform, and whether it reads pages: a list across pages, or a
       // resource holding lists that span pages of their own.
-      type Prepared = (platform: ContractPlatform, connection: Connection) => Promise<() => Promise<unknown>>;
+      type Prepared = (platform: ContractPlatform, connection: ConnectionWithLabels) => Promise<() => Promise<unknown>>;
       const reads: [name: string, paged: boolean, prepare: Prepared][] = [
         ["issues", true, async (platform, { issueTracker }) => (platform.addIssue(), () => issueTracker.issues())],
         ["issue", true, async (platform, { issueTracker }) => {
@@ -821,6 +862,14 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         }],
         ["createLabel", false, async (_platform, { issueTracker }) => () =>
           issueTracker.createLabel({ name: "bug", color: "ededed", description: "" })],
+        ["labels", true, async (platform, { issueTracker }) => {
+          platform.defineLabel({ name: "bug", color: "ededed", description: "" });
+          return () => issueTracker.labels();
+        }],
+        ["updateLabel", false, async (platform, { issueTracker }) => {
+          platform.defineLabel({ name: "bug", color: "ededed", description: "" });
+          return () => issueTracker.updateLabel("bug", { name: "bug", color: "d73a4a", description: "Updated" });
+        }],
         ["createComment", false, async (platform, { issueTracker }) => {
           const number = platform.addIssue();
           return () => issueTracker.createComment(number, "hi");
@@ -908,6 +957,28 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
     });
 
     group("credentials", () => {
+      it("redacts credentials from listed and updated label facts and failures", async () => {
+        const platform = harness.start();
+        const label = { name: `owned-${platform.token}`, color: "abcdef", description: `secret ${platform.token}` };
+        platform.defineLabel(label);
+        const tracker = platform.connect({ tokenFunction: true }).issueTracker;
+        const updated = await tracker.updateLabel(label.name, label);
+        const listed = await tracker.labels();
+        for (const result of [updated, listed]) {
+          assert.doesNotMatch(JSON.stringify(result), new RegExp(platform.token));
+          assert.match(JSON.stringify(result), /<REDACTED>/);
+        }
+        for (const call of [() => tracker.labels(), () => tracker.updateLabel(label.name, label)]) {
+          platform.failNext({ reason: "rejected", echo: platform.token });
+          await assert.rejects(call(), (error) => {
+            isReason("rejected")(error);
+            assert.doesNotMatch(JSON.stringify(error, Object.getOwnPropertyNames(error)), new RegExp(platform.token));
+            assert.match((error as PlatformError).platformMessage!, /<REDACTED>/);
+            return true;
+          });
+        }
+      });
+
       for (const reason of ["unauthenticated", "rejected", "unavailable"] as const) {
         it(`keeps the credential out of a ${reason} error that echoes it`, async () => {
           const platform = harness.start();

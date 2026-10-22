@@ -1,10 +1,10 @@
 // Reads over the GitHub fake that each seed what they read and return the
 // call, so a test can change the fake's response before making it.
 
-import type { Connection } from "../../src/index.ts";
+import type { ConnectionWithLabels } from "../../src/index.ts";
 import type { ContractPlatform } from "../contract/harness.ts";
 
-export type Read = (platform: ContractPlatform, connection: Connection) => () => Promise<unknown>;
+export type Read = (platform: ContractPlatform, connection: ConnectionWithLabels) => () => Promise<unknown>;
 
 export const head = "a".repeat(40);
 export const mona = { login: "mona", bot: false };
@@ -92,4 +92,12 @@ export const reads = {
   },
   viewer: (_platform, { access }) => () => access.viewer(),
   createLabel: (_platform, { issueTracker }) => () => issueTracker.createLabel({ name: "bug", color: "ededed", description: "" }),
+  labels: (platform, { issueTracker }) => {
+    platform.defineLabel({ name: "bug", color: "ededed", description: "" });
+    return () => issueTracker.labels();
+  },
+  updateLabel: (platform, { issueTracker }) => {
+    platform.defineLabel({ name: "bug", color: "ededed", description: "" });
+    return () => issueTracker.updateLabel("bug", { name: "triaged", color: "abcdef", description: "Updated" });
+  },
 } satisfies Record<string, Read>;

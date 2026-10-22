@@ -16,7 +16,7 @@ import type {
   IssueEvent,
   IssueEventKind,
   IssueReference,
-  IssueTracker,
+  IssueTrackerWithLabels,
   Label,
   LabelChange,
   PullRequest,
@@ -92,7 +92,7 @@ const commentActions: Record<string, IssueEventKind> = {
 
 const ignore = () => undefined;
 
-function issueTracker(transport: GitHubTransport, repo: string, coordinates: Json, repository: string): IssueTracker {
+function issueTracker(transport: GitHubTransport, repo: string, coordinates: Json, repository: string): IssueTrackerWithLabels {
   // An issue with every page of its nested connections. A follow-up query
   // starts from the first page again and replaces what the issue held.
   const complete = async (value: unknown): Promise<Issue> => {
@@ -192,6 +192,16 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
     },
     async createLabel(label) {
       return transport.rest(`${repo}/labels`, { method: "POST", body: label }, ({ data }) => mapLabel(data));
+    },
+    async labels() {
+      return transport.restPages(`${repo}/labels`, {}, mapLabel);
+    },
+    async updateLabel(name, label) {
+      return transport.rest(
+        `${repo}/labels/${segment(name)}`,
+        { method: "PATCH", body: { new_name: label.name, color: label.color, description: label.description } },
+        ({ data }) => mapLabel(data),
+      );
     },
     async createComment(number, body) {
       return transport.rest(`${repo}/issues/${number}/comments`, { method: "POST", body: { body } }, ({ data }) =>

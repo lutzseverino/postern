@@ -50,6 +50,8 @@ function doubleAdapter(
         addLabels: unexpected,
         removeLabel: unexpected,
         createLabel: unexpected,
+        labels: unexpected,
+        updateLabel: unexpected,
         createComment: unexpected,
         updateComment: unexpected,
         closeIssue: unexpected,
@@ -562,6 +564,7 @@ describe("reading what callers pass", () => {
           issues: record([]),
           addLabels: record(undefined),
           createLabel: record({ name: "bug", color: "ededed", description: "" }),
+          updateLabel: record({ name: "bug", color: "ededed", description: "" }),
         },
         pullRequests: {
           ...ports.pullRequests,
@@ -615,6 +618,7 @@ describe("reading what callers pass", () => {
     await connection.issueTracker.issues(fickle({ state: "closed", label: "bug" } as const, reads));
     await connection.issueTracker.addLabels(7, fickle(["bug", "help"], reads));
     await connection.issueTracker.createLabel(fickle({ name: "bug", color: "ededed", description: "" }, reads));
+    await connection.issueTracker.updateLabel("old", fickle({ name: "bug", color: "ededed", description: "" }, reads));
     await connection.pullRequests.squashMerge(7, fickle({ expectedHead: "abc", title: "t", body: "b" }, reads));
     await connection.access.request(
       fickle(
@@ -635,6 +639,7 @@ describe("reading what callers pass", () => {
       [{ state: "closed", label: "bug" }],
       [7, ["bug", "help"]],
       [{ name: "bug", color: "ededed", description: "" }],
+      ["old", { name: "bug", color: "ededed", description: "" }],
       [7, { expectedHead: "abc", title: "t", body: "b" }],
       [{ path: "/user", method: "POST", query: { page: 2 }, headers: { "x-a": "1" }, body: { items: [1, { n: "x" }] } }],
       [{ path: "/user", method: "GET", query: { page: 1 }, headers: { "x-a": "1" } }],

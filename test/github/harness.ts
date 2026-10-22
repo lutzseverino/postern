@@ -1,7 +1,7 @@
 // The GitHub adapter's contract harness over the local GitHub fake.
 
 import { connect } from "../../src/index.ts";
-import type { Account, ConnectOptions, Connection } from "../../src/index.ts";
+import type { Account, ConnectOptions, ConnectionWithLabels } from "../../src/index.ts";
 import type { AdapterHarness, ContractPlatform, Failure, Malformation, SeedReference } from "../contract/harness.ts";
 import { githubIssueEvent } from "./events.ts";
 import { GitHubFake } from "./fake.ts";
@@ -105,7 +105,7 @@ const malformations: Record<Malformation, Omit<Malformed, "status">> = {
 };
 
 /** Opens a connection the way `connect` does. */
-export type Opener = (remote: string, options: ConnectOptions) => Connection;
+export type Opener = (remote: string, options: ConnectOptions) => ConnectionWithLabels;
 
 /** A harness over the GitHub fake whose connections `open` makes, by default through `connect`. */
 export const harnessOver = (name: string, open: Opener = connect): AdapterHarness => ({

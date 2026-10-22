@@ -234,6 +234,22 @@ export class GitHubFake {
       labels.set(String(label.name), created);
       return json(201, created);
     }
+    if (route(/^\/labels$/, "GET")) {
+      return this.#page(url, [...(this.labels.get(repository)?.values() ?? [])]);
+    }
+    if (route(/^\/labels\/(.+)$/, "PATCH")) {
+      const labels = this.labels.get(repository);
+      const selected = arg(1);
+      const label = labels?.get(selected);
+      if (!labels || !label) return notFound();
+      const desired = body as Json;
+      const name = String(desired.new_name);
+      if (name !== selected && labels.has(name)) return json(422, { message: "Validation Failed" });
+      const updated = { ...label, name, color: desired.color, description: desired.description };
+      labels.delete(selected);
+      labels.set(name, updated);
+      return json(200, updated);
+    }
     // GitHub's Issues API serves pull requests too, and closes one it is asked to.
     if (route(/^\/issues\/(\d+)$/, "GET")) {
       return json(200, restIssue(this.#issueOrPull(repository, Number(arg(1)))));

@@ -3,7 +3,7 @@
 // Values the platform names itself, such as roles and review states, come
 // from the harness's `words`.
 
-import type { Account, ConnectOptions, Connection, Label, PlatformErrorReason } from "../../src/index.ts";
+import type { Account, ConnectOptions, ConnectionWithLabels, Label, PlatformErrorReason } from "../../src/index.ts";
 
 /** An issue in another repository on the same platform, or a number in the connected one. */
 export type SeedReference = number | { repository: string; number: number };
@@ -112,7 +112,7 @@ export interface ContractPlatform {
    * Opens a connection to the fake, authenticated with `token` unless
    * anonymous, passed as a function returning it with `tokenFunction`.
    */
-  connect(options?: Omit<ConnectOptions, "fetch" | "credential"> & { anonymous?: boolean; tokenFunction?: boolean }): Connection;
+  connect(options?: Omit<ConnectOptions, "fetch" | "credential"> & { anonymous?: boolean; tokenFunction?: boolean }): ConnectionWithLabels;
   /** Makes the fake serve at most this many items per page. */
   pageSize(size: number): void;
   /** Serves these authenticated transport pages and returns the first page's request path. */
