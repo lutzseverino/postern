@@ -1,0 +1,82 @@
+// Required additions on normal inference and exported contracts, from the tarball.
+import {
+  connect,
+  type Access,
+  type AccessWithPages,
+  type Connection,
+  type ConnectionWithLabels,
+  type IssueEvent,
+  type IssueTracker,
+  type IssueTrackerWithLabels,
+  type Label,
+  type PlatformEvent,
+  type TransportRequest,
+  type TransportResponse,
+} from "@lutzseverino/postern";
+
+const concrete = connect("https://github.com/octo/hello");
+export const event = concrete.issueTracker.issueEvent({ name: "issues", payload: {} });
+export const pages = concrete.access.requestPages({ path: "/repos/octo/hello/labels" });
+export const labels = concrete.issueTracker.labels();
+export const updated = concrete.issueTracker.updateLabel("old", {
+  name: "new", color: "abcdef", description: "",
+});
+
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Assert<T extends true> = T;
+export type EventResult = Assert<Equal<typeof event, Promise<IssueEvent | null>>>;
+export type PagesResult = Assert<Equal<typeof pages, Promise<TransportResponse[]>>>;
+export type LabelsResult = Assert<Equal<typeof labels, Promise<Label[]>>>;
+export type UpdatedResult = Assert<Equal<typeof updated, Promise<Label>>>;
+
+// Enhanced concrete values and named contracts still satisfy the legacy ports.
+export const oldConnection: Connection = concrete;
+export const oldTracker: IssueTracker = concrete.issueTracker;
+export const oldAccess: Access = concrete.access;
+export const enhanced: ConnectionWithLabels = concrete;
+export const tracker: IssueTrackerWithLabels = concrete.issueTracker;
+export const access: AccessWithPages = concrete.access;
+
+interface RequiredTracker {
+  issueEvent(event: PlatformEvent): Promise<IssueEvent | null>;
+  labels(): Promise<Label[]>;
+  updateLabel(name: string, label: Label): Promise<Label>;
+}
+interface RequiredAccess {
+  requestPages(request: TransportRequest): Promise<TransportResponse[]>;
+}
+
+export type TrackerSignatures = Assert<Equal<
+  Pick<IssueTrackerWithLabels, keyof RequiredTracker>, RequiredTracker
+>>;
+export type AccessSignatures = Assert<Equal<
+  Pick<AccessWithPages, keyof RequiredAccess>, RequiredAccess
+>>;
+
+// Structural assignments fail if an exported contract drops or optionalizes a method.
+export function harness(
+  tracker: IssueTrackerWithLabels,
+  access: AccessWithPages,
+  connection: ConnectionWithLabels,
+) {
+  const requiredTracker: RequiredTracker = tracker;
+  const requiredAccess: RequiredAccess = access;
+  const requiredConnection: {
+    readonly issueTracker: RequiredTracker;
+    readonly access: RequiredAccess;
+  } = connection;
+  const legacyTracker: IssueTracker = tracker;
+  const legacyAccess: Access = access;
+  const legacyConnection: Connection = connection;
+  return {
+    event: requiredTracker.issueEvent({ name: "issues", payload: {} }),
+    labels: requiredTracker.labels(),
+    updated: requiredTracker.updateLabel("old", { name: "new", color: "abcdef", description: "" }),
+    pages: requiredAccess.requestPages({ path: "/labels" }),
+    requiredConnection,
+    legacyTracker,
+    legacyAccess,
+    legacyConnection,
+  };
+}

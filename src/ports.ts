@@ -128,8 +128,6 @@ export interface IssueTrackerCapabilities {
  */
 export interface IssueTracker {
   readonly capabilities: IssueTrackerCapabilities;
-  /** Normalizes an event without requests; null for unsupported events or actions. */
-  issueEvent(event: PlatformEvent): Promise<IssueEvent | null>;
   /** Issues in a state, by default open, optionally only those with a label. */
   issues(filter?: IssueFilter): Promise<Issue[]>;
   /** One issue in any state. */
@@ -146,8 +144,10 @@ export interface IssueTracker {
   closeIssue(number: number): Promise<void>;
 }
 
-/** The issue tracker returned by `connect`, including repository label management. */
+/** The issue tracker returned by `connect`, including events and repository label management. */
 export interface IssueTrackerWithLabels extends IssueTracker {
+  /** Normalizes an event without requests; null for unsupported events or actions. */
+  issueEvent(event: PlatformEvent): Promise<IssueEvent | null>;
   /** Every repository label, in platform order. */
   labels(): Promise<Label[]>;
   /** Updates the selected label to the complete desired name, color and description. */
@@ -322,6 +322,10 @@ export interface Access {
    * operations no port covers. A failing status rejects with `PlatformError`.
    */
   request(request: TransportRequest): Promise<TransportResponse>;
+}
+
+/** The access port returned by `connect`, including paginated requests. */
+export interface AccessWithPages extends Access {
   /** Every page of an authenticated GET, in order, without interpreting or joining the pages' data. */
   requestPages(request: TransportRequest): Promise<TransportResponse[]>;
 }

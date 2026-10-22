@@ -11,6 +11,7 @@ import { githubAdapter } from "./github/adapter.ts";
 import { capabilityFlags } from "./ports.ts";
 import type {
   Access,
+  AccessWithPages,
   Account,
   Issue,
   IssueFilter,
@@ -57,9 +58,10 @@ export interface Connection {
   readonly access: Access;
 }
 
-/** A concrete connection with repository label management on its issue tracker. */
+/** A concrete connection with events, repository label management and paginated requests. */
 export interface ConnectionWithLabels extends Connection {
   readonly issueTracker: IssueTrackerWithLabels;
+  readonly access: AccessWithPages;
 }
 
 /** What an adapter receives to build its ports. */
@@ -75,7 +77,7 @@ export interface AdapterPorts {
   issueTracker: IssueTrackerWithLabels;
   pullRequests: PullRequests;
   releaseSource: ReleaseSource;
-  access: Access;
+  access: AccessWithPages;
 }
 
 export type PlatformAdapter = (context: AdapterContext) => AdapterPorts;
@@ -359,7 +361,7 @@ function guardReleaseSource(port: ReleaseSource, { guard }: Layer): ReleaseSourc
   });
 }
 
-function guardAccess(port: Access, { guard, account }: Layer): Access {
+function guardAccess(port: AccessWithPages, { guard, account }: Layer): AccessWithPages {
   return Object.freeze({
     capabilities: offered(port.capabilities, capabilityFlags.access),
     viewer: () => guard(async () => account(await port.viewer())),

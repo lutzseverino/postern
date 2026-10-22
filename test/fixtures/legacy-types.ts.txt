@@ -1,0 +1,55 @@
+// Strict installed-tarball consumer; the producer contracts are frozen separately.
+import type { Access, Connection, IssueTracker, PullRequests, ReleaseSource } from "@lutzseverino/postern";
+import type * as Published from "./published-1.0.0.js";
+
+const unused = (): never => { throw new Error("compile fixture only"); };
+
+// Actual 1.0.0 producers: no event normalization, pagination or label management.
+const publishedTracker: Published.IssueTracker = {
+  capabilities: {},
+  issues: unused,
+  issue: unused,
+  labelChanges: unused,
+  comments: unused,
+  addLabels: unused,
+  removeLabel: unused,
+  createLabel: unused,
+  createComment: unused,
+  updateComment: unused,
+  closeIssue: unused,
+};
+const publishedAccess: Published.Access = {
+  capabilities: {},
+  viewer: unused,
+  role: unused,
+  request: unused,
+};
+declare const pullRequests: Published.PullRequests;
+declare const releaseSource: Published.ReleaseSource;
+const publishedConnection: Published.Connection = {
+  repository: { platform: "github", host: "github.com", path: "octo/hello" },
+  issueTracker: publishedTracker,
+  pullRequests,
+  releaseSource,
+  access: publishedAccess,
+};
+export const legacyTracker: IssueTracker = publishedTracker;
+export const legacyAccess: Access = publishedAccess;
+export const legacyConnection: Connection = publishedConnection;
+
+// Identity checks protect signatures, optionality and readonly requirements,
+// including nested facts and capability flags, independently of assignability.
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Assert<T extends true> = T;
+export type TrackerMatchesPublished = Assert<Equal<IssueTracker, Published.IssueTracker>>;
+export type AccessMatchesPublished = Assert<Equal<Access, Published.Access>>;
+export type ConnectionMatchesPublished = Assert<Equal<Connection, Published.Connection>>;
+export type PullRequestsMatchesPublished = Assert<Equal<PullRequests, Published.PullRequests>>;
+export type ReleaseSourceMatchesPublished = Assert<Equal<ReleaseSource, Published.ReleaseSource>>;
+export type LegacyTrackerHasNoAdditions = Assert<
+  Extract<keyof IssueTracker, "issueEvent" | "labels" | "updateLabel"> extends never ? true : false
+>;
+export type LegacyAccessHasNoAdditions = Assert<
+  Extract<keyof Access, "requestPages"> extends never ? true : false
+>;

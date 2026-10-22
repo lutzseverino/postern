@@ -7,6 +7,7 @@ export type { PlatformErrorOptions, PlatformErrorReason } from "./errors.ts";
 export { capabilityFlags } from "./ports.ts";
 export type {
   Access,
+  AccessWithPages,
   AccessCapabilities,
   Account,
   CheckResult,

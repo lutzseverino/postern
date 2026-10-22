@@ -8,7 +8,7 @@ import type { AdapterContext, AdapterPorts } from "../connection.ts";
 import { isGitHubRepositoryPath } from "../detect.ts";
 import { PlatformError } from "../errors.ts";
 import type {
-  Access,
+  AccessWithPages,
   Account,
   CheckResult,
   Comment,
@@ -538,7 +538,7 @@ function segment(value: string): string {
 
 // Access
 
-function access(transport: GitHubTransport, context: AdapterContext, repo: string): Access {
+function access(transport: GitHubTransport, context: AdapterContext, repo: string): AccessWithPages {
   return {
     capabilities: {},
     async viewer() {
