@@ -9,9 +9,14 @@ import { delimiter, join } from "node:path";
 import { after, before, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-const script = fileURLToPath(new URL("../scripts/public-smoke.mjs", import.meta.url));
+const script = fileURLToPath(
+  new URL("../scripts/public-smoke.mjs", import.meta.url),
+);
 const version = "1.0.0";
-const provenance = { url: `https://registry.npmjs.org/-/npm/v1/attestations/@lutzseverino/postern@${version}`, provenance: { predicateType: "https://slsa.dev/provenance/v1" } };
+const provenance = {
+  url: `https://registry.npmjs.org/-/npm/v1/attestations/@lutzseverino/postern@${version}`,
+  provenance: { predicateType: "https://slsa.dev/provenance/v1" },
+};
 
 describe("the public check", { skip: process.platform === "win32" }, () => {
   let bin: string;
@@ -40,7 +45,11 @@ else if (args[0] === "view" && args.includes("dist.attestations")) { if (attesta
     return spawnSync(process.execPath, [script, version], {
       encoding: "utf8",
       // The check's scratch project goes under `bin`, which `after` removes.
-      env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`, TMPDIR: bin },
+      env: {
+        ...process.env,
+        PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+        TMPDIR: bin,
+      },
     });
   }
 

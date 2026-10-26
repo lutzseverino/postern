@@ -85,13 +85,20 @@ export class GitHubFake {
   readonly releases: Json[] = [];
   readonly tagRefs = new Map<string, { type: string; sha: string }>();
   readonly tagObjects = new Map<string, { type: string; sha: string }>();
-  readonly collaborators = new Map<string, { permission: string; role_name: string }>();
+  readonly collaborators = new Map<
+    string,
+    { permission: string; role_name: string }
+  >();
   readonly users = new Map<string, FakeUser>();
   /** Tokens the fake accepts, with the account each authenticates. */
   readonly tokens = new Map<string, FakeUser>();
   readonly requests: FakeRequest[] = [];
   /** Responses served by the contract suite's authenticated transport fixture. */
-  readonly transportPages: { status: number; data: unknown; headers: Record<string, string> }[] = [];
+  readonly transportPages: {
+    status: number;
+    data: unknown;
+    headers: Record<string, string>;
+  }[] = [];
   /** The largest page the fake serves, whatever size a request asks for. */
   maxPageSize = 100;
   readonly #injected: Injected[] = [];
@@ -123,19 +130,26 @@ export class GitHubFake {
 
   /** Answers the next request, or the one after `skip` others, with its own response, changed this way. */
   malformNext(change: Malformed, skip = 0): void {
-    for (let skipped = 0; skipped < skip; skipped++) this.#malformations.push(null);
+    for (let skipped = 0; skipped < skip; skipped++)
+      this.#malformations.push(null);
     this.#malformations.push(change);
   }
 
-  readonly fetch = async (input: string | URL | Request, init: RequestInit = {}): Promise<Response> => {
+  readonly fetch = async (
+    input: string | URL | Request,
+    init: RequestInit = {},
+  ): Promise<Response> => {
     const url = new URL(String(input instanceof Request ? input.url : input));
     const headers = new Headers(init.headers);
     const method = (init.method ?? "GET").toUpperCase();
-    const body = typeof init.body === "string" ? JSON.parse(init.body) : undefined;
+    const body =
+      typeof init.body === "string" ? JSON.parse(init.body) : undefined;
     this.requests.push({ method, url, headers, body });
     const injected = this.#injected.shift();
-    if (injected) return this.#injectedResponse(injected, init.signal ?? undefined);
-    if (url.origin !== origin) throw new TypeError(`fetch failed: the fake serves only ${origin}`);
+    if (injected)
+      return this.#injectedResponse(injected, init.signal ?? undefined);
+    if (url.origin !== origin)
+      throw new TypeError(`fetch failed: the fake serves only ${origin}`);
     const authorization = headers.get("authorization");
     let viewer: FakeUser | null = null;
     if (authorization !== null) {
@@ -157,27 +171,44 @@ export class GitHubFake {
     });
   };
 
-  async #injectedResponse(injected: Injected, signal: AbortSignal | undefined): Promise<Response> {
+  async #injectedResponse(
+    injected: Injected,
+    signal: AbortSignal | undefined,
+  ): Promise<Response> {
     if ("network" in injected) throw new TypeError("fetch failed");
     if ("hang" in injected) {
       return new Promise((_, reject) => {
-        signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+        signal?.addEventListener("abort", () => reject(signal.reason), {
+          once: true,
+        });
       });
     }
-    return new Response(injected.body, { status: injected.status, headers: injected.headers ?? {} });
+    return new Response(injected.body, {
+      status: injected.status,
+      headers: injected.headers ?? {},
+    });
   }
 
-  #route(method: string, url: URL, body: unknown, viewer: FakeUser | null): Response {
+  #route(
+    method: string,
+    url: URL,
+    body: unknown,
+    viewer: FakeUser | null,
+  ): Response {
     if (url.pathname === "/contract-pages" && method === "GET") {
       if (!viewer) return json(401, { message: "Requires authentication" });
       const page = this.transportPages[Number(url.searchParams.get("page"))];
       return page ? json(page.status, page.data, page.headers) : notFound();
     }
     if (url.pathname === "/graphql" && method === "POST") {
-      if (!viewer) return json(401, { message: "This endpoint requires you to be authenticated." });
+      if (!viewer)
+        return json(401, {
+          message: "This endpoint requires you to be authenticated.",
+        });
       return this.#graphql(body as { query: string; variables: Json });
     }
-    if (method !== "GET" && !viewer) return json(401, { message: "Requires authentication" });
+    if (method !== "GET" && !viewer)
+      return json(401, { message: "Requires authentication" });
     if (url.pathname === "/user" && method === "GET") {
       if (!viewer) return json(401, { message: "Requires authentication" });
       return json(200, user(viewer));
@@ -188,21 +219,36 @@ export class GitHubFake {
     if (repository !== this.repository) return notFound();
     const path = match[3]!;
     let parts: RegExpExecArray | null;
-    const route = (pattern: RegExp, verb: string) => method === verb && (parts = pattern.exec(path)) !== null;
+    const route = (pattern: RegExp, verb: string) =>
+      method === verb && (parts = pattern.exec(path)) !== null;
     const arg = (index: number) => decodeURIComponent(parts![index]!);
 
     if (route(/^\/issues\/(\d+)\/events$/, "GET")) {
-      return this.#page(url, this.#issueOrPull(repository, Number(arg(1))).events);
+      return this.#page(
+        url,
+        this.#issueOrPull(repository, Number(arg(1))).events,
+      );
     }
     if (route(/^\/issues\/(\d+)\/comments$/, "GET")) {
       const key = this.#issueOrPullKey(repository, Number(arg(1)));
-      return this.#page(url, [...this.comments.values()].filter((comment) => comment.key === key).map(publicComment));
+      return this.#page(
+        url,
+        [...this.comments.values()]
+          .filter((comment) => comment.key === key)
+          .map(publicComment),
+      );
     }
     if (route(/^\/issues\/(\d+)\/comments$/, "POST")) {
       const key = this.#issueOrPullKey(repository, Number(arg(1)));
       const text = (body as Json).body;
-      if (typeof text !== "string" || text === "") return json(422, { message: "Validation Failed" });
-      return json(201, publicComment(this.addComment(key, viewer!, text, "2026-05-01T00:00:00Z")));
+      if (typeof text !== "string" || text === "")
+        return json(422, { message: "Validation Failed" });
+      return json(
+        201,
+        publicComment(
+          this.addComment(key, viewer!, text, "2026-05-01T00:00:00Z"),
+        ),
+      );
     }
     if (route(/^\/issues\/comments\/(\d+)$/, "PATCH")) {
       const comment = this.comments.get(Number(arg(1)));
@@ -216,26 +262,41 @@ export class GitHubFake {
       for (const label of (body as { labels: string[] }).labels) {
         if (!issue.labels.includes(label)) issue.labels.push(label);
       }
-      return json(200, issue.labels.map((name) => ({ name })));
+      return json(
+        200,
+        issue.labels.map((name) => ({ name })),
+      );
     }
     if (route(/^\/issues\/(\d+)\/labels\/(.+)$/, "DELETE")) {
       const issue = this.#issueOrPull(repository, Number(arg(1)));
       const index = issue.labels.indexOf(arg(2));
       if (index === -1) return json(404, { message: "Label does not exist" });
       issue.labels.splice(index, 1);
-      return json(200, issue.labels.map((name) => ({ name })));
+      return json(
+        200,
+        issue.labels.map((name) => ({ name })),
+      );
     }
     if (route(/^\/labels$/, "POST")) {
       const label = body as Json;
       const labels = this.labels.get(repository) ?? new Map<string, Json>();
       this.labels.set(repository, labels);
-      if (labels.has(String(label.name))) return json(422, { message: "Validation Failed" });
-      const created = { id: this.nextId(), name: label.name, color: label.color, description: label.description, default: false };
+      if (labels.has(String(label.name)))
+        return json(422, { message: "Validation Failed" });
+      const created = {
+        id: this.nextId(),
+        name: label.name,
+        color: label.color,
+        description: label.description,
+        default: false,
+      };
       labels.set(String(label.name), created);
       return json(201, created);
     }
     if (route(/^\/labels$/, "GET")) {
-      return this.#page(url, [...(this.labels.get(repository)?.values() ?? [])]);
+      return this.#page(url, [
+        ...(this.labels.get(repository)?.values() ?? []),
+      ]);
     }
     if (route(/^\/labels\/(.+)$/, "PATCH")) {
       const labels = this.labels.get(repository);
@@ -244,19 +305,29 @@ export class GitHubFake {
       if (!labels || !label) return notFound();
       const desired = body as Json;
       const name = String(desired.new_name);
-      if (name !== selected && labels.has(name)) return json(422, { message: "Validation Failed" });
-      const updated = { ...label, name, color: desired.color, description: desired.description };
+      if (name !== selected && labels.has(name))
+        return json(422, { message: "Validation Failed" });
+      const updated = {
+        ...label,
+        name,
+        color: desired.color,
+        description: desired.description,
+      };
       labels.delete(selected);
       labels.set(name, updated);
       return json(200, updated);
     }
     // GitHub's Issues API serves pull requests too, and closes one it is asked to.
     if (route(/^\/issues\/(\d+)$/, "GET")) {
-      return json(200, restIssue(this.#issueOrPull(repository, Number(arg(1)))));
+      return json(
+        200,
+        restIssue(this.#issueOrPull(repository, Number(arg(1)))),
+      );
     }
     if (route(/^\/issues\/(\d+)$/, "PATCH")) {
       const issue = this.#issueOrPull(repository, Number(arg(1)));
-      if ((body as Json).state === "closed" && issue.state === "OPEN") issue.state = "CLOSED";
+      if ((body as Json).state === "closed" && issue.state === "OPEN")
+        issue.state = "CLOSED";
       return json(200, restIssue(issue));
     }
     if (route(/^\/pulls\/(\d+)\/reviews$/, "GET")) {
@@ -265,26 +336,47 @@ export class GitHubFake {
     if (route(/^\/pulls\/(\d+)\/merge$/, "PUT")) {
       const pull = this.#pull(repository, Number(arg(1)));
       const request = body as Json;
-      if (pull.state !== "OPEN") return json(405, { message: "Pull Request is not mergeable" });
+      if (pull.state !== "OPEN")
+        return json(405, { message: "Pull Request is not mergeable" });
       if (request.sha !== pull.headRefOid) {
-        return json(409, { message: "Head branch was modified. Review and try the merge again." });
+        return json(409, {
+          message: "Head branch was modified. Review and try the merge again.",
+        });
       }
       const sha = this.nextId().toString(16).padStart(40, "0");
-      pull.merge = { title: String(request.commit_title), message: String(request.commit_message), sha };
+      pull.merge = {
+        title: String(request.commit_title),
+        message: String(request.commit_message),
+        sha,
+      };
       pull.state = "MERGED";
-      return json(200, { sha, merged: true, message: "Pull Request successfully merged" });
+      return json(200, {
+        sha,
+        merged: true,
+        message: "Pull Request successfully merged",
+      });
     }
     if (route(/^\/commits\/([^/]+)\/check-runs$/, "GET")) {
       const runs = this.checks.get(arg(1))?.runs ?? [];
-      return this.#page(url, runs, (items) => ({ total_count: runs.length, check_runs: items }));
+      return this.#page(url, runs, (items) => ({
+        total_count: runs.length,
+        check_runs: items,
+      }));
     }
     if (route(/^\/commits\/([^/]+)\/status$/, "GET")) {
       const statuses = this.checks.get(arg(1))?.statuses ?? [];
-      return this.#page(url, statuses, (items) => ({ state: "pending", total_count: statuses.length, statuses: items }));
+      return this.#page(url, statuses, (items) => ({
+        state: "pending",
+        total_count: statuses.length,
+        statuses: items,
+      }));
     }
     if (route(/^\/releases$/, "GET")) {
       // Drafts are listed only to accounts that can push.
-      return this.#page(url, this.releases.filter((release) => viewer || !release.draft));
+      return this.#page(
+        url,
+        this.releases.filter((release) => viewer || !release.draft),
+      );
     }
     if (route(/^\/git\/ref\/tags\/(.+)$/, "GET")) {
       const target = this.tagRefs.get(arg(1));
@@ -299,15 +391,26 @@ export class GitHubFake {
     if (route(/^\/collaborators\/([^/]+)\/permission$/, "GET")) {
       if (!viewer) return json(401, { message: "Requires authentication" });
       const login = arg(1);
-      if (!this.users.has(login)) return json(404, { message: `${login} is not a user` });
-      const permission = this.collaborators.get(login) ?? { permission: "read", role_name: "read" };
+      if (!this.users.has(login))
+        return json(404, { message: `${login} is not a user` });
+      const permission = this.collaborators.get(login) ?? {
+        permission: "read",
+        role_name: "read",
+      };
       return json(200, { ...permission, user: user(this.users.get(login)!) });
     }
     return notFound();
   }
 
-  #page(url: URL, items: unknown[], wrap: (items: unknown[]) => unknown = (page) => page): Response {
-    const size = Math.min(Number(url.searchParams.get("per_page") ?? 30), this.maxPageSize);
+  #page(
+    url: URL,
+    items: unknown[],
+    wrap: (items: unknown[]) => unknown = (page) => page,
+  ): Response {
+    const size = Math.min(
+      Number(url.searchParams.get("per_page") ?? 30),
+      this.maxPageSize,
+    );
     const page = Number(url.searchParams.get("page") ?? 1);
     const slice = items.slice((page - 1) * size, page * size);
     const headers: Record<string, string> = {};
@@ -322,15 +425,26 @@ export class GitHubFake {
   #graphql({ query, variables }: { query: string; variables: Json }): Response {
     const operation = /query (\w+)/.exec(query)?.[1];
     const repository = `${variables.owner}/${variables.name}`;
-    const known = variables.owner === undefined || repository === this.repository;
+    const known =
+      variables.owner === undefined || repository === this.repository;
     if (!known) {
       return json(200, {
         data: { repository: null },
-        errors: [{ type: "NOT_FOUND", message: `Could not resolve to a Repository with the name '${repository}'.` }],
+        errors: [
+          {
+            type: "NOT_FOUND",
+            message: `Could not resolve to a Repository with the name '${repository}'.`,
+          },
+        ],
       });
     }
     const first = (requested: number) => Math.min(requested, this.maxPageSize);
-    const connection = <T>(items: T[], size: number, after: unknown, map: (item: T) => unknown) => {
+    const connection = <T>(
+      items: T[],
+      size: number,
+      after: unknown,
+      map: (item: T) => unknown,
+    ) => {
       const start = typeof after === "string" ? Number(after) : 0;
       const end = start + first(size);
       return {
@@ -338,11 +452,17 @@ export class GitHubFake {
         pageInfo: { hasNextPage: end < items.length, endCursor: String(end) },
       };
     };
-    const issueNode = (issue: FakeIssue) => this.#issueNode(issue, (items, map) => connection(items, 100, null, map));
+    const issueNode = (issue: FakeIssue) =>
+      this.#issueNode(issue, (items, map) => connection(items, 100, null, map));
     const missing = (what: string, number: unknown) =>
       json(200, {
         data: { repository: { [what]: null } },
-        errors: [{ type: "NOT_FOUND", message: `Could not resolve to a ${what} with the number of ${number}.` }],
+        errors: [
+          {
+            type: "NOT_FOUND",
+            message: `Could not resolve to a ${what} with the number of ${number}.`,
+          },
+        ],
       });
     switch (operation) {
       case "PosternIssues": {
@@ -354,7 +474,13 @@ export class GitHubFake {
             states.includes(issue.state) &&
             (!labels || labels.every((label) => issue.labels.includes(label))),
         );
-        return json(200, { data: { repository: { issues: connection(issues, 50, variables.after, issueNode) } } });
+        return json(200, {
+          data: {
+            repository: {
+              issues: connection(issues, 50, variables.after, issueNode),
+            },
+          },
+        });
       }
       case "PosternIssue": {
         const issue = this.issues.get(`${this.repository}#${variables.number}`);
@@ -364,29 +490,52 @@ export class GitHubFake {
       case "PosternIssueLabels":
       case "PosternSubIssues":
       case "PosternBlockedBy": {
-        const issue = [...this.issues.values()].find((candidate) => candidate.nodeId === variables.id);
+        const issue = [...this.issues.values()].find(
+          (candidate) => candidate.nodeId === variables.id,
+        );
         if (!issue) return json(200, { data: { node: null } });
-        const node = this.#issueNode(issue, (items, map) => connection(items, 100, variables.after, map));
-        const key = { PosternIssueLabels: "labels", PosternSubIssues: "subIssues", PosternBlockedBy: "blockedBy" }[operation];
+        const node = this.#issueNode(issue, (items, map) =>
+          connection(items, 100, variables.after, map),
+        );
+        const key = {
+          PosternIssueLabels: "labels",
+          PosternSubIssues: "subIssues",
+          PosternBlockedBy: "blockedBy",
+        }[operation];
         return json(200, { data: { node: { connection: node[key] } } });
       }
       case "PosternPullRequestsByHead": {
         const pulls = [...this.pullRequests.values()].filter(
-          (pull) => pull.repository === this.repository && pull.headRefName === variables.branch,
+          (pull) =>
+            pull.repository === this.repository &&
+            pull.headRefName === variables.branch,
         );
         return json(200, {
-          data: { repository: { pullRequests: connection(pulls, 100, variables.after, (pull) => this.#pullNode(pull)) } },
+          data: {
+            repository: {
+              pullRequests: connection(pulls, 100, variables.after, (pull) =>
+                this.#pullNode(pull),
+              ),
+            },
+          },
         });
       }
       case "PosternClosingPullRequests": {
         const key = `${this.repository}#${variables.number}`;
         if (!this.issues.has(key)) return missing("issue", variables.number);
-        const pulls = [...this.pullRequests.values()].filter((pull) => pull.closes.includes(key));
+        const pulls = [...this.pullRequests.values()].filter((pull) =>
+          pull.closes.includes(key),
+        );
         return json(200, {
           data: {
             repository: {
               issue: {
-                closedByPullRequestsReferences: connection(pulls, 100, variables.after, (pull) => this.#pullNode(pull)),
+                closedByPullRequestsReferences: connection(
+                  pulls,
+                  100,
+                  variables.after,
+                  (pull) => this.#pullNode(pull),
+                ),
               },
             },
           },
@@ -395,18 +544,29 @@ export class GitHubFake {
       case "PosternPullRequest":
       case "PosternMergeQueue":
       case "PosternReviewThreads": {
-        const pull = this.pullRequests.get(`${this.repository}#${variables.number}`);
+        const pull = this.pullRequests.get(
+          `${this.repository}#${variables.number}`,
+        );
         if (!pull) return missing("pullRequest", variables.number);
         const node =
           operation === "PosternPullRequest"
             ? this.#pullNode(pull)
             : operation === "PosternMergeQueue"
               ? { isMergeQueueEnabled: pull.isMergeQueueEnabled }
-              : { reviewThreads: connection(pull.threads, 100, variables.after, (thread) => thread) };
+              : {
+                  reviewThreads: connection(
+                    pull.threads,
+                    100,
+                    variables.after,
+                    (thread) => thread,
+                  ),
+                };
         return json(200, { data: { repository: { pullRequest: node } } });
       }
       default:
-        return json(200, { errors: [{ message: `Unknown operation ${operation}` }] });
+        return json(200, {
+          errors: [{ message: `Unknown operation ${operation}` }],
+        });
     }
   }
 
@@ -417,10 +577,16 @@ export class GitHubFake {
     const reference = (key: string) => {
       const linked = this.issues.get(key);
       if (!linked) throw new Error(`The fake holds no issue ${key}`);
-      return { number: linked.number, state: linked.state, repository: { nameWithOwner: linked.repository } };
+      return {
+        number: linked.number,
+        state: linked.state,
+        repository: { nameWithOwner: linked.repository },
+      };
     };
     const key = `${issue.repository}#${issue.number}`;
-    const children = [...this.issues.values()].filter((candidate) => candidate.parent === key);
+    const children = [...this.issues.values()].filter(
+      (candidate) => candidate.parent === key,
+    );
     return {
       number: issue.number,
       ...graphqlDatabaseIds(issue.databaseId),
@@ -434,9 +600,15 @@ export class GitHubFake {
       author: graphqlUser(issue.author),
       labels: page(issue.labels, (name) => ({ name })),
       parent: issue.parent ? reference(issue.parent) : null,
-      subIssues: page(children, (child) => reference(`${child.repository}#${child.number}`)),
+      subIssues: page(children, (child) =>
+        reference(`${child.repository}#${child.number}`),
+      ),
       blockedBy: page(issue.blockedBy, reference),
-      timelineItems: { nodes: issue.subIssueAddedAt.slice(-1).map((createdAt) => ({ createdAt })) },
+      timelineItems: {
+        nodes: issue.subIssueAddedAt
+          .slice(-1)
+          .map((createdAt) => ({ createdAt })),
+      },
     };
   }
 
@@ -459,19 +631,16 @@ export class GitHubFake {
     };
   }
 
-  #issue(repository: string, number: number): FakeIssue {
-    const issue = this.issues.get(`${repository}#${number}`);
-    if (!issue) throw notFound();
-    return issue;
-  }
-
   #pull(repository: string, number: number): FakePullRequest {
     const pull = this.pullRequests.get(`${repository}#${number}`);
     if (!pull) throw notFound();
     return pull;
   }
 
-  #issueOrPull(repository: string, number: number): FakeIssue | FakePullRequest {
+  #issueOrPull(
+    repository: string,
+    number: number,
+  ): FakeIssue | FakePullRequest {
     const key = `${repository}#${number}`;
     const found = this.issues.get(key) ?? this.pullRequests.get(key);
     if (!found) throw notFound();
@@ -484,7 +653,13 @@ export class GitHubFake {
     return key;
   }
 
-  addComment(key: string, author: FakeUser, body: string, createdAt: string, updatedAt = createdAt): Json & { key: string } {
+  addComment(
+    key: string,
+    author: FakeUser,
+    body: string,
+    createdAt: string,
+    updatedAt = createdAt,
+  ): Json & { key: string } {
     const id = this.nextId();
     const [repository, number] = key.split("#");
     const comment = {
@@ -511,11 +686,20 @@ function restIssue(issue: FakeIssue | FakePullRequest): Json {
     state: issue.state === "OPEN" ? "open" : "closed",
     title: issue.title,
     html_url: `https://github.com/${issue.repository}/${kind}/${issue.number}`,
-    ...(pull ? { pull_request: { html_url: `https://github.com/${issue.repository}/pull/${issue.number}` } } : {}),
+    ...(pull
+      ? {
+          pull_request: {
+            html_url: `https://github.com/${issue.repository}/pull/${issue.number}`,
+          },
+        }
+      : {}),
   };
 }
 
-function publicComment({ key: _key, ...comment }: Json & { key: string }): Json {
+function publicComment({
+  key: _key,
+  ...comment
+}: Json & { key: string }): Json {
   return comment;
 }
 
@@ -536,7 +720,11 @@ function graphqlUser(account: FakeUser | null): Json | null {
     : { __typename: "User", login: account.login };
 }
 
-function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {
+function json(
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json; charset=utf-8", ...headers },

@@ -38,7 +38,12 @@ export function githubAdapter(context: AdapterContext): AdapterPorts {
   const repo = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
   const coordinates = { owner, name };
   return {
-    issueTracker: issueTracker(transport, repo, coordinates, context.repository.path),
+    issueTracker: issueTracker(
+      transport,
+      repo,
+      coordinates,
+      context.repository.path,
+    ),
     pullRequests: pullRequests(transport, repo, coordinates),
     releaseSource: releaseSource(transport, repo),
     access: access(transport, context, repo),
@@ -84,20 +89,35 @@ const issueConnectionQueries = {
 };
 
 const issueActions: Record<string, IssueEventKind> = {
-  opened: "opened", reopened: "reopened", closed: "closed", edited: "edited", labeled: "labeled", unlabeled: "unlabeled",
+  opened: "opened",
+  reopened: "reopened",
+  closed: "closed",
+  edited: "edited",
+  labeled: "labeled",
+  unlabeled: "unlabeled",
 };
 const commentActions: Record<string, IssueEventKind> = {
-  created: "commentCreated", edited: "commentEdited", deleted: "commentDeleted",
+  created: "commentCreated",
+  edited: "commentEdited",
+  deleted: "commentDeleted",
 };
 
 const ignore = () => undefined;
 
-function issueTracker(transport: GitHubTransport, repo: string, coordinates: Json, repository: string): IssueTrackerWithLabels {
+function issueTracker(
+  transport: GitHubTransport,
+  repo: string,
+  coordinates: Json,
+  repository: string,
+): IssueTrackerWithLabels {
   // An issue with every page of its nested connections. A follow-up query
   // starts from the first page again and replaces what the issue held.
   const complete = async (value: unknown): Promise<Issue> => {
     const { issue, more } = mapIssue(object(value));
-    const rest = <T>(key: keyof typeof issueConnectionQueries, read: (node: unknown) => T) =>
+    const rest = <T>(
+      key: keyof typeof issueConnectionQueries,
+      read: (node: unknown) => T,
+    ) =>
       transport.graphqlPages(
         issueConnectionQueries[key],
         { id: issue.nodeId },
@@ -110,13 +130,23 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
     return issue;
   };
   return {
-    capabilities: { nativeParent: true, nativeBlockers: true, bodyEditTime: true, linkTime: true, botMarking: true },
+    capabilities: {
+      nativeParent: true,
+      nativeBlockers: true,
+      bodyEditTime: true,
+      linkTime: true,
+      botMarking: true,
+    },
     async issueEvent(event) {
-      if (event.name !== "issues" && event.name !== "issue_comment") return null;
+      if (event.name !== "issues" && event.name !== "issue_comment")
+        return null;
       const payload = object(event.payload);
       const source = repositoryPath(object(payload.repository).full_name);
       if (source.toLowerCase() !== repository.toLowerCase()) {
-        throw new PlatformError("rejected", "The event belongs to another repository.");
+        throw new PlatformError(
+          "rejected",
+          "The event belongs to another repository.",
+        );
       }
       const action = word(payload.action);
       const actions = event.name === "issues" ? issueActions : commentActions;
@@ -128,15 +158,23 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
       }
       const kind = actions[action]!;
       const result: IssueEvent = {
-        platform: "github", repository, issue: id(issue.number), kind,
-        actor: eventActor(payload.sender), label: null,
-        openingLabels: null, bodyChanged: null, comment: null,
+        platform: "github",
+        repository,
+        issue: id(issue.number),
+        kind,
+        actor: eventActor(payload.sender),
+        label: null,
+        openingLabels: null,
+        bodyChanged: null,
+        comment: null,
       };
       if (kind === "opened") {
-        if (!Array.isArray(issue.labels)) throw invalid("GitHub returned unreadable opening labels.");
+        if (!Array.isArray(issue.labels))
+          throw invalid("GitHub returned unreadable opening labels.");
         result.openingLabels = issue.labels.map(labelName);
       }
-      if (kind === "labeled" || kind === "unlabeled") result.label = labelName(payload.label);
+      if (kind === "labeled" || kind === "unlabeled")
+        result.label = labelName(payload.label);
       if (kind === "edited") {
         const changes = object(payload.changes);
         result.bodyChanged = Object.hasOwn(changes, "body");
@@ -146,7 +184,9 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
         const comment = object(payload.comment);
         result.comment = {
           id: id(comment.id),
-          nodeId: Object.hasOwn(comment, "node_id") ? word(comment.node_id) : null,
+          nodeId: Object.hasOwn(comment, "node_id")
+            ? word(comment.node_id)
+            : null,
           body: text(comment.body),
         };
       }
@@ -165,37 +205,64 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
       );
     },
     async issue(number) {
-      return transport.graphql(issueQuery, { ...coordinates, number }, (data) => {
-        const node = found(object(data.repository).issue, `Issue #${number} was not found.`);
-        return complete(node);
-      });
+      return transport.graphql(
+        issueQuery,
+        { ...coordinates, number },
+        (data) => {
+          const node = found(
+            object(data.repository).issue,
+            `Issue #${number} was not found.`,
+          );
+          return complete(node);
+        },
+      );
     },
     async labelChanges(number) {
-      const changes = await transport.restPages(`${repo}/issues/${number}/events`, {}, (value): LabelChange | null => {
-        const event = object(value);
-        const kind = word(event.event);
-        if (kind !== "labeled" && kind !== "unlabeled") return null;
-        return {
-          id: id(event.id),
-          action: kind === "labeled" ? "added" : "removed",
-          label: word(object(event.label).name),
-          actor: restAccount(event.actor),
-          time: time(event.created_at),
-        };
-      });
+      const changes = await transport.restPages(
+        `${repo}/issues/${number}/events`,
+        {},
+        (value): LabelChange | null => {
+          const event = object(value);
+          const kind = word(event.event);
+          if (kind !== "labeled" && kind !== "unlabeled") return null;
+          return {
+            id: id(event.id),
+            action: kind === "labeled" ? "added" : "removed",
+            label: word(object(event.label).name),
+            actor: restAccount(event.actor),
+            time: time(event.created_at),
+          };
+        },
+      );
       return changes.filter((change) => change !== null);
     },
     async comments(number) {
-      return transport.restPages(`${repo}/issues/${number}/comments`, {}, mapComment);
+      return transport.restPages(
+        `${repo}/issues/${number}/comments`,
+        {},
+        mapComment,
+      );
     },
     async addLabels(number, labels) {
-      await transport.rest(`${repo}/issues/${number}/labels`, { method: "POST", body: { labels } }, ignore);
+      await transport.rest(
+        `${repo}/issues/${number}/labels`,
+        { method: "POST", body: { labels } },
+        ignore,
+      );
     },
     async removeLabel(number, label) {
-      await transport.rest(`${repo}/issues/${number}/labels/${segment(label)}`, { method: "DELETE" }, ignore);
+      await transport.rest(
+        `${repo}/issues/${number}/labels/${segment(label)}`,
+        { method: "DELETE" },
+        ignore,
+      );
     },
     async createLabel(label) {
-      return transport.rest(`${repo}/labels`, { method: "POST", body: label }, ({ data }) => mapLabel(data));
+      return transport.rest(
+        `${repo}/labels`,
+        { method: "POST", body: label },
+        ({ data }) => mapLabel(data),
+      );
     },
     async labels() {
       return transport.restPages(`${repo}/labels`, {}, mapLabel);
@@ -203,18 +270,29 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
     async updateLabel(name, label) {
       return transport.rest(
         `${repo}/labels/${segment(name)}`,
-        { method: "PATCH", body: { new_name: label.name, color: label.color, description: label.description } },
+        {
+          method: "PATCH",
+          body: {
+            new_name: label.name,
+            color: label.color,
+            description: label.description,
+          },
+        },
         ({ data }) => mapLabel(data),
       );
     },
     async createComment(number, body) {
-      return transport.rest(`${repo}/issues/${number}/comments`, { method: "POST", body: { body } }, ({ data }) =>
-        mapComment(data),
+      return transport.rest(
+        `${repo}/issues/${number}/comments`,
+        { method: "POST", body: { body } },
+        ({ data }) => mapComment(data),
       );
     },
     async updateComment(id, body) {
-      return transport.rest(`${repo}/issues/comments/${id}`, { method: "PATCH", body: { body } }, ({ data }) =>
-        mapComment(data),
+      return transport.rest(
+        `${repo}/issues/comments/${id}`,
+        { method: "PATCH", body: { body } },
+        ({ data }) => mapComment(data),
       );
     },
     async closeIssue(number) {
@@ -226,9 +304,16 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
         const pullRequest = object(data).pull_request;
         if (pullRequest === undefined || pullRequest === null) return;
         object(pullRequest);
-        throw new PlatformError("notFound", `#${number} is a pull request, not an issue.`);
+        throw new PlatformError(
+          "notFound",
+          `#${number} is a pull request, not an issue.`,
+        );
       });
-      await transport.rest(`${repo}/issues/${number}`, { method: "PATCH", body: { state: "closed" } }, ignore);
+      await transport.rest(
+        `${repo}/issues/${number}`,
+        { method: "PATCH", body: { state: "closed" } },
+        ignore,
+      );
     },
   };
 }
@@ -237,7 +322,12 @@ function issueTracker(transport: GitHubTransport, repo: string, coordinates: Jso
 function eventActor(value: unknown): Account {
   const sender = object(value);
   const type = word(sender.type);
-  if (type !== "User" && type !== "Bot" && type !== "App" && type !== "Organization") {
+  if (
+    type !== "User" &&
+    type !== "Bot" &&
+    type !== "App" &&
+    type !== "Organization"
+  ) {
     throw invalid("GitHub returned an unreadable sender type.");
   }
   return { login: word(sender.login), bot: type === "Bot" || type === "App" };
@@ -245,7 +335,10 @@ function eventActor(value: unknown): Account {
 
 // An issue with the first page of each nested connection, and which of them
 // have more pages.
-function mapIssue(node: Json): { issue: Issue; more: Record<keyof typeof issueConnectionQueries, boolean> } {
+function mapIssue(node: Json): {
+  issue: Issue;
+  more: Record<keyof typeof issueConnectionQueries, boolean>;
+} {
   const labels = connectionPage(node.labels);
   const subIssues = connectionPage(node.subIssues);
   const blockedBy = connectionPage(node.blockedBy);
@@ -267,7 +360,11 @@ function mapIssue(node: Json): { issue: Issue; more: Record<keyof typeof issueCo
     bodyEditTime: nullable(node.lastEditedAt, time),
     linkTime: linked === undefined ? null : time(linked.createdAt),
   };
-  const more = { labels: labels.after !== null, subIssues: subIssues.after !== null, blockedBy: blockedBy.after !== null };
+  const more = {
+    labels: labels.after !== null,
+    subIssues: subIssues.after !== null,
+    blockedBy: blockedBy.after !== null,
+  };
   return { issue, more };
 }
 
@@ -298,8 +395,13 @@ const labelName = (value: unknown) => word(object(value).name);
 function mapLabel(value: unknown): Label {
   const label = object(value);
   const color = text(label.color);
-  if (!/^[0-9a-fA-F]{6}$/.test(color)) throw invalid("GitHub returned an unreadable label color.");
-  return { name: word(label.name), color, description: label.description === null ? "" : text(label.description) };
+  if (!/^[0-9a-fA-F]{6}$/.test(color))
+    throw invalid("GitHub returned an unreadable label color.");
+  return {
+    name: word(label.name),
+    color,
+    description: label.description === null ? "" : text(label.description),
+  };
 }
 
 // Pull requests
@@ -349,10 +451,23 @@ const mergeQueueQuery = `query PosternMergeQueue($owner: String!, $name: String!
   repository(owner: $owner, name: $name) { pullRequest(number: $number) { isMergeQueueEnabled } }
 }`;
 
-function pullRequests(transport: GitHubTransport, repo: string, coordinates: Json): PullRequests {
-  const readPullRequest = <T>(query: string, number: number, read: (node: Json) => T) =>
+function pullRequests(
+  transport: GitHubTransport,
+  repo: string,
+  coordinates: Json,
+): PullRequests {
+  const readPullRequest = <T>(
+    query: string,
+    number: number,
+    read: (node: Json) => T,
+  ) =>
     transport.graphql(query, { ...coordinates, number }, (data) =>
-      read(found(object(data.repository).pullRequest, `Pull request #${number} was not found.`)),
+      read(
+        found(
+          object(data.repository).pullRequest,
+          `Pull request #${number} was not found.`,
+        ),
+      ),
     );
   return {
     capabilities: { closingReferences: true, reviewCommits: true },
@@ -368,7 +483,11 @@ function pullRequests(transport: GitHubTransport, repo: string, coordinates: Jso
       return transport.graphqlPages(
         closingQuery,
         { ...coordinates, number: issueNumber },
-        (data) => found(object(data.repository).issue, `Issue #${issueNumber} was not found.`).closedByPullRequestsReferences,
+        (data) =>
+          found(
+            object(data.repository).issue,
+            `Issue #${issueNumber} was not found.`,
+          ).closedByPullRequestsReferences,
         mapPullRequest,
       );
     },
@@ -376,25 +495,36 @@ function pullRequests(transport: GitHubTransport, repo: string, coordinates: Jso
       return readPullRequest(pullRequestQuery, number, mapPullRequest);
     },
     async reviews(number) {
-      return transport.restPages(`${repo}/pulls/${number}/reviews`, {}, (value): Review => {
-        const review = object(value);
-        const state = word(review.state);
-        return {
-          id: id(review.id),
-          author: restAccount(review.user),
-          state,
-          body: review.body === null ? "" : text(review.body),
-          commit: nullable(review.commit_id, sha),
-          // A pending review is not yet submitted, and GitHub omits the field.
-          submittedAt: state === "PENDING" && review.submitted_at === undefined ? null : nullable(review.submitted_at, time),
-        };
-      });
+      return transport.restPages(
+        `${repo}/pulls/${number}/reviews`,
+        {},
+        (value): Review => {
+          const review = object(value);
+          const state = word(review.state);
+          return {
+            id: id(review.id),
+            author: restAccount(review.user),
+            state,
+            body: review.body === null ? "" : text(review.body),
+            commit: nullable(review.commit_id, sha),
+            // A pending review is not yet submitted, and GitHub omits the field.
+            submittedAt:
+              state === "PENDING" && review.submitted_at === undefined
+                ? null
+                : nullable(review.submitted_at, time),
+          };
+        },
+      );
     },
     async reviewThreads(number) {
       return transport.graphqlPages(
         reviewThreadsQuery,
         { ...coordinates, number },
-        (data) => found(object(data.repository).pullRequest, `Pull request #${number} was not found.`).reviewThreads,
+        (data) =>
+          found(
+            object(data.repository).pullRequest,
+            `Pull request #${number} was not found.`,
+          ).reviewThreads,
         (value): ReviewThread => {
           const thread = object(value);
           const [first] = nodes(thread.comments);
@@ -411,28 +541,45 @@ function pullRequests(transport: GitHubTransport, repo: string, coordinates: Jso
     async checks(commit) {
       const ref = segment(commit);
       const [runs, statuses] = await Promise.all([
-        transport.restPages(`${repo}/commits/${ref}/check-runs`, { items: "check_runs" }, (value): CheckResult => {
-          const run = object(value);
-          return {
-            name: word(run.name),
-            status: word(run.status),
-            conclusion: nullable(run.conclusion, word),
-            completedAt: nullable(run.completed_at, time),
-          };
-        }),
-        transport.restPages(`${repo}/commits/${ref}/status`, { items: "statuses" }, (value): CheckResult => {
-          const status = object(value);
-          return { name: word(status.context), status: word(status.state), conclusion: null, completedAt: null };
-        }),
+        transport.restPages(
+          `${repo}/commits/${ref}/check-runs`,
+          { items: "check_runs" },
+          (value): CheckResult => {
+            const run = object(value);
+            return {
+              name: word(run.name),
+              status: word(run.status),
+              conclusion: nullable(run.conclusion, word),
+              completedAt: nullable(run.completed_at, time),
+            };
+          },
+        ),
+        transport.restPages(
+          `${repo}/commits/${ref}/status`,
+          { items: "statuses" },
+          (value): CheckResult => {
+            const status = object(value);
+            return {
+              name: word(status.context),
+              status: word(status.state),
+              conclusion: null,
+              completedAt: null,
+            };
+          },
+        ),
       ]);
       return [...runs, ...statuses];
     },
     async mergesThroughQueue(number) {
-      return readPullRequest(mergeQueueQuery, number, (node) => boolean(node.isMergeQueueEnabled));
+      return readPullRequest(mergeQueueQuery, number, (node) =>
+        boolean(node.isMergeQueueEnabled),
+      );
     },
     async comment(number, body) {
-      return transport.rest(`${repo}/issues/${number}/comments`, { method: "POST", body: { body } }, ({ data }) =>
-        mapComment(data),
+      return transport.rest(
+        `${repo}/issues/${number}/comments`,
+        { method: "POST", body: { body } },
+        ({ data }) => mapComment(data),
       );
     },
     async squashMerge(number, merge) {
@@ -440,12 +587,18 @@ function pullRequests(transport: GitHubTransport, repo: string, coordinates: Jso
         `${repo}/pulls/${number}/merge`,
         {
           method: "PUT",
-          body: { merge_method: "squash", sha: merge.expectedHead, commit_title: merge.title, commit_message: merge.body },
+          body: {
+            merge_method: "squash",
+            sha: merge.expectedHead,
+            commit_title: merge.title,
+            commit_message: merge.body,
+          },
         },
         ({ data }) => {
           const result = object(data);
           // GitHub answers a merge it made with `merged: true`; anything else claims no merge.
-          if (boolean(result.merged) !== true) throw invalid("GitHub answered the merge without merging.");
+          if (boolean(result.merged) !== true)
+            throw invalid("GitHub answered the merge without merging.");
           return sha(result.sha);
         },
       );
@@ -475,7 +628,10 @@ function mapPullRequest(value: unknown): PullRequest {
 
 // Releases
 
-function releaseSource(transport: GitHubTransport, repo: string): ReleaseSource {
+function releaseSource(
+  transport: GitHubTransport,
+  repo: string,
+): ReleaseSource {
   return {
     capabilities: { drafts: true, prereleases: true },
     async releases() {
@@ -500,19 +656,33 @@ function releaseSource(transport: GitHubTransport, repo: string): ReleaseSource 
       const followed = new Set<string>();
       let path = `${repo}/git/ref/tags/${encodeTag(tag)}`;
       for (;;) {
-        const next = await transport.rest(path, {}, ({ data }): { commit: string } | { tagObject: string } => {
-          const target = object(object(data).object);
-          const type = word(target.type);
-          if (type === "commit") return { commit: sha(target.sha) };
-          if (type !== "tag") throw new PlatformError("notFound", `Tag ${tag} points to a ${type}, not a commit.`);
-          const tagObject = sha(target.sha);
-          // Object IDs are hexadecimal, which GitHub may send in either case.
-          const key = tagObject.toLowerCase();
-          if (followed.has(key)) throw invalid(`Tag ${tag} leads back to a tag object it already passed.`);
-          if (followed.size === tagObjectLimit) throw invalid(`Tag ${tag} passes more than ${tagObjectLimit} tag objects.`);
-          followed.add(key);
-          return { tagObject };
-        });
+        const next = await transport.rest(
+          path,
+          {},
+          ({ data }): { commit: string } | { tagObject: string } => {
+            const target = object(object(data).object);
+            const type = word(target.type);
+            if (type === "commit") return { commit: sha(target.sha) };
+            if (type !== "tag")
+              throw new PlatformError(
+                "notFound",
+                `Tag ${tag} points to a ${type}, not a commit.`,
+              );
+            const tagObject = sha(target.sha);
+            // Object IDs are hexadecimal, which GitHub may send in either case.
+            const key = tagObject.toLowerCase();
+            if (followed.has(key))
+              throw invalid(
+                `Tag ${tag} leads back to a tag object it already passed.`,
+              );
+            if (followed.size === tagObjectLimit)
+              throw invalid(
+                `Tag ${tag} passes more than ${tagObjectLimit} tag objects.`,
+              );
+            followed.add(key);
+            return { tagObject };
+          },
+        );
         if ("commit" in next) return next.commit;
         path = `${repo}/git/tags/${next.tagObject}`;
       }
@@ -531,45 +701,76 @@ const encodeTag = (tag: string) => tag.split("/").map(segment).join("/");
 // and a value with an unpaired surrogate has no encoding at all.
 function segment(value: string): string {
   if (value === "." || value === "..") {
-    throw new PlatformError("rejected", `GitHub's API cannot address "${value}" as a path segment.`);
+    throw new PlatformError(
+      "rejected",
+      `GitHub's API cannot address "${value}" as a path segment.`,
+    );
   }
   try {
     return encodeURIComponent(value);
   } catch {
-    throw new PlatformError("rejected", "A request path segment holds text that cannot be encoded.");
+    throw new PlatformError(
+      "rejected",
+      "A request path segment holds text that cannot be encoded.",
+    );
   }
 }
 
 // Access
 
-function access(transport: GitHubTransport, context: AdapterContext, repo: string): AccessWithPages {
+function access(
+  transport: GitHubTransport,
+  context: AdapterContext,
+  repo: string,
+): AccessWithPages {
   return {
     capabilities: {},
     async viewer() {
       if (context.credentials.anonymous) return null;
       // An authenticated request always has an account; `null` here would read as anonymous.
-      return transport.rest("/user", {}, ({ data }) => restAccount(object(data)));
+      return transport.rest("/user", {}, ({ data }) =>
+        restAccount(object(data)),
+      );
     },
     async role(login) {
-      return transport.rest(`${repo}/collaborators/${segment(login)}/permission`, {}, ({ data }) => {
-        const permission = object(data);
-        return word(permission.permission) === "none" ? null : word(permission.role_name);
-      });
+      return transport.rest(
+        `${repo}/collaborators/${segment(login)}/permission`,
+        {},
+        ({ data }) => {
+          const permission = object(data);
+          return word(permission.permission) === "none"
+            ? null
+            : word(permission.role_name);
+        },
+      );
     },
     async request(request) {
       return transport.rest(
         request.path,
-        { method: request.method ?? "GET", query: request.query, body: request.body, headers: request.headers },
+        {
+          method: request.method ?? "GET",
+          query: request.query,
+          body: request.body,
+          headers: request.headers,
+        },
         transportResponse,
       );
     },
     async requestPages(request) {
-      return transport.restPageResponses(request.path, request, transportResponse);
+      return transport.restPageResponses(
+        request.path,
+        request,
+        transportResponse,
+      );
     },
   };
 }
 
-function transportResponse({ status, headers, data }: RawResponse): TransportResponse {
+function transportResponse({
+  status,
+  headers,
+  data,
+}: RawResponse): TransportResponse {
   return { status, headers: Object.fromEntries(headers), data };
 }
 
@@ -589,7 +790,10 @@ function graphqlAccount(value: unknown): Account | null {
     const fields = object(account);
     const bot = word(fields.__typename) === "Bot";
     const login = word(fields.login);
-    return { login: bot && !login.endsWith("[bot]") ? `${login}[bot]` : login, bot };
+    return {
+      login: bot && !login.endsWith("[bot]") ? `${login}[bot]` : login,
+      bot,
+    };
   });
 }
 
@@ -602,7 +806,8 @@ function found(value: unknown, message: string): Json {
 
 function nodes(connection: unknown): Json[] {
   const list = (connection as { nodes?: unknown } | null)?.nodes;
-  if (!Array.isArray(list)) throw invalid("GitHub returned a connection without nodes.");
+  if (!Array.isArray(list))
+    throw invalid("GitHub returned a connection without nodes.");
   return list.map(object);
 }
 
@@ -616,35 +821,42 @@ function pullRequestState(value: unknown): "open" | "closed" | "merged" {
   if (value === "OPEN") return "open";
   if (value === "CLOSED") return "closed";
   if (value === "MERGED") return "merged";
-  throw invalid(`GitHub returned an unknown pull request state ${String(value)}.`);
+  throw invalid(
+    `GitHub returned an unknown pull request state ${String(value)}.`,
+  );
 }
 
 function object(value: unknown): Json {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) throw invalid("GitHub returned an unreadable object.");
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    throw invalid("GitHub returned an unreadable object.");
   return value as Json;
 }
 
 function text(value: unknown): string {
-  if (typeof value !== "string") throw invalid("GitHub returned a missing or unreadable text field.");
+  if (typeof value !== "string")
+    throw invalid("GitHub returned a missing or unreadable text field.");
   return value;
 }
 
 // A name, login, identifier or platform word, which is never empty.
 function word(value: unknown): string {
   const read = text(value);
-  if (read === "") throw invalid("GitHub returned an empty name or identifier.");
+  if (read === "")
+    throw invalid("GitHub returned an empty name or identifier.");
   return read;
 }
 
 // A Git object ID, SHA-1 or SHA-256, checked before it becomes part of a request path.
 function sha(value: unknown): string {
   const read = text(value);
-  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(read)) throw invalid("GitHub returned an unreadable object ID.");
+  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(read))
+    throw invalid("GitHub returned an unreadable object ID.");
   return read;
 }
 
 // An ISO 8601 time with its offset, in the shape GitHub reports times.
-const isoTime = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/;
+const isoTime =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/;
 
 // A time that exists: its date is on the calendar, and its time and offset
 // within the day. A Date moves a day, hour, minute or second out of range into
@@ -655,7 +867,16 @@ function time(value: unknown): string {
   const match = isoTime.exec(read);
   if (!match) throw invalid("GitHub returned an unreadable time.");
   const parts = match.slice(1).map((part) => Number(part ?? 0));
-  const [year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0, offsetHour = 0, offsetMinute = 0] = parts;
+  const [
+    year = 0,
+    month = 0,
+    day = 0,
+    hour = 0,
+    minute = 0,
+    second = 0,
+    offsetHour = 0,
+    offsetMinute = 0,
+  ] = parts;
   const date = new Date(0);
   date.setUTCFullYear(year, month - 1, day);
   date.setUTCHours(hour, minute, second);
@@ -667,7 +888,8 @@ function time(value: unknown): string {
     date.getUTCMinutes(),
     date.getUTCSeconds(),
   ].every((component, index) => component === parts[index]);
-  if (!kept || offsetHour > 23 || offsetMinute > 59) throw invalid("GitHub returned a time that does not exist.");
+  if (!kept || offsetHour > 23 || offsetMinute > 59)
+    throw invalid("GitHub returned a time that does not exist.");
   return read;
 }
 
@@ -675,14 +897,16 @@ function time(value: unknown): string {
 function link(value: unknown): string {
   const read = text(value);
   const protocol = URL.canParse(read) ? new URL(read).protocol : "";
-  if (protocol !== "https:" && protocol !== "http:") throw invalid("GitHub returned an unreadable URL.");
+  if (protocol !== "https:" && protocol !== "http:")
+    throw invalid("GitHub returned an unreadable URL.");
   return read;
 }
 
 // A repository's owner and name.
 function repositoryPath(value: unknown): string {
   const read = text(value);
-  if (!isGitHubRepositoryPath(read)) throw invalid("GitHub returned an unreadable repository name.");
+  if (!isGitHubRepositoryPath(read))
+    throw invalid("GitHub returned an unreadable repository name.");
   return read;
 }
 
@@ -693,7 +917,8 @@ function nullable<T>(value: unknown, read: (value: unknown) => T): T | null {
 
 // An issue or pull request number, or a database ID: a positive integer.
 function id(value: unknown): number {
-  if (!Number.isSafeInteger(value) || (value as number) < 1) throw invalid("GitHub returned a missing or unreadable number.");
+  if (!Number.isSafeInteger(value) || (value as number) < 1)
+    throw invalid("GitHub returned a missing or unreadable number.");
   return value as number;
 }
 
@@ -708,6 +933,7 @@ function bigInteger(value: unknown): number {
 }
 
 function boolean(value: unknown): boolean {
-  if (typeof value !== "boolean") throw invalid("GitHub returned a missing or unreadable flag.");
+  if (typeof value !== "boolean")
+    throw invalid("GitHub returned a missing or unreadable flag.");
   return value;
 }

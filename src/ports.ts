@@ -18,8 +18,15 @@ export interface PlatformEvent {
 }
 
 export type IssueEventKind =
-  | "opened" | "reopened" | "closed" | "edited" | "labeled" | "unlabeled"
-  | "commentCreated" | "commentEdited" | "commentDeleted";
+  | "opened"
+  | "reopened"
+  | "closed"
+  | "edited"
+  | "labeled"
+  | "unlabeled"
+  | "commentCreated"
+  | "commentEdited"
+  | "commentDeleted";
 
 /** Facts known from the triggering event alone; current state stays with the ports. */
 export interface IssueEvent {
@@ -340,7 +347,13 @@ export interface AccessWithPages extends Access {
 
 /** The names of every capability flag, per port. */
 export const capabilityFlags = Object.freeze({
-  issueTracker: Object.freeze(["nativeParent", "nativeBlockers", "bodyEditTime", "linkTime", "botMarking"] as const),
+  issueTracker: Object.freeze([
+    "nativeParent",
+    "nativeBlockers",
+    "bodyEditTime",
+    "linkTime",
+    "botMarking",
+  ] as const),
   pullRequests: Object.freeze(["closingReferences", "reviewCommits"] as const),
   releaseSource: Object.freeze(["drafts", "prereleases"] as const),
   access: Object.freeze([] as const),

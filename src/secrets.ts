@@ -24,7 +24,11 @@ export class Secrets {
   redactText(text: string): string {
     const spans: [start: number, end: number][] = [];
     for (const value of this.#values) {
-      for (let at = text.indexOf(value); at !== -1; at = text.indexOf(value, at + 1)) {
+      for (
+        let at = text.indexOf(value);
+        at !== -1;
+        at = text.indexOf(value, at + 1)
+      ) {
         spans.push([at, at + value.length]);
       }
     }
@@ -50,10 +54,18 @@ export class Secrets {
 
   #redactValue(value: unknown): unknown {
     if (typeof value === "string") return this.redactText(value);
-    if (Array.isArray(value)) return value.map((item) => this.#redactValue(item));
-    if (value && typeof value === "object" && [Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+    if (Array.isArray(value))
+      return value.map((item) => this.#redactValue(item));
+    if (
+      value &&
+      typeof value === "object" &&
+      [Object.prototype, null].includes(Object.getPrototypeOf(value))
+    ) {
       return Object.fromEntries(
-        Object.entries(value).map(([key, item]) => [this.redactText(key), this.#redactValue(item)]),
+        Object.entries(value).map(([key, item]) => [
+          this.redactText(key),
+          this.#redactValue(item),
+        ]),
       );
     }
     return value;
@@ -65,13 +77,21 @@ export class Secrets {
       return new PlatformError(error.reason, this.redactText(error.message), {
         ...(error.retryAt === undefined ? {} : { retryAt: error.retryAt }),
         ...(error.status === undefined ? {} : { status: error.status }),
-        ...(error.platformMessage === undefined ? {} : { platformMessage: this.redactText(error.platformMessage) }),
-        ...(error.cause === undefined ? {} : { cause: this.#sanitizeCause(error.cause) }),
+        ...(error.platformMessage === undefined
+          ? {}
+          : { platformMessage: this.redactText(error.platformMessage) }),
+        ...(error.cause === undefined
+          ? {}
+          : { cause: this.#sanitizeCause(error.cause) }),
       });
     }
-    return new PlatformError("invalidResponse", "The platform adapter could not read a response.", {
-      cause: this.#sanitizeCause(error),
-    });
+    return new PlatformError(
+      "invalidResponse",
+      "The platform adapter could not read a response.",
+      {
+        cause: this.#sanitizeCause(error),
+      },
+    );
   }
 
   // A foreign cause, such as what a `fetch` threw, is read once, and one that
@@ -107,7 +127,10 @@ export interface Credentials {
   token(): Promise<string | null>;
 }
 
-export function credentialsFrom(source: CredentialSource | undefined, secrets: Secrets): Credentials {
+export function credentialsFrom(
+  source: CredentialSource | undefined,
+  secrets: Secrets,
+): Credentials {
   if (source === undefined) return { anonymous: true, token: async () => null };
   if (typeof source === "string") {
     secrets.add(source);
@@ -121,13 +144,22 @@ export function credentialsFrom(source: CredentialSource | undefined, secrets: S
         token = await source();
       } catch {
         // The source's own error may describe the credential, so none of it is kept.
-        throw new PlatformError("unauthenticated", "The credential source failed to supply a token.");
+        throw new PlatformError(
+          "unauthenticated",
+          "The credential source failed to supply a token.",
+        );
       }
       if (typeof token !== "string" || token === "") {
-        throw new PlatformError("unauthenticated", "The credential source supplied no token.");
+        throw new PlatformError(
+          "unauthenticated",
+          "The credential source supplied no token.",
+        );
       }
       if (!isSendableToken(token)) {
-        throw new PlatformError("rejected", "The credential source supplied a token that cannot be sent in a request header.");
+        throw new PlatformError(
+          "rejected",
+          "The credential source supplied a token that cannot be sent in a request header.",
+        );
       }
       secrets.add(token);
       return token;

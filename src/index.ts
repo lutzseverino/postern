@@ -1,5 +1,10 @@
 export { connect } from "./connection.ts";
-export type { ConnectOptions, Connection, ConnectionWithLabels, RelationshipSections } from "./connection.ts";
+export type {
+  ConnectOptions,
+  Connection,
+  ConnectionWithLabels,
+  RelationshipSections,
+} from "./connection.ts";
 export { detectPlatform } from "./detect.ts";
 export type { PlatformName, RepositoryIdentity } from "./detect.ts";
 export { PlatformError, platformErrorReasons } from "./errors.ts";

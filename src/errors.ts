@@ -14,17 +14,18 @@ export type PlatformErrorReason =
   | "unsupported";
 
 /** Every reason a {@link PlatformError} can carry. */
-export const platformErrorReasons: readonly PlatformErrorReason[] = Object.freeze([
-  "unauthenticated",
-  "forbidden",
-  "notFound",
-  "conflict",
-  "rejected",
-  "rateLimited",
-  "unavailable",
-  "invalidResponse",
-  "unsupported",
-]);
+export const platformErrorReasons: readonly PlatformErrorReason[] =
+  Object.freeze([
+    "unauthenticated",
+    "forbidden",
+    "notFound",
+    "conflict",
+    "rejected",
+    "rateLimited",
+    "unavailable",
+    "invalidResponse",
+    "unsupported",
+  ]);
 
 export interface PlatformErrorOptions {
   /** When a `rateLimited` request may be retried, as an ISO 8601 time, when the platform states it. */
@@ -44,7 +45,11 @@ export class PlatformError extends Error {
   readonly status?: number;
   readonly platformMessage?: string;
 
-  constructor(reason: PlatformErrorReason, message: string, options: PlatformErrorOptions = {}) {
+  constructor(
+    reason: PlatformErrorReason,
+    message: string,
+    options: PlatformErrorOptions = {},
+  ) {
     const { retryAt, status, platformMessage, cause } = options;
     super(message, cause === undefined ? undefined : { cause });
     if (!platformErrorReasons.includes(reason)) {

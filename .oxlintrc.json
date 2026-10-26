@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "env": {
+    "node": true
+  },
+  "ignorePatterns": [
+    "vendor/**",
+    ".repo-standards/**",
+    ".agents/skills/**",
+    "scripts/validate-issue-contract.mjs",
+    ".github/scripts/**",
+    "operations/**",
+    "dist/**",
+    "release/**"
+  ]
+}

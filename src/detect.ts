@@ -23,7 +23,12 @@ export function isGitHubRepositoryPath(path: string): boolean {
   const segments = path.split("/");
   return (
     segments.length === 2 &&
-    segments.every((segment) => /^[A-Za-z0-9_.-]+$/.test(segment) && segment !== "." && segment !== "..")
+    segments.every(
+      (segment) =>
+        /^[A-Za-z0-9_.-]+$/.test(segment) &&
+        segment !== "." &&
+        segment !== "..",
+    )
   );
 }
 
@@ -37,7 +42,10 @@ export function detectPlatform(remote: string): RepositoryIdentity {
     const host = location.host.toLowerCase();
     const isGitHub =
       host === githubHost || (location.ssh && githubSshHosts.has(host));
-    const path = location.path.replace(/^\/+/, "").replace(/\/+$/, "").replace(/\.git$/, "");
+    const path = location.path
+      .replace(/^\/+/, "")
+      .replace(/\/+$/, "")
+      .replace(/\.git$/, "");
     if (isGitHub && isGitHubRepositoryPath(path)) {
       return { platform: "github", host: githubHost, path };
     }
@@ -66,7 +74,8 @@ function parseRemote(remote: string): RemoteLocation | null {
     return null;
   }
   const protocol = url.protocol.toLowerCase();
-  if (protocol !== "https:" && protocol !== "ssh:" && protocol !== "git+ssh:") return null;
+  if (protocol !== "https:" && protocol !== "ssh:" && protocol !== "git+ssh:")
+    return null;
   if (url.search || url.hash) return null;
   if (protocol === "https:" && url.port && url.port !== "443") return null;
   let path: string;

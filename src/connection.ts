@@ -4,7 +4,11 @@
 // Every object a caller passes in is read once through `snapshot.ts`, and only
 // that copy is checked and used.
 
-import { detectPlatform, githubHost, isGitHubRepositoryPath } from "./detect.ts";
+import {
+  detectPlatform,
+  githubHost,
+  isGitHubRepositoryPath,
+} from "./detect.ts";
 import type { PlatformName, RepositoryIdentity } from "./detect.ts";
 import { PlatformError } from "./errors.ts";
 import { githubAdapter } from "./github/adapter.ts";
@@ -88,12 +92,21 @@ const adapters: Record<PlatformName, PlatformAdapter> = {
 
 // Each platform's own rules for a repository identity given directly, matching
 // what detection accepts from a remote.
-const identityChecks: Record<PlatformName, (host: string, path: string) => RepositoryIdentity> = {
+const identityChecks: Record<
+  PlatformName,
+  (host: string, path: string) => RepositoryIdentity
+> = {
   github(host, path) {
     if (host.toLowerCase() !== githubHost) {
-      throw new PlatformError("unsupported", "No platform adapter serves GitHub repositories on this host.");
+      throw new PlatformError(
+        "unsupported",
+        "No platform adapter serves GitHub repositories on this host.",
+      );
     }
-    checkOption(isGitHubRepositoryPath(path), "A GitHub repository path is exactly an owner and a name, such as owner/name.");
+    checkOption(
+      isGitHubRepositoryPath(path),
+      "A GitHub repository path is exactly an owner and a name, such as owner/name.",
+    );
     return { platform: "github", host: githubHost, path };
   },
 };
@@ -103,23 +116,46 @@ const defaultTimeoutMs = 30_000;
 const maxTimeoutMs = 2 ** 31 - 1;
 
 // The methods `fetch` sends; it refuses CONNECT, TRACE and TRACK.
-const transportMethods = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
+const transportMethods = new Set([
+  "GET",
+  "HEAD",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "OPTIONS",
+]);
 
 // Headers about the connection and the message's framing, which `fetch` sets
 // itself: it replaces a caller's value or refuses the request when it sends it.
-const transportHeaders = new Set(["connection", "content-length", "expect", "host", "keep-alive", "transfer-encoding", "upgrade"]);
+const transportHeaders = new Set([
+  "connection",
+  "content-length",
+  "expect",
+  "host",
+  "keep-alive",
+  "transfer-encoding",
+  "upgrade",
+]);
 
 // A header value `fetch` sends as written: visible ASCII, Latin-1 and inner
 // spaces or tabs. It trims outer whitespace and refuses control characters.
-const headerValue = /^(?:[\x21-\x7e\x80-\xff](?:[\t\x20-\x7e\x80-\xff]*[\x21-\x7e\x80-\xff])?)?$/;
+const headerValue =
+  /^(?:[\x21-\x7e\x80-\xff](?:[\t\x20-\x7e\x80-\xff]*[\x21-\x7e\x80-\xff])?)?$/;
 
 /**
  * Opens a connection to one repository, given its Git remote URL or identity.
  * Fails with `unsupported` for a platform no adapter serves and with
  * `rejected` for invalid options.
  */
-export function connect(repository: string | RepositoryIdentity, options: ConnectOptions = {}): ConnectionWithLabels {
-  const identity = typeof repository === "string" ? detectPlatform(repository) : checkIdentity(repository);
+export function connect(
+  repository: string | RepositoryIdentity,
+  options: ConnectOptions = {},
+): ConnectionWithLabels {
+  const identity =
+    typeof repository === "string"
+      ? detectPlatform(repository)
+      : checkIdentity(repository);
   const adapter = adapters[identity.platform];
   return createConnection(identity, adapter, options);
 }
@@ -140,7 +176,10 @@ export function createConnection(
     timeoutMs: checked.timeoutMs ?? defaultTimeoutMs,
   };
   const ports = adapter(context);
-  const issueCapabilities = offered(ports.issueTracker.capabilities, capabilityFlags.issueTracker);
+  const issueCapabilities = offered(
+    ports.issueTracker.capabilities,
+    capabilityFlags.issueTracker,
+  );
   const marked = issueCapabilities.botMarking === true;
   const layer: Layer = {
     guard: (operation) => shielded(secrets, operation),
@@ -148,7 +187,12 @@ export function createConnection(
   };
   return Object.freeze({
     repository: Object.freeze({ ...repository }),
-    issueTracker: guardIssueTracker(ports.issueTracker, issueCapabilities, context, layer),
+    issueTracker: guardIssueTracker(
+      ports.issueTracker,
+      issueCapabilities,
+      context,
+      layer,
+    ),
     pullRequests: guardPullRequests(ports.pullRequests, layer),
     releaseSource: guardReleaseSource(ports.releaseSource, layer),
     access: guardAccess(ports.access, layer),
@@ -172,13 +216,17 @@ function offered<Name extends string>(
   const flags: Partial<Record<Name, true>> = {};
   if (capabilities !== null && typeof capabilities === "object") {
     for (const name of names) {
-      if ((capabilities as Record<string, unknown>)[name] === true) flags[name] = true;
+      if ((capabilities as Record<string, unknown>)[name] === true)
+        flags[name] = true;
     }
   }
   return Object.freeze(flags);
 }
 
-async function shielded<T>(secrets: Secrets, operation: () => Promise<T>): Promise<T> {
+async function shielded<T>(
+  secrets: Secrets,
+  operation: () => Promise<T>,
+): Promise<T> {
   try {
     return secrets.redact(await operation());
   } catch (error) {
@@ -206,15 +254,26 @@ function guardIssueTracker(
     capabilities,
     issueEvent: (event: PlatformEvent) =>
       guard(async () => {
-        const { name, payload } = fields(event, ["name", "payload"], "An event needs a name and a plain-object payload.");
+        const { name, payload } = fields(
+          event,
+          ["name", "payload"],
+          "An event needs a name and a plain-object payload.",
+        );
         if (typeof name !== "string" || shape(payload) !== "object") {
           reject("An event needs a string name and a plain-object payload.");
         }
-        const result = await port.issueEvent({ name, payload: payloadCopy(payload) });
-        return result === null ? null : { ...result, actor: account(result.actor)! };
+        const result = await port.issueEvent({
+          name,
+          payload: payloadCopy(payload),
+        });
+        return result === null
+          ? null
+          : { ...result, actor: account(result.actor)! };
       }),
     issues: (filter: IssueFilter = {}) =>
-      guard(async () => (await port.issues(checkIssueFilter(filter))).map(issueFacts)),
+      guard(async () =>
+        (await port.issues(checkIssueFilter(filter))).map(issueFacts),
+      ),
     issue: (number: number) =>
       guard(async () => {
         checkNumber(number, "issue number");
@@ -223,17 +282,26 @@ function guardIssueTracker(
     labelChanges: (number: number) =>
       guard(async () => {
         checkNumber(number, "issue number");
-        return (await port.labelChanges(number)).map((change) => ({ ...change, actor: account(change.actor) }));
+        return (await port.labelChanges(number)).map((change) => ({
+          ...change,
+          actor: account(change.actor),
+        }));
       }),
     comments: (number: number) =>
       guard(async () => {
         checkNumber(number, "issue number");
-        return (await port.comments(number)).map((comment) => ({ ...comment, author: account(comment.author) }));
+        return (await port.comments(number)).map((comment) => ({
+          ...comment,
+          author: account(comment.author),
+        }));
       }),
     addLabels: (number: number, labels: readonly string[]) =>
       guard(async () => {
         checkNumber(number, "issue number");
-        const names = items(labels, "Name at least one label to add.") as string[];
+        const names = items(
+          labels,
+          "Name at least one label to add.",
+        ) as string[];
         if (names.length === 0) reject("Name at least one label to add.");
         for (const name of names) checkText(name, "label");
         await port.addLabels(number, names);
@@ -245,7 +313,8 @@ function guardIssueTracker(
         await port.removeLabel(number, label);
       }),
     labels: () => guard(() => port.labels()),
-    createLabel: (label: Label) => guard(async () => port.createLabel(checkLabel(label))),
+    createLabel: (label: Label) =>
+      guard(async () => port.createLabel(checkLabel(label))),
     updateLabel: (name: string, label: Label) =>
       guard(async () => {
         checkText(name, "label name");
@@ -273,9 +342,15 @@ function guardIssueTracker(
   });
 }
 
-function guardPullRequests(port: PullRequests, { guard, account }: Layer): PullRequests {
+function guardPullRequests(
+  port: PullRequests,
+  { guard, account }: Layer,
+): PullRequests {
   const capabilities = offered(port.capabilities, capabilityFlags.pullRequests);
-  const pullFacts = (pull: PullRequest): PullRequest => ({ ...pull, author: account(pull.author) });
+  const pullFacts = (pull: PullRequest): PullRequest => ({
+    ...pull,
+    author: account(pull.author),
+  });
   return Object.freeze({
     capabilities,
     byHeadBranch: (branch: string) =>
@@ -306,7 +381,10 @@ function guardPullRequests(port: PullRequests, { guard, account }: Layer): PullR
     reviewThreads: (number: number) =>
       guard(async () => {
         checkNumber(number, "pull request number");
-        return (await port.reviewThreads(number)).map((thread) => ({ ...thread, author: account(thread.author) }));
+        return (await port.reviewThreads(number)).map((thread) => ({
+          ...thread,
+          author: account(thread.author),
+        }));
       }),
     checks: (commit: string) =>
       guard(async () => {
@@ -341,8 +419,14 @@ function guardPullRequests(port: PullRequests, { guard, account }: Layer): PullR
   });
 }
 
-function guardReleaseSource(port: ReleaseSource, { guard }: Layer): ReleaseSource {
-  const capabilities = offered(port.capabilities, capabilityFlags.releaseSource);
+function guardReleaseSource(
+  port: ReleaseSource,
+  { guard }: Layer,
+): ReleaseSource {
+  const capabilities = offered(
+    port.capabilities,
+    capabilityFlags.releaseSource,
+  );
   return Object.freeze({
     capabilities,
     releases: () =>
@@ -361,7 +445,10 @@ function guardReleaseSource(port: ReleaseSource, { guard }: Layer): ReleaseSourc
   });
 }
 
-function guardAccess(port: AccessWithPages, { guard, account }: Layer): AccessWithPages {
+function guardAccess(
+  port: AccessWithPages,
+  { guard, account }: Layer,
+): AccessWithPages {
   return Object.freeze({
     capabilities: offered(port.capabilities, capabilityFlags.access),
     viewer: () => guard(async () => account(await port.viewer())),
@@ -370,25 +457,43 @@ function guardAccess(port: AccessWithPages, { guard, account }: Layer): AccessWi
         checkText(login, "login");
         return port.role(login);
       }),
-    request: (request: TransportRequest) => guard(async () => port.request(checkTransportRequest(request))),
-    requestPages: (request: TransportRequest) => guard(async () => {
-      const checked = checkTransportRequest(request);
-      if (checked.method !== "GET") reject("A paginated request uses GET.");
-      return port.requestPages(checked);
-    }),
+    request: (request: TransportRequest) =>
+      guard(async () => port.request(checkTransportRequest(request))),
+    requestPages: (request: TransportRequest) =>
+      guard(async () => {
+        const checked = checkTransportRequest(request);
+        if (checked.method !== "GET") reject("A paginated request uses GET.");
+        return port.requestPages(checked);
+      }),
   });
 }
 
 // The identity's fields, read once, checked by its platform's rules.
 function checkIdentity(identity: RepositoryIdentity): RepositoryIdentity {
   if (identity === null || typeof identity !== "object") {
-    throw new PlatformError("unsupported", "No platform adapter serves this repository identity.");
+    throw new PlatformError(
+      "unsupported",
+      "No platform adapter serves this repository identity.",
+    );
   }
-  const { platform, host, path } = fields(identity, ["platform", "host", "path"], "A repository identity is an object.");
-  if (typeof platform !== "string" || !Object.hasOwn(identityChecks, platform)) {
-    throw new PlatformError("unsupported", "No platform adapter serves this repository identity.");
+  const { platform, host, path } = fields(
+    identity,
+    ["platform", "host", "path"],
+    "A repository identity is an object.",
+  );
+  if (
+    typeof platform !== "string" ||
+    !Object.hasOwn(identityChecks, platform)
+  ) {
+    throw new PlatformError(
+      "unsupported",
+      "No platform adapter serves this repository identity.",
+    );
   }
-  checkOption(typeof host === "string" && host !== "", "A repository identity needs its host.");
+  checkOption(
+    typeof host === "string" && host !== "",
+    "A repository identity needs its host.",
+  );
   checkOption(
     typeof path === "string" && /^[^/\s]+(\/[^/\s]+)+$/.test(path),
     "A repository identity needs its full path, such as owner/name.",
@@ -404,7 +509,9 @@ function checkOptions(options: ConnectOptions): ConnectOptions {
     "Connection options are an object.",
   );
   checkOption(
-    credential === undefined || (typeof credential === "string" && credential !== "") || typeof credential === "function",
+    credential === undefined ||
+      (typeof credential === "string" && credential !== "") ||
+      typeof credential === "function",
     "A credential is a non-empty token or a function returning one.",
   );
   if (typeof credential === "string" && !isSendableToken(credential)) {
@@ -423,21 +530,30 @@ function checkOptions(options: ConnectOptions): ConnectOptions {
     );
     sections = { parent, blockedBy };
   }
-  checkOption(fetch === undefined || typeof fetch === "function", "fetch is a function.");
+  checkOption(
+    fetch === undefined || typeof fetch === "function",
+    "fetch is a function.",
+  );
   checkOption(
     timeoutMs === undefined ||
-      (typeof timeoutMs === "number" && Number.isInteger(timeoutMs) && timeoutMs >= 1 && timeoutMs <= maxTimeoutMs),
+      (typeof timeoutMs === "number" &&
+        Number.isInteger(timeoutMs) &&
+        timeoutMs >= 1 &&
+        timeoutMs <= maxTimeoutMs),
     `timeoutMs is a whole number of milliseconds from 1 to ${maxTimeoutMs}.`,
   );
   return {
-    ...(credential === undefined ? {} : { credential: credential as CredentialSource }),
+    ...(credential === undefined
+      ? {}
+      : { credential: credential as CredentialSource }),
     ...(sections === undefined ? {} : { relationshipSections: sections }),
     ...(fetch === undefined ? {} : { fetch: fetch as typeof globalThis.fetch }),
     ...(timeoutMs === undefined ? {} : { timeoutMs }),
   };
 }
 
-const isName = (value: unknown): value is string => typeof value === "string" && value.trim() !== "";
+const isName = (value: unknown): value is string =>
+  typeof value === "string" && value.trim() !== "";
 
 function checkOption(condition: boolean, message: string): asserts condition {
   if (!condition) reject(message);
@@ -448,42 +564,77 @@ function checkOption(condition: boolean, message: string): asserts condition {
 // `fetch` and fails as a retryable `unavailable`, and what is sent is exactly
 // what was checked.
 function checkTransportRequest(request: TransportRequest): TransportRequest {
-  const { path, method = "GET", query, body, headers } = fields(
+  const {
+    path,
+    method = "GET",
+    query,
+    body,
+    headers,
+  } = fields(
     request,
     ["path", "method", "query", "body", "headers"],
     "A request needs a path.",
   );
-  if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) {
-    reject("A request path starts with a single '/' and stays on the platform's API.");
+  if (
+    typeof path !== "string" ||
+    !path.startsWith("/") ||
+    path.startsWith("//")
+  ) {
+    reject(
+      "A request path starts with a single '/' and stays on the platform's API.",
+    );
   }
   if (!isText(path)) reject(unencodable);
   if (!isExactPath(path)) reject(inexactPath);
-  if (query !== undefined && path.includes("?")) reject("A request gives its query either in its path or as query, not both.");
+  if (query !== undefined && path.includes("?"))
+    reject(
+      "A request gives its query either in its path or as query, not both.",
+    );
   const verb = typeof method === "string" ? method.toUpperCase() : "";
-  if (!transportMethods.has(verb)) reject(`A request method is one of ${[...transportMethods].join(", ")}.`);
+  if (!transportMethods.has(verb))
+    reject(`A request method is one of ${[...transportMethods].join(", ")}.`);
   let queryCopy: Record<string, string | number | boolean> | undefined;
   if (query !== undefined) {
     const pairs = entries(query, "A request query is a plain object.");
     for (const [key, value] of pairs) {
-      const scalar = typeof value === "string" || typeof value === "boolean" || Number.isFinite(value);
-      if (!scalar) reject("A request query value is a string, a finite number or a boolean.");
-      if (!isText(key) || (typeof value === "string" && !isText(value))) reject(unencodable);
+      const scalar =
+        typeof value === "string" ||
+        typeof value === "boolean" ||
+        Number.isFinite(value);
+      if (!scalar)
+        reject(
+          "A request query value is a string, a finite number or a boolean.",
+        );
+      if (!isText(key) || (typeof value === "string" && !isText(value)))
+        reject(unencodable);
     }
-    queryCopy = Object.fromEntries(pairs) as Record<string, string | number | boolean>;
+    queryCopy = Object.fromEntries(pairs) as Record<
+      string,
+      string | number | boolean
+    >;
   }
   let headersCopy: Record<string, string> | undefined;
   if (headers !== undefined) {
     const pairs = entries(headers, "Request headers are a plain object.");
     const names = new Set<string>();
     for (const [key, value] of pairs) {
-      if (typeof value !== "string") reject("A request header value is a string.");
+      if (typeof value !== "string")
+        reject("A request header value is a string.");
       if (!isText(key) || !isText(value)) reject(unencodable);
       const name = key.toLowerCase();
-      if (names.has(name)) reject("A request names each header once, in any case.");
+      if (names.has(name))
+        reject("A request names each header once, in any case.");
       names.add(name);
-      if (name === "authorization") reject("A request is sent with the connection's credential, never its own.");
-      if (transportHeaders.has(name)) reject(`A request leaves the ${name} header to the transport.`);
-      if (!headerValue.test(value)) reject("A request header value is sent as written, with no outer whitespace or control character.");
+      if (name === "authorization")
+        reject(
+          "A request is sent with the connection's credential, never its own.",
+        );
+      if (transportHeaders.has(name))
+        reject(`A request leaves the ${name} header to the transport.`);
+      if (!headerValue.test(value))
+        reject(
+          "A request header value is sent as written, with no outer whitespace or control character.",
+        );
     }
     try {
       new Headers(pairs as [string, string][]);
@@ -494,7 +645,8 @@ function checkTransportRequest(request: TransportRequest): TransportRequest {
   }
   let bodyCopy: unknown;
   if (body !== undefined) {
-    if (verb === "GET" || verb === "HEAD") reject(`A ${verb} request has no body.`);
+    if (verb === "GET" || verb === "HEAD")
+      reject(`A ${verb} request has no body.`);
     bodyCopy = jsonCopy(body, new Set());
   }
   return {
@@ -521,8 +673,10 @@ function isExactPath(path: string): boolean {
   return url.origin === origin && url.pathname + url.search === path;
 }
 
-const jsonRule = "A request body holds only plain objects, arrays, strings, finite numbers other than -0, booleans and null.";
-const unencodable = "A request holds text with an unpaired surrogate, which has no UTF-8 encoding.";
+const jsonRule =
+  "A request body holds only plain objects, arrays, strings, finite numbers other than -0, booleans and null.";
+const unencodable =
+  "A request holds text with an unpaired surrogate, which has no UTF-8 encoding.";
 
 // A copy of a JSON value that serializes exactly as the value read here.
 // Anything `JSON.stringify` would drop, coerce or refuse fails instead:
@@ -532,7 +686,8 @@ const unencodable = "A request holds text with an unpaired surrogate, which has 
 // `ancestors` holds the objects enclosing `value`, so shared references pass.
 function jsonCopy(value: unknown, ancestors: Set<object>): unknown {
   if (typeof value === "string" && !isText(value)) reject(unencodable);
-  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (value === null || typeof value === "string" || typeof value === "boolean")
+    return value;
   if (typeof value === "number") {
     if (!Number.isFinite(value) || Object.is(value, -0)) reject(jsonRule);
     return value;
@@ -542,10 +697,14 @@ function jsonCopy(value: unknown, ancestors: Set<object>): unknown {
   ancestors.add(value);
   try {
     const kind = shape(value);
-    if (kind === "array") return items(value, jsonRule).map((item) => jsonCopy(item, ancestors));
+    if (kind === "array")
+      return items(value, jsonRule).map((item) => jsonCopy(item, ancestors));
     if (kind === "object") {
       return Object.fromEntries(
-        entries(value, jsonRule).map(([key, item]) => [isText(key) ? key : reject(unencodable), jsonCopy(item, ancestors)]),
+        entries(value, jsonRule).map(([key, item]) => [
+          isText(key) ? key : reject(unencodable),
+          jsonCopy(item, ancestors),
+        ]),
       );
     }
     reject(jsonRule);
@@ -556,12 +715,19 @@ function jsonCopy(value: unknown, ancestors: Set<object>): unknown {
 
 // The filter's known fields, each read once and checked.
 function checkIssueFilter(filter: IssueFilter): IssueFilter {
-  const { state, label } = fields(filter, ["state", "label"], "An issue filter is an object.");
+  const { state, label } = fields(
+    filter,
+    ["state", "label"],
+    "An issue filter is an object.",
+  );
   if (state !== undefined && state !== "open" && state !== "closed") {
     reject("An issue filter's state is open or closed.");
   }
   if (label !== undefined) checkText(label, "label");
-  return { ...(state === undefined ? {} : { state }), ...(label === undefined ? {} : { label }) };
+  return {
+    ...(state === undefined ? {} : { state }),
+    ...(label === undefined ? {} : { label }),
+  };
 }
 
 function checkLabel(label: Label): Label {
@@ -579,12 +745,17 @@ function checkLabel(label: Label): Label {
 }
 
 function checkNumber(value: number, what: string): void {
-  if (!Number.isSafeInteger(value) || value < 1) reject(`The ${what} is a positive integer.`);
+  if (!Number.isSafeInteger(value) || value < 1)
+    reject(`The ${what} is a positive integer.`);
 }
 
 function checkText(value: unknown, what: string): asserts value is string {
-  if (typeof value !== "string" || value === "") reject(`The ${what} is a non-empty string.`);
-  if (!isText(value)) reject(`The ${what} holds an unpaired surrogate, which has no UTF-8 encoding.`);
+  if (typeof value !== "string" || value === "")
+    reject(`The ${what} is a non-empty string.`);
+  if (!isText(value))
+    reject(
+      `The ${what} holds an unpaired surrogate, which has no UTF-8 encoding.`,
+    );
 }
 
 // A string every request can carry as it is: one with an unpaired surrogate
@@ -598,5 +769,8 @@ function reject(message: string): never {
 }
 
 function unsupported(flag: string): never {
-  throw new PlatformError("unsupported", `This platform does not offer ${flag}.`);
+  throw new PlatformError(
+    "unsupported",
+    `This platform does not offer ${flag}.`,
+  );
 }

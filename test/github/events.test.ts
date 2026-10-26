@@ -8,11 +8,17 @@ import { githubIssueEvent } from "./events.ts";
 
 const actor = { login: "mona", bot: false };
 const repository = "octo/hello";
-const opened = () => githubIssueEvent({ kind: "opened", issue: 42, actor, repository });
-const tracker = () => connect(`https://github.com/${repository}`, {
-  fetch: async () => { assert.fail("Event normalization sent a request"); },
-  credential: () => { assert.fail("Event normalization requested a credential"); },
-}).issueTracker;
+const opened = () =>
+  githubIssueEvent({ kind: "opened", issue: 42, actor, repository });
+const tracker = () =>
+  connect(`https://github.com/${repository}`, {
+    fetch: async () => {
+      assert.fail("Event normalization sent a request");
+    },
+    credential: () => {
+      assert.fail("Event normalization requested a credential");
+    },
+  }).issueTracker;
 const reason = (expected: PlatformErrorReason) => (error: unknown) => {
   assert.ok(error instanceof PlatformError);
   assert.equal(error.reason, expected);
@@ -24,7 +30,10 @@ describe("GitHub issue events", () => {
   it("marks an app sender as a bot with its REST login", async () => {
     const event = opened();
     event.payload.sender = { login: "helper[bot]", type: "App" };
-    assert.deepEqual((await tracker().issueEvent(event))?.actor, { login: "helper[bot]", bot: true });
+    assert.deepEqual((await tracker().issueEvent(event))?.actor, {
+      login: "helper[bot]",
+      bot: true,
+    });
   });
   it("matches repository names without regard to case and reports the connection's path", async () => {
     const event = opened();
@@ -34,37 +43,74 @@ describe("GitHub issue events", () => {
 
   it("returns event facts anonymously without consulting current state or credentials", async () => {
     const connection = connect(`https://github.com/${repository}`, {
-      fetch: async () => { assert.fail("Event normalization sent a request"); },
+      fetch: async () => {
+        assert.fail("Event normalization sent a request");
+      },
     });
-    const event = githubIssueEvent({ kind: "commentDeleted", issue: 999, actor, repository,
-      comment: { id: 456, nodeId: "IC_deleted", body: "Deleted body" } });
-    assert.deepEqual((await connection.issueTracker.issueEvent(event))?.comment, {
-      id: 456, nodeId: "IC_deleted", body: "Deleted body",
+    const event = githubIssueEvent({
+      kind: "commentDeleted",
+      issue: 999,
+      actor,
+      repository,
+      comment: { id: 456, nodeId: "IC_deleted", body: "Deleted body" },
     });
+    assert.deepEqual(
+      (await connection.issueTracker.issueEvent(event))?.comment,
+      {
+        id: 456,
+        nodeId: "IC_deleted",
+        body: "Deleted body",
+      },
+    );
   });
 
-  for (const kind of ["commentCreated", "commentEdited", "commentDeleted"] as const) {
+  for (const kind of [
+    "commentCreated",
+    "commentEdited",
+    "commentDeleted",
+  ] as const) {
     it(`reports comment.node_id for ${kind} without requests or credential lookup`, async () => {
-      const event = githubIssueEvent({ kind, issue: 999, actor, repository,
-        comment: { id: 456, nodeId: "IC_payload", body: "Event body" } });
+      const event = githubIssueEvent({
+        kind,
+        issue: 999,
+        actor,
+        repository,
+        comment: { id: 456, nodeId: "IC_payload", body: "Event body" },
+      });
       assert.deepEqual((await tracker().issueEvent(event))?.comment, {
-        id: 456, nodeId: "IC_payload", body: "Event body",
+        id: 456,
+        nodeId: "IC_payload",
+        body: "Event body",
       });
     });
 
     it(`reports an absent comment.node_id as null for ${kind}`, async () => {
-      const event = githubIssueEvent({ kind, issue: 999, actor, repository,
-        comment: { id: 456, body: "Event body" } });
+      const event = githubIssueEvent({
+        kind,
+        issue: 999,
+        actor,
+        repository,
+        comment: { id: 456, body: "Event body" },
+      });
       assert.deepEqual((await tracker().issueEvent(event))?.comment, {
-        id: 456, nodeId: null, body: "Event body",
+        id: 456,
+        nodeId: null,
+        body: "Event body",
       });
     });
 
     for (const nodeId of ["", null, undefined, 123, false, {}, []]) {
       it(`rejects present malformed comment.node_id ${JSON.stringify(nodeId)} for ${kind}`, async () => {
         const event = githubIssueEvent({ kind, issue: 999, actor, repository });
-        event.payload.comment = { id: 456, node_id: nodeId, body: "Event body" };
-        await assert.rejects(tracker().issueEvent(event), reason("invalidResponse"));
+        event.payload.comment = {
+          id: 456,
+          node_id: nodeId,
+          body: "Event body",
+        };
+        await assert.rejects(
+          tracker().issueEvent(event),
+          reason("invalidResponse"),
+        );
       });
     }
   }
@@ -83,34 +129,68 @@ describe("GitHub issue events", () => {
         },
       });
     };
-    const event = githubIssueEvent({ kind: "commentCreated", issue: 42, actor, repository,
-      comment: { id: 123, nodeId: "IC_first", body: "First value" } });
-    assert.deepEqual((await tracker().issueEvent(once(event, "event") as PlatformEvent))?.comment, {
-      id: 123, nodeId: "IC_first", body: "First value",
+    const event = githubIssueEvent({
+      kind: "commentCreated",
+      issue: 42,
+      actor,
+      repository,
+      comment: { id: 123, nodeId: "IC_first", body: "First value" },
     });
+    assert.deepEqual(
+      (await tracker().issueEvent(once(event, "event") as PlatformEvent))
+        ?.comment,
+      {
+        id: 123,
+        nodeId: "IC_first",
+        body: "First value",
+      },
+    );
     assert.ok([...reads.values()].every((count) => count === 1));
   });
 
-  for (const argument of [undefined, null, [], "issues", {}, { name: 42, payload: {} },
-    { name: "issues", payload: null }, { name: "issues", payload: [] },
-    { name: "issues", payload: new Date() }]) {
+  for (const argument of [
+    undefined,
+    null,
+    [],
+    "issues",
+    {},
+    { name: 42, payload: {} },
+    { name: "issues", payload: null },
+    { name: "issues", payload: [] },
+    { name: "issues", payload: new Date() },
+  ]) {
     it(`rejects invalid argument ${JSON.stringify(argument)}`, async () => {
-      await assert.rejects(tracker().issueEvent(argument as PlatformEvent), reason("rejected"));
+      await assert.rejects(
+        tracker().issueEvent(argument as PlatformEvent),
+        reason("rejected"),
+      );
     });
   }
 
   for (const [field, bad] of [
-    ["repository", undefined], ["repository", { full_name: 42 }], ["repository", { full_name: "bad/path/extra" }],
-    ["action", undefined], ["action", 42], ["issue", undefined], ["issue", []],
-    ["sender", undefined], ["sender", null], ["sender", { login: "mona" }],
-    ["sender", { login: false, type: "User" }], ["sender", { login: "mona", type: "unknown" }],
-    ["issue", { number: 42 }], ["issue", { number: 42, labels: ["bug"] }],
+    ["repository", undefined],
+    ["repository", { full_name: 42 }],
+    ["repository", { full_name: "bad/path/extra" }],
+    ["action", undefined],
+    ["action", 42],
+    ["issue", undefined],
+    ["issue", []],
+    ["sender", undefined],
+    ["sender", null],
+    ["sender", { login: "mona" }],
+    ["sender", { login: false, type: "User" }],
+    ["sender", { login: "mona", type: "unknown" }],
+    ["issue", { number: 42 }],
+    ["issue", { number: 42, labels: ["bug"] }],
     ["issue", { number: 42, labels: [{ name: 5 }] }],
   ] as const) {
     it(`rejects malformed ${field}: ${JSON.stringify(bad)}`, async () => {
       const event = opened();
       event.payload[field] = bad;
-      await assert.rejects(tracker().issueEvent(event), reason("invalidResponse"));
+      await assert.rejects(
+        tracker().issueEvent(event),
+        reason("invalidResponse"),
+      );
     });
   }
 
@@ -118,50 +198,85 @@ describe("GitHub issue events", () => {
     it(`rejects an unsafe issue number ${JSON.stringify(number)}`, async () => {
       const event = opened();
       event.payload.issue = { number, labels: [] };
-      await assert.rejects(tracker().issueEvent(event), reason("invalidResponse"));
+      await assert.rejects(
+        tracker().issueEvent(event),
+        reason("invalidResponse"),
+      );
     });
     it(`rejects an unsafe comment identifier ${JSON.stringify(number)}`, async () => {
-      const event = githubIssueEvent({ kind: "commentDeleted", issue: 42, actor, repository });
+      const event = githubIssueEvent({
+        kind: "commentDeleted",
+        issue: 42,
+        actor,
+        repository,
+      });
       event.payload.comment = { id: number, body: "Deleted body" };
-      await assert.rejects(tracker().issueEvent(event), reason("invalidResponse"));
+      await assert.rejects(
+        tracker().issueEvent(event),
+        reason("invalidResponse"),
+      );
     });
   }
 
   for (const [kind, field, bad] of [
-    ["labeled", "label", undefined], ["unlabeled", "label", { name: 42 }],
-    ["edited", "changes", undefined], ["edited", "changes", { body: null }],
+    ["labeled", "label", undefined],
+    ["unlabeled", "label", { name: 42 }],
+    ["edited", "changes", undefined],
+    ["edited", "changes", { body: null }],
     ["edited", "changes", { body: { from: 42 } }],
-    ["commentDeleted", "comment", undefined], ["commentEdited", "comment", { id: 123, body: null }],
+    ["commentDeleted", "comment", undefined],
+    ["commentEdited", "comment", { id: 123, body: null }],
     ["commentCreated", "comment", { id: 123, body: 42 }],
   ] as const) {
     it(`rejects malformed ${kind} ${field}`, async () => {
       const event = githubIssueEvent({ kind, issue: 42, actor, repository });
       event.payload[field] = bad;
-      await assert.rejects(tracker().issueEvent(event), reason("invalidResponse"));
+      await assert.rejects(
+        tracker().issueEvent(event),
+        reason("invalidResponse"),
+      );
     });
   }
 
   it("reports a sparse opening-label list as malformed platform data", async () => {
     const event = opened();
     event.payload.issue = { number: 42, labels: Array(1) };
-    await assert.rejects(tracker().issueEvent(event), reason("invalidResponse"));
+    await assert.rejects(
+      tracker().issueEvent(event),
+      reason("invalidResponse"),
+    );
   });
 
   it("preserves empty comment bodies", async () => {
-    const event = githubIssueEvent({ kind: "commentDeleted", issue: 42, actor, repository,
-      comment: { id: 123, body: "" } });
+    const event = githubIssueEvent({
+      kind: "commentDeleted",
+      issue: 42,
+      actor,
+      repository,
+      comment: { id: 123, body: "" },
+    });
     assert.equal((await tracker().issueEvent(event))?.comment?.body, "");
   });
 
   it("treats a body edit from null as a body change", async () => {
-    const event = githubIssueEvent({ kind: "edited", issue: 42, actor, repository });
+    const event = githubIssueEvent({
+      kind: "edited",
+      issue: 42,
+      actor,
+      repository,
+    });
     event.payload.changes = { body: { from: null } };
     assert.equal((await tracker().issueEvent(event))?.bodyChanged, true);
   });
 
   it("rejects unreadable payload getters and revoked proxies without exposing their errors", async () => {
     const event = opened();
-    Object.defineProperty(event.payload, "sender", { enumerable: true, get() { throw new Error("private data"); } });
+    Object.defineProperty(event.payload, "sender", {
+      enumerable: true,
+      get() {
+        throw new Error("private data");
+      },
+    });
     await assert.rejects(tracker().issueEvent(event), (error: unknown) => {
       reason("rejected")(error);
       assert.ok(!JSON.stringify(error).includes("private data"));
@@ -169,7 +284,9 @@ describe("GitHub issue events", () => {
     });
     const revoked = Proxy.revocable({}, {});
     revoked.revoke();
-    await assert.rejects(tracker().issueEvent({ name: "issues", payload: revoked.proxy }), reason("rejected"));
+    await assert.rejects(
+      tracker().issueEvent({ name: "issues", payload: revoked.proxy }),
+      reason("rejected"),
+    );
   });
-
 });

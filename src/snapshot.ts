@@ -7,10 +7,15 @@
 import { PlatformError } from "./errors.ts";
 
 /** Each named field of an object, read once. Anything but an object fails with `message`. */
-export function fields<Name extends string>(value: unknown, names: readonly Name[], message: string): Record<Name, unknown> {
+export function fields<Name extends string>(
+  value: unknown,
+  names: readonly Name[],
+  message: string,
+): Record<Name, unknown> {
   if (value === null || typeof value !== "object") reject(message);
   const copy = Object.create(null) as Record<Name, unknown>;
-  for (const name of names) copy[name] = read(() => (value as Record<Name, unknown>)[name]);
+  for (const name of names)
+    copy[name] = read(() => (value as Record<Name, unknown>)[name]);
   return copy;
 }
 
@@ -31,7 +36,8 @@ export function items(
   const keys = read(() => Reflect.ownKeys(array));
   if (keys.length !== length + 1) reject(message, reason);
   for (const key of keys) {
-    if (key !== "length" && !(typeof key === "string" && isIndex(key, length))) reject(message, reason);
+    if (key !== "length" && !(typeof key === "string" && isIndex(key, length)))
+      reject(message, reason);
   }
   return Array.from({ length }, (_, index) => read(() => array[index]));
 }
@@ -54,7 +60,8 @@ export function entries(
   const object = value as Record<PropertyKey, unknown>;
   const result: [string, unknown][] = [];
   for (const key of read(() => Reflect.ownKeys(object))) {
-    if (!read(() => Reflect.getOwnPropertyDescriptor(object, key))?.enumerable) continue;
+    if (!read(() => Reflect.getOwnPropertyDescriptor(object, key))?.enumerable)
+      continue;
     if (typeof key === "symbol") reject(message, reason);
     result.push([key, read(() => object[key])]);
   }
@@ -64,7 +71,8 @@ export function entries(
 /** Whether a value is an array or object as JSON writes it: a plain array, a plain object, or neither. */
 export function shape(value: unknown): "array" | "object" | null {
   return read(() => {
-    if (Array.isArray(value)) return Object.getPrototypeOf(value) === Array.prototype ? "array" : null;
+    if (Array.isArray(value))
+      return Object.getPrototypeOf(value) === Array.prototype ? "array" : null;
     return isPlainObject(value) ? "object" : null;
   });
 }
@@ -84,23 +92,45 @@ function read<T>(operation: () => T): T {
   }
 }
 
-function reject(message: string, reason: "rejected" | "invalidResponse" = "rejected"): never {
+function reject(
+  message: string,
+  reason: "rejected" | "invalidResponse" = "rejected",
+): never {
   throw new PlatformError(reason, message);
 }
 
 /** A parsed event payload, copied before the adapter reads its platform fields. */
-export function payloadCopy(value: unknown, copies = new Map<object, unknown>(), ancestors = new Set<object>()): unknown {
+export function payloadCopy(
+  value: unknown,
+  copies = new Map<object, unknown>(),
+  ancestors = new Set<object>(),
+): unknown {
   if (value === null || typeof value !== "object") return value;
-  if (ancestors.has(value)) throw new PlatformError("invalidResponse", "An event payload has a cycle.");
+  if (ancestors.has(value))
+    throw new PlatformError("invalidResponse", "An event payload has a cycle.");
   if (copies.has(value)) return copies.get(value);
   const kind = shape(value);
-  if (kind === null) throw new PlatformError("invalidResponse", "An event payload holds an unreadable object.");
+  if (kind === null)
+    throw new PlatformError(
+      "invalidResponse",
+      "An event payload holds an unreadable object.",
+    );
   ancestors.add(value);
   try {
-    const copy = kind === "array"
-      ? items(value, "An event payload holds an unreadable array.", "invalidResponse").map((item) => payloadCopy(item, copies, ancestors))
-      : Object.fromEntries(entries(value, "An event payload holds an unreadable object.", "invalidResponse")
-        .map(([key, item]) => [key, payloadCopy(item, copies, ancestors)]));
+    const copy =
+      kind === "array"
+        ? items(
+            value,
+            "An event payload holds an unreadable array.",
+            "invalidResponse",
+          ).map((item) => payloadCopy(item, copies, ancestors))
+        : Object.fromEntries(
+            entries(
+              value,
+              "An event payload holds an unreadable object.",
+              "invalidResponse",
+            ).map(([key, item]) => [key, payloadCopy(item, copies, ancestors)]),
+          );
     copies.set(value, copy);
     return copy;
   } finally {

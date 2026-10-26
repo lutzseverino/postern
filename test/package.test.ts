@@ -1,17 +1,28 @@
 // The published package: what the tarball holds, and that its single runtime
-// file works on its own. Run after `npm run build`.
+// file works on its own. Run after `pnpm build`.
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { after, before, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const bundle = join(root, "dist/postern.mjs");
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 describe("the published package", () => {
   let work: string;
@@ -19,12 +30,15 @@ describe("the published package", () => {
   let files: string[];
 
   before(() => {
-    assert.ok(existsSync(bundle), "Run `npm run build` before the package tests.");
+    assert.ok(existsSync(bundle), "Run `pnpm build` before the package tests.");
     work = mkdtempSync(join(tmpdir(), "postern-package-"));
-    const [packed] = JSON.parse(
-      execFileSync(npm, ["pack", "--json", "--ignore-scripts", "--pack-destination", work], { cwd: root, encoding: "utf8" }),
-    ) as [{ filename: string; files: { path: string }[] }];
-    tarball = join(work, packed.filename);
+    const packed = JSON.parse(
+      execFileSync(pnpm, ["pack", "--json", "--pack-destination", work], {
+        cwd: root,
+        encoding: "utf8",
+      }),
+    ) as { filename: string; files: { path: string }[] };
+    tarball = resolve(work, packed.filename);
     files = packed.files.map((file) => file.path).sort();
   });
 
@@ -40,9 +54,30 @@ describe("the published package", () => {
     );
   });
 
+  it("declares no pack lifecycle scripts", () => {
+    const manifest = JSON.parse(
+      readFileSync(join(root, "package.json"), "utf8"),
+    );
+    for (const script of ["prepack", "prepare", "postpack"]) {
+      assert.equal(
+        script in manifest.scripts,
+        false,
+        `package.json has ${script}`,
+      );
+    }
+  });
+
   it("declares no runtime dependency fields", () => {
-    const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-    for (const field of ["dependencies", "peerDependencies", "optionalDependencies", "bundleDependencies", "bundledDependencies"]) {
+    const manifest = JSON.parse(
+      readFileSync(join(root, "package.json"), "utf8"),
+    );
+    for (const field of [
+      "dependencies",
+      "peerDependencies",
+      "optionalDependencies",
+      "bundleDependencies",
+      "bundledDependencies",
+    ]) {
       assert.equal(field in manifest, false, `package.json has ${field}`);
     }
     assert.equal(manifest.name, "@lutzseverino/postern");
@@ -50,18 +85,27 @@ describe("the published package", () => {
     assert.equal(manifest.type, "module");
     assert.equal(manifest.license, "MIT");
     assert.deepEqual(manifest.engines, { node: "^24.0.0 || ^26.0.0" });
-    assert.deepEqual(manifest.exports["."], { types: "./dist/types/index.d.ts", default: "./dist/postern.mjs" });
+    assert.deepEqual(manifest.exports["."], {
+      types: "./dist/types/index.d.ts",
+      default: "./dist/postern.mjs",
+    });
   });
 
   it("has a runtime that imports only Node.js built-ins and reads no environment or files", () => {
     const source = readFileSync(bundle, "utf8");
     const specifiers = [
-      ...source.matchAll(/^\s*(?:import|export)\b[^;]*?\bfrom\s*["']([^"']+)["']/gm),
+      ...source.matchAll(
+        /^\s*(?:import|export)\b[^;]*?\bfrom\s*["']([^"']+)["']/gm,
+      ),
       ...source.matchAll(/\bimport\s*\(\s*["']([^"']+)["']\s*\)/g),
       ...source.matchAll(/^\s*import\s*["']([^"']+)["']/gm),
     ].map((match) => match[1]);
-    for (const specifier of specifiers) assert.match(String(specifier), /^node:/);
-    assert.doesNotMatch(source, /process\.env|readFileSync|readFile\(|child_process|\brequire\(/);
+    for (const specifier of specifiers)
+      assert.match(String(specifier), /^node:/);
+    assert.doesNotMatch(
+      source,
+      /process\.env|readFileSync|readFile\(|child_process|\brequire\(/,
+    );
   });
 
   it("runs when its one file is copied alone into an empty directory", () => {
@@ -79,7 +123,10 @@ try { detectPlatform("https://gitlab.com/a/b.git"); } catch (error) { reason = e
 console.log(JSON.stringify({ identity, tags: releases.map((release) => release.tag), reason }));
 `,
     );
-    const output = execFileSync(process.execPath, ["check.mjs"], { cwd: alone, encoding: "utf8" });
+    const output = execFileSync(process.execPath, ["check.mjs"], {
+      cwd: alone,
+      encoding: "utf8",
+    });
     assert.deepEqual(JSON.parse(output), {
       identity: { platform: "github", host: "github.com", path: "octo/hello" },
       tags: ["v1.0.0"],
@@ -90,8 +137,22 @@ console.log(JSON.stringify({ identity, tags: releases.map((release) => release.t
   it("installs from its tarball with types a TypeScript consumer resolves", () => {
     const consumer = join(work, "consumer");
     mkdirSync(consumer);
-    writeFileSync(join(consumer, "package.json"), JSON.stringify({ name: "consumer", private: true, type: "module" }));
-    execFileSync(npm, ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--offline", tarball], { cwd: consumer, stdio: "pipe" });
+    writeFileSync(
+      join(consumer, "package.json"),
+      JSON.stringify({ name: "consumer", private: true, type: "module" }),
+    );
+    execFileSync(
+      npm,
+      [
+        "install",
+        "--ignore-scripts",
+        "--no-audit",
+        "--no-fund",
+        "--offline",
+        tarball,
+      ],
+      { cwd: consumer, stdio: "pipe" },
+    );
     writeFileSync(
       join(consumer, "index.ts"),
       `import { connect, PlatformError, type Issue, type IssueEvent, type IssueEventKind, type PlatformEvent } from "@lutzseverino/postern";
@@ -118,19 +179,46 @@ export const read = async (): Promise<Issue | string> => tracker.issue(1).catch(
         },
       }),
     );
-    for (const fixture of ["published-1.0.0.d.ts", "legacy-types.ts", "additive-types.ts", "published-1.1.0.d.ts", "event-types.ts"]) {
-      copyFileSync(join(root, `test/fixtures/${fixture}.txt`), join(consumer, fixture));
+    for (const fixture of [
+      "published-1.0.0.d.ts",
+      "legacy-types.ts",
+      "additive-types.ts",
+      "published-1.1.0.d.ts",
+      "event-types.ts",
+    ]) {
+      copyFileSync(
+        join(root, `test/fixtures/${fixture}.txt`),
+        join(consumer, fixture),
+      );
     }
-    execFileSync(process.execPath, [join(root, "node_modules/typescript/bin/tsc"), "-p", consumer], { stdio: "pipe" });
+    execFileSync(
+      process.execPath,
+      [join(root, "node_modules/typescript/bin/tsc"), "-p", consumer],
+      { stdio: "pipe" },
+    );
     // Prove the published producer catches a required-field regression, using
     // only the installed candidate declaration; restore it before runtime use.
-    const ports = join(consumer, "node_modules/@lutzseverino/postern/dist/types/ports.d.ts");
+    const ports = join(
+      consumer,
+      "node_modules/@lutzseverino/postern/dist/types/ports.d.ts",
+    );
     const declaration = readFileSync(ports, "utf8");
     assert.equal(declaration.split("nodeId?: string | null;").length, 2);
     try {
-      writeFileSync(ports, declaration.replace("nodeId?: string | null;", "nodeId: string | null;"));
+      writeFileSync(
+        ports,
+        declaration.replace(
+          "nodeId?: string | null;",
+          "nodeId: string | null;",
+        ),
+      );
       assert.throws(
-        () => execFileSync(process.execPath, [join(root, "node_modules/typescript/bin/tsc"), "-p", consumer], { stdio: "pipe" }),
+        () =>
+          execFileSync(
+            process.execPath,
+            [join(root, "node_modules/typescript/bin/tsc"), "-p", consumer],
+            { stdio: "pipe" },
+          ),
         (error: unknown) => {
           const failure = error as { status?: number; stdout?: Buffer };
           assert.equal(failure.status, 1);
@@ -145,7 +233,11 @@ export const read = async (): Promise<Issue | string> => tracker.issue(1).catch(
     }
     const output = execFileSync(
       process.execPath,
-      ["--input-type=module", "-e", `import { detectPlatform } from "@lutzseverino/postern"; console.log(detectPlatform("https://github.com/a/b").path);`],
+      [
+        "--input-type=module",
+        "-e",
+        `import { detectPlatform } from "@lutzseverino/postern"; console.log(detectPlatform("https://github.com/a/b").path);`,
+      ],
       { cwd: consumer, encoding: "utf8" },
     );
     assert.equal(output.trim(), "a/b");
@@ -158,11 +250,24 @@ describe("the build script", () => {
     try {
       const checkout = join(work, "a checkout #1");
       mkdirSync(checkout);
-      for (const entry of ["src", "scripts", "package.json", "tsconfig.json", "tsconfig.build.json"]) {
+      for (const entry of [
+        "src",
+        "scripts",
+        "package.json",
+        "tsconfig.json",
+        "tsconfig.build.json",
+      ]) {
         cpSync(join(root, entry), join(checkout, entry), { recursive: true });
       }
-      symlinkSync(join(root, "node_modules"), join(checkout, "node_modules"), "dir");
-      execFileSync(process.execPath, [join(checkout, "scripts/build.mjs")], { cwd: checkout, stdio: "pipe" });
+      symlinkSync(
+        join(root, "node_modules"),
+        join(checkout, "node_modules"),
+        "dir",
+      );
+      execFileSync(process.execPath, [join(checkout, "scripts/build.mjs")], {
+        cwd: checkout,
+        stdio: "pipe",
+      });
       assert.ok(existsSync(join(checkout, "dist/postern.mjs")));
       assert.ok(existsSync(join(checkout, "dist/types/index.d.ts")));
     } finally {

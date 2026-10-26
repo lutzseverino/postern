@@ -7,15 +7,27 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { PlatformError, capabilityFlags } from "../../src/index.ts";
-import type { Account, ConnectionWithLabels, IssueEventKind, PlatformErrorReason } from "../../src/index.ts";
-import type { AdapterHarness, ContractPlatform, Malformation } from "./harness.ts";
+import type {
+  Account,
+  ConnectionWithLabels,
+  IssueEventKind,
+  PlatformErrorReason,
+} from "../../src/index.ts";
+import type {
+  AdapterHarness,
+  ContractPlatform,
+  Malformation,
+} from "./harness.ts";
 
 const mona: Account = { login: "mona", bot: false };
 const robot: Account = { login: "helper[bot]", bot: true };
 const sections = { parent: "Parent", blockedBy: "Blocked by" };
 
 const isReason = (reason: PlatformErrorReason) => (error: unknown) => {
-  assert.ok(error instanceof PlatformError, `expected a PlatformError, got ${String(error)}`);
+  assert.ok(
+    error instanceof PlatformError,
+    `expected a PlatformError, got ${String(error)}`,
+  );
   assert.equal(error.reason, reason);
   return true;
 };
@@ -40,7 +52,10 @@ export type ContractGroup =
  * Runs the contract cases against one adapter. Every adapter runs all groups;
  * `only` serves test doubles that exercise the suite itself.
  */
-export function runAdapterContract(harness: AdapterHarness, only?: readonly ContractGroup[]): void {
+export function runAdapterContract(
+  harness: AdapterHarness,
+  only?: readonly ContractGroup[],
+): void {
   const probe = harness.start().connect();
   const issueFlags = probe.issueTracker.capabilities;
   const nativeParent = issueFlags.nativeParent === true;
@@ -50,117 +65,249 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
     login: account.login,
     bot: issueFlags.botMarking === true ? account.bot : null,
   });
-  const offers = (flag: boolean, name: string) => (flag ? {} : { skip: `${harness.name} does not offer ${name}` });
-  const lacks = (flag: boolean, name: string) => (flag ? { skip: `${harness.name} offers ${name}` } : {});
+  const offers = (flag: boolean, name: string) =>
+    flag ? {} : { skip: `${harness.name} does not offer ${name}` };
+  const lacks = (flag: boolean, name: string) =>
+    flag ? { skip: `${harness.name} offers ${name}` } : {};
 
   const group = (name: ContractGroup, cases: () => void) =>
-    describe(name, only && !only.includes(name) ? { skip: "not selected" } : {}, cases);
+    describe(
+      name,
+      only && !only.includes(name) ? { skip: "not selected" } : {},
+      cases,
+    );
 
   describe(`${harness.name} adapter contract`, () => {
     group("capability flags", () => {
       it("reports only known flags, each true", () => {
         const connection = harness.start().connect();
-        for (const port of ["issueTracker", "pullRequests", "releaseSource", "access"] as const) {
-          const capabilities = connection[port].capabilities as Record<string, unknown>;
+        for (const port of [
+          "issueTracker",
+          "pullRequests",
+          "releaseSource",
+          "access",
+        ] as const) {
+          const capabilities = connection[port].capabilities as Record<
+            string,
+            unknown
+          >;
           for (const [flag, value] of Object.entries(capabilities)) {
-            assert.ok((capabilityFlags[port] as readonly string[]).includes(flag), `${port} reports unknown flag ${flag}`);
-            assert.equal(value, true, `${port}.${flag} is reported but not true`);
+            assert.ok(
+              (capabilityFlags[port] as readonly string[]).includes(flag),
+              `${port} reports unknown flag ${flag}`,
+            );
+            assert.equal(
+              value,
+              true,
+              `${port}.${flag} is reported but not true`,
+            );
           }
         }
       });
 
       it("names no port operation release", () => {
         const connection = harness.start().connect();
-        for (const port of [connection.issueTracker, connection.pullRequests, connection.releaseSource, connection.access]) {
+        for (const port of [
+          connection.issueTracker,
+          connection.pullRequests,
+          connection.releaseSource,
+          connection.access,
+        ]) {
           assert.equal("release" in port, false);
         }
       });
     });
 
     group("issue events", () => {
-      for (const variation of ["pullRequest", "unsupportedAction", "unsupportedEvent"] as const) {
+      for (const variation of [
+        "pullRequest",
+        "unsupportedAction",
+        "unsupportedEvent",
+      ] as const) {
         it(`ignores ${variation} events`, async () => {
           const platform = harness.start();
-          const event = platform.issueEvent({ kind: "commentCreated", issue: 42, actor: mona,
-            comment: { id: 123, body: "A comment" } }, variation);
-          assert.equal(await platform.connect().issueTracker.issueEvent(event), null);
+          const event = platform.issueEvent(
+            {
+              kind: "commentCreated",
+              issue: 42,
+              actor: mona,
+              comment: { id: 123, body: "A comment" },
+            },
+            variation,
+          );
+          assert.equal(
+            await platform.connect().issueTracker.issueEvent(event),
+            null,
+          );
         });
       }
 
       it("rejects malformed payloads without an HTTP status", async () => {
         const platform = harness.start();
-        const event = platform.issueEvent({ kind: "opened", issue: 42, actor: mona }, "malformed");
-        await assert.rejects(platform.connect().issueTracker.issueEvent(event), (error: unknown) => {
-          isReason("invalidResponse")(error);
-          assert.equal((error as PlatformError).status, undefined);
-          return true;
-        });
+        const event = platform.issueEvent(
+          { kind: "opened", issue: 42, actor: mona },
+          "malformed",
+        );
+        await assert.rejects(
+          platform.connect().issueTracker.issueEvent(event),
+          (error: unknown) => {
+            isReason("invalidResponse")(error);
+            assert.equal((error as PlatformError).status, undefined);
+            return true;
+          },
+        );
       });
 
       it("rejects an invalid event argument", async () => {
         const tracker = harness.start().connect().issueTracker;
-        await assert.rejects(tracker.issueEvent({ name: "issues", payload: [] }), isReason("rejected"));
+        await assert.rejects(
+          tracker.issueEvent({ name: "issues", payload: [] }),
+          isReason("rejected"),
+        );
       });
 
       it("rejects an event from another repository", async () => {
         const platform = harness.start();
-        const event = platform.issueEvent({ kind: "closed", issue: 42, actor: mona, repository: "elsewhere/project" });
-        await assert.rejects(platform.connect().issueTracker.issueEvent(event), isReason("rejected"));
+        const event = platform.issueEvent({
+          kind: "closed",
+          issue: 42,
+          actor: mona,
+          repository: "elsewhere/project",
+        });
+        await assert.rejects(
+          platform.connect().issueTracker.issueEvent(event),
+          isReason("rejected"),
+        );
       });
 
       it("redacts previously used tokens from an event's deleted comment", async () => {
         const platform = harness.start();
         const connection = platform.connect({ tokenFunction: true });
         await connection.access.viewer();
-        const event = platform.issueEvent({ kind: "commentDeleted", issue: 42, actor: mona,
-          comment: { id: 123, nodeId: platform.token, body: `Contains ${platform.token}` } });
-        assert.deepEqual((await connection.issueTracker.issueEvent(event))?.comment, {
-          id: 123, nodeId: "<REDACTED>", body: "Contains <REDACTED>",
+        const event = platform.issueEvent({
+          kind: "commentDeleted",
+          issue: 42,
+          actor: mona,
+          comment: {
+            id: 123,
+            nodeId: platform.token,
+            body: `Contains ${platform.token}`,
+          },
         });
+        assert.deepEqual(
+          (await connection.issueTracker.issueEvent(event))?.comment,
+          {
+            id: 123,
+            nodeId: "<REDACTED>",
+            body: "Contains <REDACTED>",
+          },
+        );
       });
 
-      const kinds: IssueEventKind[] = ["reopened", "closed", "edited", "labeled", "unlabeled",
-        "commentCreated", "commentEdited", "commentDeleted"];
+      const kinds: IssueEventKind[] = [
+        "reopened",
+        "closed",
+        "edited",
+        "labeled",
+        "unlabeled",
+        "commentCreated",
+        "commentEdited",
+        "commentDeleted",
+      ];
       for (const kind of kinds) {
         it(`normalizes ${kind} with only its applicable fields`, async () => {
           const platform = harness.start();
           const connection = platform.connect();
-          const event = platform.issueEvent({ kind, issue: 42, actor: robot, label: "ready",
-            bodyChanged: true, comment: { id: 123, nodeId: "COMMENT_123", body: "Event body, including after deletion" } });
+          const event = platform.issueEvent({
+            kind,
+            issue: 42,
+            actor: robot,
+            label: "ready",
+            bodyChanged: true,
+            comment: {
+              id: 123,
+              nodeId: "COMMENT_123",
+              body: "Event body, including after deletion",
+            },
+          });
           assert.deepEqual(await connection.issueTracker.issueEvent(event), {
-            platform: connection.repository.platform, repository: platform.path, issue: 42, kind,
-            actor: reported(robot), label: kind === "labeled" || kind === "unlabeled" ? "ready" : null,
-            openingLabels: null, bodyChanged: kind === "edited" ? true : null,
-            comment: kind.startsWith("comment") ? { id: 123, nodeId: "COMMENT_123", body: "Event body, including after deletion" } : null,
+            platform: connection.repository.platform,
+            repository: platform.path,
+            issue: 42,
+            kind,
+            actor: reported(robot),
+            label: kind === "labeled" || kind === "unlabeled" ? "ready" : null,
+            openingLabels: null,
+            bodyChanged: kind === "edited" ? true : null,
+            comment: kind.startsWith("comment")
+              ? {
+                  id: 123,
+                  nodeId: "COMMENT_123",
+                  body: "Event body, including after deletion",
+                }
+              : null,
           });
         });
       }
 
-      for (const kind of ["commentCreated", "commentEdited", "commentDeleted"] as const) {
+      for (const kind of [
+        "commentCreated",
+        "commentEdited",
+        "commentDeleted",
+      ] as const) {
         it(`reports a missing global identifier as null for ${kind}`, async () => {
           const platform = harness.start();
-          const event = platform.issueEvent({ kind, issue: 42, actor: mona,
-            comment: { id: 123, body: "Event body" } });
-          assert.deepEqual((await platform.connect().issueTracker.issueEvent(event))?.comment, {
-            id: 123, nodeId: null, body: "Event body",
+          const event = platform.issueEvent({
+            kind,
+            issue: 42,
+            actor: mona,
+            comment: { id: 123, body: "Event body" },
           });
+          assert.deepEqual(
+            (await platform.connect().issueTracker.issueEvent(event))?.comment,
+            {
+              id: 123,
+              nodeId: null,
+              body: "Event body",
+            },
+          );
         });
       }
 
       it("distinguishes a title-only edit from a body edit", async () => {
         const platform = harness.start();
-        const event = platform.issueEvent({ kind: "edited", issue: 42, actor: mona, bodyChanged: false });
-        assert.equal((await platform.connect().issueTracker.issueEvent(event))?.bodyChanged, false);
+        const event = platform.issueEvent({
+          kind: "edited",
+          issue: 42,
+          actor: mona,
+          bodyChanged: false,
+        });
+        assert.equal(
+          (await platform.connect().issueTracker.issueEvent(event))
+            ?.bodyChanged,
+          false,
+        );
       });
 
       it("reports the labels an issue was opened with and no current state", async () => {
         const platform = harness.start();
         const connection = platform.connect();
-        const event = platform.issueEvent({ kind: "opened", issue: 42, actor: mona, openingLabels: ["bug", "ready"] });
+        const event = platform.issueEvent({
+          kind: "opened",
+          issue: 42,
+          actor: mona,
+          openingLabels: ["bug", "ready"],
+        });
         assert.deepEqual(await connection.issueTracker.issueEvent(event), {
-          platform: connection.repository.platform, repository: platform.path, issue: 42,
-          kind: "opened", actor: reported(mona), label: null, openingLabels: ["bug", "ready"],
-          bodyChanged: null, comment: null,
+          platform: connection.repository.platform,
+          repository: platform.path,
+          issue: 42,
+          kind: "opened",
+          actor: reported(mona),
+          label: null,
+          openingLabels: ["bug", "ready"],
+          bodyChanged: null,
+          comment: null,
         });
       });
     });
@@ -175,29 +322,48 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
           { name: "triaged", color: "abcdef", description: "Reviewed" },
         ];
         for (const label of labels) platform.defineLabel(label);
-        assert.deepEqual(await platform.connect().issueTracker.labels(), labels);
+        assert.deepEqual(
+          await platform.connect().issueTracker.labels(),
+          labels,
+        );
       });
 
       it("returns an empty repository label list", async () => {
-        assert.deepEqual(await harness.start().connect().issueTracker.labels(), []);
+        assert.deepEqual(
+          await harness.start().connect().issueTracker.labels(),
+          [],
+        );
       });
 
       it("lists open issues across pages, oldest first", async () => {
         const platform = harness.start();
         platform.pageSize(2);
-        const numbers = [1, 2, 3].map((n) => platform.addIssue({ title: `Issue ${n}` }));
+        const numbers = [1, 2, 3].map((n) =>
+          platform.addIssue({ title: `Issue ${n}` }),
+        );
         platform.addIssue({ title: "Closed", state: "closed" });
         const issues = await platform.connect().issueTracker.issues();
-        assert.deepEqual(issues.map((issue) => issue.number), numbers);
+        assert.deepEqual(
+          issues.map((issue) => issue.number),
+          numbers,
+        );
       });
 
       it("lists the issues in a state that carry a label", async () => {
         const platform = harness.start();
         platform.addIssue({ labels: ["bug"] });
-        const closedBug = platform.addIssue({ state: "closed", labels: ["bug", "wontfix"] });
+        const closedBug = platform.addIssue({
+          state: "closed",
+          labels: ["bug", "wontfix"],
+        });
         platform.addIssue({ state: "closed", labels: ["enhancement"] });
-        const issues = await platform.connect().issueTracker.issues({ state: "closed", label: "bug" });
-        assert.deepEqual(issues.map((issue) => issue.number), [closedBug]);
+        const issues = await platform
+          .connect()
+          .issueTracker.issues({ state: "closed", label: "bug" });
+        assert.deepEqual(
+          issues.map((issue) => issue.number),
+          [closedBug],
+        );
       });
 
       it("reads one issue in any state with its facts", async () => {
@@ -223,32 +389,76 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
       });
 
       it("fails with notFound for an absent issue", async () => {
-        await assert.rejects(harness.start().connect().issueTracker.issue(404), isReason("notFound"));
+        await assert.rejects(
+          harness.start().connect().issueTracker.issue(404),
+          isReason("notFound"),
+        );
       });
 
-      it("reports the body edit time", offers(issueFlags.bodyEditTime === true, "bodyEditTime"), async () => {
-        const platform = harness.start();
-        const edited = platform.addIssue({ bodyEditTime: "2026-02-01T00:00:00Z" });
-        const untouched = platform.addIssue({ bodyEditTime: null });
-        const tracker = platform.connect().issueTracker;
-        assert.equal((await tracker.issue(edited)).bodyEditTime, "2026-02-01T00:00:00Z");
-        assert.equal((await tracker.issue(untouched)).bodyEditTime, null);
-      });
+      it(
+        "reports the body edit time",
+        offers(issueFlags.bodyEditTime === true, "bodyEditTime"),
+        async () => {
+          const platform = harness.start();
+          const edited = platform.addIssue({
+            bodyEditTime: "2026-02-01T00:00:00Z",
+          });
+          const untouched = platform.addIssue({ bodyEditTime: null });
+          const tracker = platform.connect().issueTracker;
+          assert.equal(
+            (await tracker.issue(edited)).bodyEditTime,
+            "2026-02-01T00:00:00Z",
+          );
+          assert.equal((await tracker.issue(untouched)).bodyEditTime, null);
+        },
+      );
 
       it("lists label changes in platform order with bot and user actors", async () => {
         const platform = harness.start();
         platform.pageSize(1);
         const number = platform.addIssue();
-        platform.addLabelChange(number, { action: "added", label: "bug", actor: mona, time: "2026-01-01T00:00:00Z" });
-        platform.addLabelChange(number, { action: "removed", label: "bug", actor: robot, time: "2026-01-02T00:00:00Z" });
-        platform.addLabelChange(number, { action: "added", label: "ready", actor: mona, time: "2026-01-03T00:00:00Z" });
-        const changes = await platform.connect().issueTracker.labelChanges(number);
+        platform.addLabelChange(number, {
+          action: "added",
+          label: "bug",
+          actor: mona,
+          time: "2026-01-01T00:00:00Z",
+        });
+        platform.addLabelChange(number, {
+          action: "removed",
+          label: "bug",
+          actor: robot,
+          time: "2026-01-02T00:00:00Z",
+        });
+        platform.addLabelChange(number, {
+          action: "added",
+          label: "ready",
+          actor: mona,
+          time: "2026-01-03T00:00:00Z",
+        });
+        const changes = await platform
+          .connect()
+          .issueTracker.labelChanges(number);
         assert.deepEqual(
           changes.map(({ id: _id, ...change }) => change),
           [
-            { action: "added", label: "bug", actor: reported(mona), time: "2026-01-01T00:00:00Z" },
-            { action: "removed", label: "bug", actor: reported(robot), time: "2026-01-02T00:00:00Z" },
-            { action: "added", label: "ready", actor: reported(mona), time: "2026-01-03T00:00:00Z" },
+            {
+              action: "added",
+              label: "bug",
+              actor: reported(mona),
+              time: "2026-01-01T00:00:00Z",
+            },
+            {
+              action: "removed",
+              label: "bug",
+              actor: reported(robot),
+              time: "2026-01-02T00:00:00Z",
+            },
+            {
+              action: "added",
+              label: "ready",
+              actor: reported(mona),
+              time: "2026-01-03T00:00:00Z",
+            },
           ],
         );
         assert.equal(new Set(changes.map((change) => change.id)).size, 3);
@@ -259,10 +469,18 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         platform.pageSize(2);
         const number = platform.addIssue();
         for (const body of ["one", "two", "three"]) {
-          platform.addComment(number, { author: mona, body, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-02T00:00:00Z" });
+          platform.addComment(number, {
+            author: mona,
+            body,
+            createdAt: "2026-01-01T00:00:00Z",
+            updatedAt: "2026-01-02T00:00:00Z",
+          });
         }
         const comments = await platform.connect().issueTracker.comments(number);
-        assert.deepEqual(comments.map((comment) => comment.body), ["one", "two", "three"]);
+        assert.deepEqual(
+          comments.map((comment) => comment.body),
+          ["one", "two", "three"],
+        );
         assert.equal(comments[0]?.author?.login, "mona");
         assert.equal(comments[0]?.createdAt, "2026-01-01T00:00:00Z");
         assert.equal(comments[0]?.updatedAt, "2026-01-02T00:00:00Z");
@@ -271,47 +489,83 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
     });
 
     group("issue relationships", () => {
-      it("reports the native parent and sub-issues, across repositories", offers(nativeParent, "nativeParent"), async () => {
-        const platform = harness.start();
-        platform.pageSize(1);
-        const parent = platform.addIssue({ title: "Parent" });
-        const child = platform.addIssue({ parent, linkedAt: "2026-03-01T00:00:00Z" });
-        const remoteChild = platform.addIssue({ repository: "octo/elsewhere", parent, linkedAt: "2026-03-02T00:00:00Z" });
-        const tracker = platform.connect().issueTracker;
-        assert.deepEqual((await tracker.issue(child)).parent, { repository: platform.path, number: parent, state: "open" });
-        const read = await tracker.issue(parent);
-        assert.deepEqual(read.subIssues, [
-          { repository: platform.path, number: child, state: "open" },
-          { repository: "octo/elsewhere", number: remoteChild, state: "open" },
-        ]);
-        assert.equal(read.parent, null);
-      });
+      it(
+        "reports the native parent and sub-issues, across repositories",
+        offers(nativeParent, "nativeParent"),
+        async () => {
+          const platform = harness.start();
+          platform.pageSize(1);
+          const parent = platform.addIssue({ title: "Parent" });
+          const child = platform.addIssue({
+            parent,
+            linkedAt: "2026-03-01T00:00:00Z",
+          });
+          const remoteChild = platform.addIssue({
+            repository: "octo/elsewhere",
+            parent,
+            linkedAt: "2026-03-02T00:00:00Z",
+          });
+          const tracker = platform.connect().issueTracker;
+          assert.deepEqual((await tracker.issue(child)).parent, {
+            repository: platform.path,
+            number: parent,
+            state: "open",
+          });
+          const read = await tracker.issue(parent);
+          assert.deepEqual(read.subIssues, [
+            { repository: platform.path, number: child, state: "open" },
+            {
+              repository: "octo/elsewhere",
+              number: remoteChild,
+              state: "open",
+            },
+          ]);
+          assert.equal(read.parent, null);
+        },
+      );
 
-      it("reports the latest sub-issue link time", offers(issueFlags.linkTime === true && nativeParent, "linkTime"), async () => {
-        const platform = harness.start();
-        const parent = platform.addIssue();
-        platform.addIssue({ parent, linkedAt: "2026-03-01T00:00:00Z" });
-        platform.addIssue({ parent, linkedAt: "2026-03-05T00:00:00Z" });
-        const unlinked = platform.addIssue();
-        const tracker = platform.connect().issueTracker;
-        assert.equal((await tracker.issue(parent)).linkTime, "2026-03-05T00:00:00Z");
-        assert.equal((await tracker.issue(unlinked)).linkTime, null);
-      });
+      it(
+        "reports the latest sub-issue link time",
+        offers(issueFlags.linkTime === true && nativeParent, "linkTime"),
+        async () => {
+          const platform = harness.start();
+          const parent = platform.addIssue();
+          platform.addIssue({ parent, linkedAt: "2026-03-01T00:00:00Z" });
+          platform.addIssue({ parent, linkedAt: "2026-03-05T00:00:00Z" });
+          const unlinked = platform.addIssue();
+          const tracker = platform.connect().issueTracker;
+          assert.equal(
+            (await tracker.issue(parent)).linkTime,
+            "2026-03-05T00:00:00Z",
+          );
+          assert.equal((await tracker.issue(unlinked)).linkTime, null);
+        },
+      );
 
-      it("reports native blockers with their states, across repositories", offers(nativeBlockers, "nativeBlockers"), async () => {
-        const platform = harness.start();
-        platform.pageSize(1);
-        const open = platform.addIssue();
-        const closed = platform.addIssue({ state: "closed" });
-        const other = platform.addIssue({ repository: "octo/elsewhere" });
-        const blocked = platform.addIssue({ blockedBy: [open, closed, { repository: "octo/elsewhere", number: other }] });
-        const issue = await platform.connect().issueTracker.issue(blocked);
-        assert.deepEqual(issue.blockedBy, [
-          { repository: platform.path, number: open, state: "open" },
-          { repository: platform.path, number: closed, state: "closed" },
-          { repository: "octo/elsewhere", number: other, state: "open" },
-        ]);
-      });
+      it(
+        "reports native blockers with their states, across repositories",
+        offers(nativeBlockers, "nativeBlockers"),
+        async () => {
+          const platform = harness.start();
+          platform.pageSize(1);
+          const open = platform.addIssue();
+          const closed = platform.addIssue({ state: "closed" });
+          const other = platform.addIssue({ repository: "octo/elsewhere" });
+          const blocked = platform.addIssue({
+            blockedBy: [
+              open,
+              closed,
+              { repository: "octo/elsewhere", number: other },
+            ],
+          });
+          const issue = await platform.connect().issueTracker.issue(blocked);
+          assert.deepEqual(issue.blockedBy, [
+            { repository: platform.path, number: open, state: "open" },
+            { repository: platform.path, number: closed, state: "closed" },
+            { repository: "octo/elsewhere", number: other, state: "open" },
+          ]);
+        },
+      );
 
       for (const option of [{ relationshipSections: sections }, {}]) {
         const named = "relationshipSections" in option ? "with" : "without";
@@ -321,37 +575,72 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
           async () => {
             const platform = harness.start();
             const other = platform.addIssue();
-            const number = platform.addIssue({ body: platform.sectionBody({ Parent: [other], "Blocked by": [other] }) });
-            const issue = await platform.connect(option).issueTracker.issue(number);
+            const number = platform.addIssue({
+              body: platform.sectionBody({
+                Parent: [other],
+                "Blocked by": [other],
+              }),
+            });
+            const issue = await platform
+              .connect(option)
+              .issueTracker.issue(number);
             assert.equal(issue.parent, null);
             assert.deepEqual(issue.blockedBy, []);
           },
         );
       }
 
-      it("reports no relationships without section names", lacks(nativeParent || nativeBlockers, "native links"), async () => {
-        const platform = harness.start();
-        const other = platform.addIssue();
-        const number = platform.addIssue({ body: platform.sectionBody({ Parent: [other], "Blocked by": [other] }) });
-        const issue = await platform.connect().issueTracker.issue(number);
-        assert.equal(issue.parent, null);
-        assert.deepEqual(issue.subIssues, []);
-        assert.deepEqual(issue.blockedBy, []);
-      });
+      it(
+        "reports no relationships without section names",
+        lacks(nativeParent || nativeBlockers, "native links"),
+        async () => {
+          const platform = harness.start();
+          const other = platform.addIssue();
+          const number = platform.addIssue({
+            body: platform.sectionBody({
+              Parent: [other],
+              "Blocked by": [other],
+            }),
+          });
+          const issue = await platform.connect().issueTracker.issue(number);
+          assert.equal(issue.parent, null);
+          assert.deepEqual(issue.subIssues, []);
+          assert.deepEqual(issue.blockedBy, []);
+        },
+      );
 
-      it("reads relationships from the named body sections", lacks(nativeParent || nativeBlockers, "native links"), async () => {
-        const platform = harness.start();
-        const parent = platform.addIssue();
-        const blocker = platform.addIssue({ state: "closed" });
-        const number = platform.addIssue({
-          body: platform.sectionBody({ "Parent issue": [parent], "Depends on": [blocker], Parent: [blocker] }),
-        });
-        const issue = await platform
-          .connect({ relationshipSections: { parent: "Parent issue", blockedBy: "Depends on" } })
-          .issueTracker.issue(number);
-        assert.deepEqual(issue.parent, { repository: platform.path, number: parent, state: "open" });
-        assert.deepEqual(issue.blockedBy, [{ repository: platform.path, number: blocker, state: "closed" }]);
-      });
+      it(
+        "reads relationships from the named body sections",
+        lacks(nativeParent || nativeBlockers, "native links"),
+        async () => {
+          const platform = harness.start();
+          const parent = platform.addIssue();
+          const blocker = platform.addIssue({ state: "closed" });
+          const number = platform.addIssue({
+            body: platform.sectionBody({
+              "Parent issue": [parent],
+              "Depends on": [blocker],
+              Parent: [blocker],
+            }),
+          });
+          const issue = await platform
+            .connect({
+              relationshipSections: {
+                parent: "Parent issue",
+                blockedBy: "Depends on",
+              },
+            })
+            .issueTracker.issue(number);
+          assert.deepEqual(issue.parent, {
+            repository: platform.path,
+            number: parent,
+            state: "open",
+          });
+          assert.deepEqual(issue.blockedBy, [
+            { repository: platform.path, number: blocker, state: "closed" },
+          ]);
+        },
+      );
     });
 
     group("issue tracker writes", () => {
@@ -360,15 +649,29 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         const number = platform.addIssue({ labels: ["bug"] });
         const tracker = platform.connect().issueTracker;
         await tracker.addLabels(number, ["ready", "triaged"]);
-        assert.deepEqual(platform.issueLabels(number).sort(), ["bug", "ready", "triaged"]);
+        assert.deepEqual(platform.issueLabels(number).sort(), [
+          "bug",
+          "ready",
+          "triaged",
+        ]);
         await tracker.removeLabel(number, "bug");
-        assert.deepEqual(platform.issueLabels(number).sort(), ["ready", "triaged"]);
+        assert.deepEqual(platform.issueLabels(number).sort(), [
+          "ready",
+          "triaged",
+        ]);
       });
 
       it("creates a label with its color and description", async () => {
         const platform = harness.start();
-        const label = { name: "needs-info", color: "d4c5f9", description: "Waiting for information" };
-        assert.deepEqual(await platform.connect().issueTracker.createLabel(label), label);
+        const label = {
+          name: "needs-info",
+          color: "d4c5f9",
+          description: "Waiting for information",
+        };
+        assert.deepEqual(
+          await platform.connect().issueTracker.createLabel(label),
+          label,
+        );
         assert.deepEqual(platform.label("needs-info"), label);
       });
 
@@ -376,7 +679,10 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         const platform = harness.start();
         const label = { name: "bug", color: "d73a4a", description: "Broken" };
         platform.defineLabel(label);
-        await assert.rejects(platform.connect().issueTracker.createLabel(label), isReason("rejected"));
+        await assert.rejects(
+          platform.connect().issueTracker.createLabel(label),
+          isReason("rejected"),
+        );
       });
 
       it("updates and renames one repository label, including clearing its description", async () => {
@@ -398,7 +704,10 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
       it("does not create a missing label when updating it", async () => {
         const platform = harness.start();
         const desired = { name: "new", color: "abcdef", description: "" };
-        await assert.rejects(platform.connect().issueTracker.updateLabel("missing", desired), isReason("notFound"));
+        await assert.rejects(
+          platform.connect().issueTracker.updateLabel("missing", desired),
+          isReason("notFound"),
+        );
         assert.equal(platform.label("new"), undefined);
       });
 
@@ -424,7 +733,10 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
 
       it("fails with notFound to read or close a pull request's number as an issue, leaving it open", async () => {
         const platform = harness.start();
-        const number = platform.addPullRequest({ headBranch: "feature", headCommit: "a".repeat(40) });
+        const number = platform.addPullRequest({
+          headBranch: "feature",
+          headCommit: "a".repeat(40),
+        });
         const tracker = platform.connect().issueTracker;
         await assert.rejects(tracker.issue(number), isReason("notFound"));
         await assert.rejects(tracker.closeIssue(number), isReason("notFound"));
@@ -439,39 +751,100 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         const platform = harness.start();
         const byRobot = platform.addIssue({ author: robot });
         const byMona = platform.addIssue({ author: mona });
-        platform.addLabelChange(byRobot, { action: "added", label: "bug", actor: robot, time: "2026-01-01T00:00:00Z" });
-        platform.addComment(byRobot, { author: robot, body: "beep", createdAt: "2026-01-01T00:00:00Z" });
-        platform.addComment(byRobot, { author: mona, body: "hi", createdAt: "2026-01-02T00:00:00Z" });
+        platform.addLabelChange(byRobot, {
+          action: "added",
+          label: "bug",
+          actor: robot,
+          time: "2026-01-01T00:00:00Z",
+        });
+        platform.addComment(byRobot, {
+          author: robot,
+          body: "beep",
+          createdAt: "2026-01-01T00:00:00Z",
+        });
+        platform.addComment(byRobot, {
+          author: mona,
+          body: "hi",
+          createdAt: "2026-01-02T00:00:00Z",
+        });
         const tracker = platform.connect().issueTracker;
-        assert.deepEqual((await tracker.issues()).map((issue) => issue.author), [reported(robot), reported(mona)]);
+        assert.deepEqual(
+          (await tracker.issues()).map((issue) => issue.author),
+          [reported(robot), reported(mona)],
+        );
         assert.deepEqual((await tracker.issue(byMona)).author, reported(mona));
-        assert.deepEqual((await tracker.labelChanges(byRobot)).map((change) => change.actor), [reported(robot)]);
-        assert.deepEqual((await tracker.comments(byRobot)).map((comment) => comment.author), [reported(robot), reported(mona)]);
+        assert.deepEqual(
+          (await tracker.labelChanges(byRobot)).map((change) => change.actor),
+          [reported(robot)],
+        );
+        assert.deepEqual(
+          (await tracker.comments(byRobot)).map((comment) => comment.author),
+          [reported(robot), reported(mona)],
+        );
         const created = await tracker.createComment(byMona, "First");
         assert.deepEqual(created.author, reported(platform.viewer));
-        assert.deepEqual((await tracker.updateComment(created.id, "Second")).author, reported(platform.viewer));
+        assert.deepEqual(
+          (await tracker.updateComment(created.id, "Second")).author,
+          reported(platform.viewer),
+        );
       });
 
       it("reports pull request, review, thread and comment accounts behind botMarking", async () => {
         const platform = harness.start();
         const issue = platform.addIssue();
-        const number = platform.addPullRequest({ author: robot, headBranch: "feature", headCommit: head, closes: [issue] });
-        platform.addReview(number, { author: robot, state: platform.words.approvedReview, commit: head, submittedAt: "2026-01-05T00:00:00Z" });
-        platform.addReviewThread(number, { resolved: false, outdated: false, path: "src/a.ts", author: robot });
+        const number = platform.addPullRequest({
+          author: robot,
+          headBranch: "feature",
+          headCommit: head,
+          closes: [issue],
+        });
+        platform.addReview(number, {
+          author: robot,
+          state: platform.words.approvedReview,
+          commit: head,
+          submittedAt: "2026-01-05T00:00:00Z",
+        });
+        platform.addReviewThread(number, {
+          resolved: false,
+          outdated: false,
+          path: "src/a.ts",
+          author: robot,
+        });
         const pulls = platform.connect().pullRequests;
-        assert.deepEqual((await pulls.byHeadBranch("feature")).map((pull) => pull.author), [reported(robot)]);
+        assert.deepEqual(
+          (await pulls.byHeadBranch("feature")).map((pull) => pull.author),
+          [reported(robot)],
+        );
         if (pulls.capabilities.closingReferences) {
-          assert.deepEqual((await pulls.closing(issue)).map((pull) => pull.author), [reported(robot)]);
+          assert.deepEqual(
+            (await pulls.closing(issue)).map((pull) => pull.author),
+            [reported(robot)],
+          );
         }
-        assert.deepEqual((await pulls.pullRequest(number)).author, reported(robot));
-        assert.deepEqual((await pulls.reviews(number)).map((review) => review.author), [reported(robot)]);
-        assert.deepEqual((await pulls.reviewThreads(number)).map((thread) => thread.author), [reported(robot)]);
-        assert.deepEqual((await pulls.comment(number, "Done")).author, reported(platform.viewer));
+        assert.deepEqual(
+          (await pulls.pullRequest(number)).author,
+          reported(robot),
+        );
+        assert.deepEqual(
+          (await pulls.reviews(number)).map((review) => review.author),
+          [reported(robot)],
+        );
+        assert.deepEqual(
+          (await pulls.reviewThreads(number)).map((thread) => thread.author),
+          [reported(robot)],
+        );
+        assert.deepEqual(
+          (await pulls.comment(number, "Done")).author,
+          reported(platform.viewer),
+        );
       });
 
       it("reports the viewer behind botMarking", async () => {
         const platform = harness.start();
-        assert.deepEqual(await platform.connect().access.viewer(), reported(platform.viewer));
+        assert.deepEqual(
+          await platform.connect().access.viewer(),
+          reported(platform.viewer),
+        );
       });
     });
 
@@ -481,11 +854,26 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
       it("lists pull requests by head branch in every state, across pages", async () => {
         const platform = harness.start();
         platform.pageSize(1);
-        const open = platform.addPullRequest({ headBranch: "feature", headCommit: head, createdAt: "2026-01-01T00:00:00Z" });
-        const merged = platform.addPullRequest({ headBranch: "feature", headCommit: head, state: "merged" });
-        const fork = platform.addPullRequest({ headBranch: "feature", headCommit: head, state: "closed", crossRepository: true });
+        const open = platform.addPullRequest({
+          headBranch: "feature",
+          headCommit: head,
+          createdAt: "2026-01-01T00:00:00Z",
+        });
+        const merged = platform.addPullRequest({
+          headBranch: "feature",
+          headCommit: head,
+          state: "merged",
+        });
+        const fork = platform.addPullRequest({
+          headBranch: "feature",
+          headCommit: head,
+          state: "closed",
+          crossRepository: true,
+        });
         platform.addPullRequest({ headBranch: "other", headCommit: head });
-        const found = await platform.connect().pullRequests.byHeadBranch("feature");
+        const found = await platform
+          .connect()
+          .pullRequests.byHeadBranch("feature");
         assert.deepEqual(
           found.map((pull) => [pull.number, pull.state, pull.crossRepository]),
           [
@@ -499,26 +887,50 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
 
       it(
         "lists the pull requests that close an issue",
-        offers(probe.pullRequests.capabilities.closingReferences === true, "closingReferences"),
+        offers(
+          probe.pullRequests.capabilities.closingReferences === true,
+          "closingReferences",
+        ),
         async () => {
           const platform = harness.start();
           const issue = platform.addIssue();
-          const closing = platform.addPullRequest({ headBranch: "fix", headCommit: head, closes: [issue] });
-          const closed = platform.addPullRequest({ headBranch: "old-fix", headCommit: head, closes: [issue], state: "closed" });
-          platform.addPullRequest({ headBranch: "unrelated", headCommit: head });
+          const closing = platform.addPullRequest({
+            headBranch: "fix",
+            headCommit: head,
+            closes: [issue],
+          });
+          const closed = platform.addPullRequest({
+            headBranch: "old-fix",
+            headCommit: head,
+            closes: [issue],
+            state: "closed",
+          });
+          platform.addPullRequest({
+            headBranch: "unrelated",
+            headCommit: head,
+          });
           const found = await platform.connect().pullRequests.closing(issue);
-          assert.deepEqual(found.map((pull) => [pull.number, pull.state]), [
-            [closing, "open"],
-            [closed, "closed"],
-          ]);
+          assert.deepEqual(
+            found.map((pull) => [pull.number, pull.state]),
+            [
+              [closing, "open"],
+              [closed, "closed"],
+            ],
+          );
         },
       );
 
       it(
         "fails with unsupported when closing references are not offered",
-        lacks(probe.pullRequests.capabilities.closingReferences === true, "closingReferences"),
+        lacks(
+          probe.pullRequests.capabilities.closingReferences === true,
+          "closingReferences",
+        ),
         async () => {
-          await assert.rejects(harness.start().connect().pullRequests.closing(1), isReason("unsupported"));
+          await assert.rejects(
+            harness.start().connect().pullRequests.closing(1),
+            isReason("unsupported"),
+          );
         },
       );
 
@@ -545,16 +957,40 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
       it("lists reviews with author, state, commit and time", async () => {
         const platform = harness.start();
         platform.pageSize(1);
-        const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+        const number = platform.addPullRequest({
+          headBranch: "feature",
+          headCommit: head,
+        });
         const approved = platform.words.approvedReview;
-        platform.addReview(number, { author: robot, state: approved, commit: head, submittedAt: "2026-01-05T00:00:00Z", body: "LGTM" });
-        platform.addReview(number, { author: mona, state: approved, commit: head, submittedAt: "2026-01-06T00:00:00Z" });
+        platform.addReview(number, {
+          author: robot,
+          state: approved,
+          commit: head,
+          submittedAt: "2026-01-05T00:00:00Z",
+          body: "LGTM",
+        });
+        platform.addReview(number, {
+          author: mona,
+          state: approved,
+          commit: head,
+          submittedAt: "2026-01-06T00:00:00Z",
+        });
         const reviews = await platform.connect().pullRequests.reviews(number);
         const commits = probe.pullRequests.capabilities.reviewCommits === true;
         assert.deepEqual(
-          reviews.map((review) => [review.author?.login, review.state, review.commit, review.submittedAt]),
+          reviews.map((review) => [
+            review.author?.login,
+            review.state,
+            review.commit,
+            review.submittedAt,
+          ]),
           [
-            ["helper[bot]", approved, commits ? head : null, "2026-01-05T00:00:00Z"],
+            [
+              "helper[bot]",
+              approved,
+              commits ? head : null,
+              "2026-01-05T00:00:00Z",
+            ],
             ["mona", approved, commits ? head : null, "2026-01-06T00:00:00Z"],
           ],
         );
@@ -564,12 +1000,32 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
       it("lists review threads with whether each is resolved", async () => {
         const platform = harness.start();
         platform.pageSize(1);
-        const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-        platform.addReviewThread(number, { resolved: true, outdated: false, path: "src/a.ts", author: robot });
-        platform.addReviewThread(number, { resolved: false, outdated: true, path: "src/b.ts", author: mona });
-        const threads = await platform.connect().pullRequests.reviewThreads(number);
+        const number = platform.addPullRequest({
+          headBranch: "feature",
+          headCommit: head,
+        });
+        platform.addReviewThread(number, {
+          resolved: true,
+          outdated: false,
+          path: "src/a.ts",
+          author: robot,
+        });
+        platform.addReviewThread(number, {
+          resolved: false,
+          outdated: true,
+          path: "src/b.ts",
+          author: mona,
+        });
+        const threads = await platform
+          .connect()
+          .pullRequests.reviewThreads(number);
         assert.deepEqual(
-          threads.map((thread) => [thread.resolved, thread.outdated, thread.path, thread.author?.login]),
+          threads.map((thread) => [
+            thread.resolved,
+            thread.outdated,
+            thread.path,
+            thread.author?.login,
+          ]),
           [
             [true, false, "src/a.ts", "helper[bot]"],
             [false, true, "src/b.ts", "mona"],
@@ -581,19 +1037,41 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         const platform = harness.start();
         platform.pageSize(1);
         const { status, conclusion } = platform.words.finishedCheck;
-        platform.addCheck(head, { name: "Test", status, conclusion, completedAt: "2026-01-07T00:00:00Z" });
-        platform.addCheck(head, { name: "Lint", status, conclusion, completedAt: "2026-01-07T00:01:00Z" });
+        platform.addCheck(head, {
+          name: "Test",
+          status,
+          conclusion,
+          completedAt: "2026-01-07T00:00:00Z",
+        });
+        platform.addCheck(head, {
+          name: "Lint",
+          status,
+          conclusion,
+          completedAt: "2026-01-07T00:01:00Z",
+        });
         const checks = await platform.connect().pullRequests.checks(head);
-        assert.deepEqual(checks.map((check) => [check.name, check.status, check.conclusion]).sort(), [
-          ["Lint", status, conclusion],
-          ["Test", status, conclusion],
-        ]);
+        assert.deepEqual(
+          checks
+            .map((check) => [check.name, check.status, check.conclusion])
+            .sort(),
+          [
+            ["Lint", status, conclusion],
+            ["Test", status, conclusion],
+          ],
+        );
       });
 
       it("reports whether merging goes through a queue", async () => {
         const platform = harness.start();
-        const queued = platform.addPullRequest({ headBranch: "a", headCommit: head, mergeQueue: true });
-        const direct = platform.addPullRequest({ headBranch: "b", headCommit: head });
+        const queued = platform.addPullRequest({
+          headBranch: "a",
+          headCommit: head,
+          mergeQueue: true,
+        });
+        const direct = platform.addPullRequest({
+          headBranch: "b",
+          headCommit: head,
+        });
         const pulls = platform.connect().pullRequests;
         assert.equal(await pulls.mergesThroughQueue(queued), true);
         assert.equal(await pulls.mergesThroughQueue(direct), false);
@@ -601,30 +1079,49 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
 
       it("comments on a pull request", async () => {
         const platform = harness.start();
-        const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-        const comment = await platform.connect().pullRequests.comment(number, "Looks done");
+        const number = platform.addPullRequest({
+          headBranch: "feature",
+          headCommit: head,
+        });
+        const comment = await platform
+          .connect()
+          .pullRequests.comment(number, "Looks done");
         assert.equal(comment.body, "Looks done");
         assert.deepEqual(platform.commentBodies(number), ["Looks done"]);
       });
 
       it("squash-merges with the explicit title and body", async () => {
         const platform = harness.start();
-        const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-        const commit = await platform.connect().pullRequests.squashMerge(number, {
-          expectedHead: head,
+        const number = platform.addPullRequest({
+          headBranch: "feature",
+          headCommit: head,
+        });
+        const commit = await platform
+          .connect()
+          .pullRequests.squashMerge(number, {
+            expectedHead: head,
+            title: "feat: add it (#1)",
+            body: "Closes #1",
+          });
+        assert.match(commit, /^[0-9a-f]+$/);
+        assert.equal(platform.pullRequestState(number), "merged");
+        assert.deepEqual(platform.mergeOf(number), {
           title: "feat: add it (#1)",
           body: "Closes #1",
         });
-        assert.match(commit, /^[0-9a-f]+$/);
-        assert.equal(platform.pullRequestState(number), "merged");
-        assert.deepEqual(platform.mergeOf(number), { title: "feat: add it (#1)", body: "Closes #1" });
       });
 
       it("fails the merge with conflict when the head moved", async () => {
         const platform = harness.start();
-        const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+        const number = platform.addPullRequest({
+          headBranch: "feature",
+          headCommit: head,
+        });
         const merge = { expectedHead: "b".repeat(40), title: "t", body: "b" };
-        await assert.rejects(platform.connect().pullRequests.squashMerge(number, merge), isReason("conflict"));
+        await assert.rejects(
+          platform.connect().pullRequests.squashMerge(number, merge),
+          isReason("conflict"),
+        );
         assert.equal(platform.mergeOf(number), null);
       });
     });
@@ -633,17 +1130,57 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
       it("lists every release across pages with draft and prerelease flags", async () => {
         const platform = harness.start();
         platform.pageSize(1);
-        platform.addRelease({ tag: "v1.1.0-rc.1", name: "1.1.0 rc", draft: false, prerelease: true, publishedAt: "2026-02-01T00:00:00Z" });
-        platform.addRelease({ tag: "v1.0.0", name: "1.0.0", draft: false, prerelease: false, publishedAt: "2026-01-01T00:00:00Z" });
-        platform.addRelease({ tag: "v2.0.0", name: "2.0.0", draft: true, prerelease: false, publishedAt: null });
+        platform.addRelease({
+          tag: "v1.1.0-rc.1",
+          name: "1.1.0 rc",
+          draft: false,
+          prerelease: true,
+          publishedAt: "2026-02-01T00:00:00Z",
+        });
+        platform.addRelease({
+          tag: "v1.0.0",
+          name: "1.0.0",
+          draft: false,
+          prerelease: false,
+          publishedAt: "2026-01-01T00:00:00Z",
+        });
+        platform.addRelease({
+          tag: "v2.0.0",
+          name: "2.0.0",
+          draft: true,
+          prerelease: false,
+          publishedAt: null,
+        });
         const releases = await platform.connect().releaseSource.releases();
         const { drafts, prereleases } = probe.releaseSource.capabilities;
         assert.deepEqual(
           releases.map(({ id: _id, ...release }) => release),
           [
-            { tag: "v1.1.0-rc.1", name: "1.1.0 rc", draft: drafts ? false : null, prerelease: prereleases ? true : null, publishedAt: "2026-02-01T00:00:00Z" },
-            { tag: "v1.0.0", name: "1.0.0", draft: drafts ? false : null, prerelease: prereleases ? false : null, publishedAt: "2026-01-01T00:00:00Z" },
-            ...(drafts ? [{ tag: "v2.0.0", name: "2.0.0", draft: true, prerelease: prereleases ? false : null, publishedAt: null }] : []),
+            {
+              tag: "v1.1.0-rc.1",
+              name: "1.1.0 rc",
+              draft: drafts ? false : null,
+              prerelease: prereleases ? true : null,
+              publishedAt: "2026-02-01T00:00:00Z",
+            },
+            {
+              tag: "v1.0.0",
+              name: "1.0.0",
+              draft: drafts ? false : null,
+              prerelease: prereleases ? false : null,
+              publishedAt: "2026-01-01T00:00:00Z",
+            },
+            ...(drafts
+              ? [
+                  {
+                    tag: "v2.0.0",
+                    name: "2.0.0",
+                    draft: true,
+                    prerelease: prereleases ? false : null,
+                    publishedAt: null,
+                  },
+                ]
+              : []),
           ],
         );
       });
@@ -663,22 +1200,43 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
       it("returns every transport page in order with its status, headers and uninterpreted data", async () => {
         const platform = harness.start();
         const path = platform.serveTransportPages([
-          { status: 200, headers: { "x-page": "first" }, data: [{ id: 1 }], next: 1 },
-          { status: 202, headers: { "x-page": "second" }, data: { items: [2] }, next: 2 },
+          {
+            status: 200,
+            headers: { "x-page": "first" },
+            data: [{ id: 1 }],
+            next: 1,
+          },
+          {
+            status: 202,
+            headers: { "x-page": "second" },
+            data: { items: [2] },
+            next: 2,
+          },
           { status: 203, headers: { "x-page": "third" }, data: [3] },
         ]);
         const pages = await platform.connect().access.requestPages({ path });
-        assert.deepEqual(pages.map(({ status, headers, data }) => ({ status, page: headers["x-page"], data })), [
-          { status: 200, page: "first", data: [{ id: 1 }] },
-          { status: 202, page: "second", data: { items: [2] } },
-          { status: 203, page: "third", data: [3] },
-        ]);
+        assert.deepEqual(
+          pages.map(({ status, headers, data }) => ({
+            status,
+            page: headers["x-page"],
+            data,
+          })),
+          [
+            { status: 200, page: "first", data: [{ id: 1 }] },
+            { status: 202, page: "second", data: { items: [2] } },
+            { status: 203, page: "third", data: [3] },
+          ],
+        );
       });
 
       it("returns a single transport page without a next link, including a body that is not a list", async () => {
         const platform = harness.start();
-        const path = platform.serveTransportPages([{ status: 200, data: { count: 0 } }]);
-        const pages = await platform.connect().access.requestPages({ path, method: "get" });
+        const path = platform.serveTransportPages([
+          { status: 200, data: { count: 0 } },
+        ]);
+        const pages = await platform
+          .connect()
+          .access.requestPages({ path, method: "get" });
         assert.equal(pages.length, 1);
         assert.deepEqual(pages[0]!.data, { count: 0 });
       });
@@ -686,12 +1244,17 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
       for (const next of [0, "unreadable", "foreign"] as const) {
         it(`rejects transport pagination with invalidResponse and its page's status for ${next}`, async () => {
           const platform = harness.start();
-          const path = platform.serveTransportPages([{ status: 202, data: [], next }]);
-          await assert.rejects(platform.connect().access.requestPages({ path }), (error) => {
-            isReason("invalidResponse")(error);
-            assert.equal((error as PlatformError).status, 202);
-            return true;
-          });
+          const path = platform.serveTransportPages([
+            { status: 202, data: [], next },
+          ]);
+          await assert.rejects(
+            platform.connect().access.requestPages({ path }),
+            (error) => {
+              isReason("invalidResponse")(error);
+              assert.equal((error as PlatformError).status, 202);
+              return true;
+            },
+          );
         });
       }
 
@@ -701,39 +1264,69 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
           { status: 200, data: [1], next: 1 },
           { status: 404, data: { message: "Page disappeared" } },
         ]);
-        await assert.rejects(platform.connect().access.requestPages({ path }), (error) => {
-          isReason("notFound")(error);
-          assert.equal((error as PlatformError).status, 404);
-          assert.equal((error as PlatformError).platformMessage, "Page disappeared");
-          return true;
-        });
+        await assert.rejects(
+          platform.connect().access.requestPages({ path }),
+          (error) => {
+            isReason("notFound")(error);
+            assert.equal((error as PlatformError).status, 404);
+            assert.equal(
+              (error as PlatformError).platformMessage,
+              "Page disappeared",
+            );
+            return true;
+          },
+        );
       });
 
       it("refuses non-GET paginated requests", async () => {
         const access = harness.start().connect().access;
-        for (const method of ["HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]) {
-          await assert.rejects(access.requestPages({ path: "/user", method }), isReason("rejected"));
+        for (const method of [
+          "HEAD",
+          "POST",
+          "PUT",
+          "PATCH",
+          "DELETE",
+          "OPTIONS",
+        ]) {
+          await assert.rejects(
+            access.requestPages({ path: "/user", method }),
+            isReason("rejected"),
+          );
         }
       });
 
       it("removes credentials from every transport page's headers and data", async () => {
         const platform = harness.start();
         const path = platform.serveTransportPages([
-          { status: 200, headers: { "x-echo": platform.token }, data: [platform.token], next: 1 },
+          {
+            status: 200,
+            headers: { "x-echo": platform.token },
+            data: [platform.token],
+            next: 1,
+          },
           { status: 200, data: { [platform.token]: platform.token }, next: 2 },
           { status: 200, data: platform.token },
         ]);
-        const pages = await platform.connect({ tokenFunction: true }).access.requestPages({ path });
+        const pages = await platform
+          .connect({ tokenFunction: true })
+          .access.requestPages({ path });
         assert.equal(pages[0]!.headers["x-echo"], "<REDACTED>");
-        assert.deepEqual(pages.map((page) => page.data), [
-          ["<REDACTED>"], { "<REDACTED>": "<REDACTED>" }, "<REDACTED>",
-        ]);
+        assert.deepEqual(
+          pages.map((page) => page.data),
+          [["<REDACTED>"], { "<REDACTED>": "<REDACTED>" }, "<REDACTED>"],
+        );
       });
 
       it("reports the authenticated account, or none when anonymous", async () => {
         const platform = harness.start();
-        assert.deepEqual(await platform.connect().access.viewer(), reported(platform.viewer));
-        assert.equal(await platform.connect({ anonymous: true }).access.viewer(), null);
+        assert.deepEqual(
+          await platform.connect().access.viewer(),
+          reported(platform.viewer),
+        );
+        assert.equal(
+          await platform.connect({ anonymous: true }).access.viewer(),
+          null,
+        );
       });
 
       it("reports an account's role, or null when it has none", async () => {
@@ -747,14 +1340,22 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
 
       it("sends authenticated requests to the platform's API", async () => {
         const platform = harness.start();
-        const response = await platform.connect().access.request({ path: "/user" });
+        const response = await platform
+          .connect()
+          .access.request({ path: "/user" });
         assert.equal(response.status, 200);
-        assert.equal((response.data as { login?: string }).login, platform.viewer.login);
+        assert.equal(
+          (response.data as { login?: string }).login,
+          platform.viewer.login,
+        );
       });
 
       it("refuses request paths that leave the platform's API", async () => {
         const access = harness.start().connect().access;
-        for (const path of ["//elsewhere.example/x", "https://elsewhere.example/x"]) {
+        for (const path of [
+          "//elsewhere.example/x",
+          "https://elsewhere.example/x",
+        ]) {
           await assert.rejects(access.request({ path }), isReason("rejected"));
         }
       });
@@ -763,9 +1364,20 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
     group("anonymous connections", () => {
       it("read public releases without a credential", async () => {
         const platform = harness.start();
-        platform.addRelease({ tag: "v1.0.0", name: "1.0.0", draft: false, prerelease: false, publishedAt: "2026-01-01T00:00:00Z" });
-        const releases = await platform.connect({ anonymous: true }).releaseSource.releases();
-        assert.deepEqual(releases.map((release) => release.tag), ["v1.0.0"]);
+        platform.addRelease({
+          tag: "v1.0.0",
+          name: "1.0.0",
+          draft: false,
+          prerelease: false,
+          publishedAt: "2026-01-01T00:00:00Z",
+        });
+        const releases = await platform
+          .connect({ anonymous: true })
+          .releaseSource.releases();
+        assert.deepEqual(
+          releases.map((release) => release.tag),
+          ["v1.0.0"],
+        );
       });
     });
 
@@ -781,7 +1393,10 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
           await assert.rejects(call(), (error) => {
             isReason("notFound")(error);
             assert.equal((error as PlatformError).status, 404);
-            assert.match((error as PlatformError).platformMessage!, /distinct failure/);
+            assert.match(
+              (error as PlatformError).platformMessage!,
+              /distinct failure/,
+            );
             return true;
           });
         }
@@ -791,7 +1406,9 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         const platform = harness.start();
         const access = platform.connect().access;
         for (const message of ["Branch not protected", "Not Found"]) {
-          const path = platform.serveTransportPages([{ status: 404, data: { message } }]);
+          const path = platform.serveTransportPages([
+            { status: 404, data: { message } },
+          ]);
           await assert.rejects(access.request({ path }), (error) => {
             isReason("notFound")(error);
             assert.equal((error as PlatformError).status, 404);
@@ -805,11 +1422,14 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         const platform = harness.start();
         for (const data of [{}, { message: null }, { message: 42 }]) {
           const path = platform.serveTransportPages([{ status: 403, data }]);
-          await assert.rejects(platform.connect().access.request({ path }), (error) => {
-            isReason("forbidden")(error);
-            assert.equal((error as PlatformError).platformMessage, undefined);
-            return true;
-          });
+          await assert.rejects(
+            platform.connect().access.request({ path }),
+            (error) => {
+              isReason("forbidden")(error);
+              assert.equal((error as PlatformError).platformMessage, undefined);
+              return true;
+            },
+          );
         }
       });
 
@@ -817,23 +1437,65 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         const platform = harness.start();
         const connection = platform.connect();
         for (const paged of [false, true]) {
-          const bad = { status: 403, data: { message: `Refused ${platform.token}` } };
-          const path = platform.serveTransportPages(paged ? [{ status: 200, data: [], next: 1 }, bad] : [bad]);
-          await assert.rejects(paged ? connection.access.requestPages({ path }) : connection.access.request({ path }), (error) => {
-            isReason("forbidden")(error);
-            assert.equal((error as PlatformError).platformMessage, "Refused <REDACTED>");
-            return true;
-          });
+          const bad = {
+            status: 403,
+            data: { message: `Refused ${platform.token}` },
+          };
+          const path = platform.serveTransportPages(
+            paged ? [{ status: 200, data: [], next: 1 }, bad] : [bad],
+          );
+          await assert.rejects(
+            paged
+              ? connection.access.requestPages({ path })
+              : connection.access.request({ path }),
+            (error) => {
+              isReason("forbidden")(error);
+              assert.equal(
+                (error as PlatformError).platformMessage,
+                "Refused <REDACTED>",
+              );
+              return true;
+            },
+          );
         }
       });
 
-      const reasons = ["unauthenticated", "forbidden", "notFound", "conflict", "rejected", "rateLimited", "unavailable", "invalidResponse"] as const;
-      const operations: [string, (connection: ConnectionWithLabels) => Promise<unknown>][] = [
+      const reasons = [
+        "unauthenticated",
+        "forbidden",
+        "notFound",
+        "conflict",
+        "rejected",
+        "rateLimited",
+        "unavailable",
+        "invalidResponse",
+      ] as const;
+      const operations: [
+        string,
+        (connection: ConnectionWithLabels) => Promise<unknown>,
+      ][] = [
         ["an issue read", (connection) => connection.issueTracker.issue(1)],
-        ["a release listing", (connection) => connection.releaseSource.releases()],
-        ["a label write", (connection) => connection.issueTracker.addLabels(1, ["bug"])],
-        ["a repository label listing", (connection) => connection.issueTracker.labels()],
-        ["a repository label update", (connection) => connection.issueTracker.updateLabel("bug", { name: "bug", color: "ededed", description: "" })],
+        [
+          "a release listing",
+          (connection) => connection.releaseSource.releases(),
+        ],
+        [
+          "a label write",
+          (connection) => connection.issueTracker.addLabels(1, ["bug"]),
+        ],
+        [
+          "a repository label listing",
+          (connection) => connection.issueTracker.labels(),
+        ],
+        [
+          "a repository label update",
+          (connection) =>
+            connection.issueTracker.updateLabel("bug", {
+              name: "bug",
+              color: "ededed",
+              description: "",
+            }),
+        ],
       ];
       for (const reason of reasons) {
         for (const [what, operation] of operations) {
@@ -843,7 +1505,11 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
             platform.failNext({ reason, retryAt: "2030-01-01T00:00:00.000Z" });
             await assert.rejects(operation(platform.connect()), (error) => {
               isReason(reason)(error);
-              if (reason === "rateLimited") assert.equal((error as PlatformError).retryAt, "2030-01-01T00:00:00.000Z");
+              if (reason === "rateLimited")
+                assert.equal(
+                  (error as PlatformError).retryAt,
+                  "2030-01-01T00:00:00.000Z",
+                );
               return true;
             });
           });
@@ -856,103 +1522,291 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
       // Every operation that reads a response, as a call prepared on a seeded
       // platform, and whether it reads pages: a list across pages, or a
       // resource holding lists that span pages of their own.
-      type Prepared = (platform: ContractPlatform, connection: ConnectionWithLabels) => Promise<() => Promise<unknown>>;
+      type Prepared = (
+        platform: ContractPlatform,
+        connection: ConnectionWithLabels,
+      ) => Promise<() => Promise<unknown>>;
       const reads: [name: string, paged: boolean, prepare: Prepared][] = [
-        ["issues", true, async (platform, { issueTracker }) => (platform.addIssue(), () => issueTracker.issues())],
-        ["issue", true, async (platform, { issueTracker }) => {
-          const number = platform.addIssue({ labels: ["bug"] });
-          return () => issueTracker.issue(number);
-        }],
-        ["labelChanges", true, async (platform, { issueTracker }) => {
-          const number = platform.addIssue();
-          platform.addLabelChange(number, { action: "added", label: "bug", actor: mona, time: "2026-01-02T00:00:00Z" });
-          return () => issueTracker.labelChanges(number);
-        }],
-        ["comments", true, async (platform, { issueTracker }) => {
-          const number = platform.addIssue();
-          platform.addComment(number, { author: mona, body: "hi", createdAt: "2026-01-02T00:00:00Z" });
-          return () => issueTracker.comments(number);
-        }],
-        ["createLabel", false, async (_platform, { issueTracker }) => () =>
-          issueTracker.createLabel({ name: "bug", color: "ededed", description: "" })],
-        ["labels", true, async (platform, { issueTracker }) => {
-          platform.defineLabel({ name: "bug", color: "ededed", description: "" });
-          return () => issueTracker.labels();
-        }],
-        ["updateLabel", false, async (platform, { issueTracker }) => {
-          platform.defineLabel({ name: "bug", color: "ededed", description: "" });
-          return () => issueTracker.updateLabel("bug", { name: "bug", color: "d73a4a", description: "Updated" });
-        }],
-        ["createComment", false, async (platform, { issueTracker }) => {
-          const number = platform.addIssue();
-          return () => issueTracker.createComment(number, "hi");
-        }],
-        ["updateComment", false, async (platform, { issueTracker }) => {
-          const number = platform.addIssue();
-          platform.addComment(number, { author: mona, body: "hi", createdAt: "2026-01-02T00:00:00Z" });
-          const [comment] = await issueTracker.comments(number);
-          return () => issueTracker.updateComment(comment!.id, "edited");
-        }],
-        ["byHeadBranch", true, async (platform, { pullRequests }) => {
-          platform.addPullRequest({ headBranch: "feature", headCommit: head });
-          return () => pullRequests.byHeadBranch("feature");
-        }],
-        ["closing", true, async (platform, { pullRequests }) => {
-          const issue = platform.addIssue();
-          platform.addPullRequest({ headBranch: "feature", headCommit: head, closes: [issue] });
-          return () => pullRequests.closing(issue);
-        }],
-        ["pullRequest", false, async (platform, { pullRequests }) => {
-          const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-          return () => pullRequests.pullRequest(number);
-        }],
-        ["reviews", true, async (platform, { pullRequests }) => {
-          const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-          platform.addReview(number, { author: mona, state: platform.words.approvedReview, commit: head, submittedAt: "2026-01-02T00:00:00Z" });
-          return () => pullRequests.reviews(number);
-        }],
-        ["reviewThreads", true, async (platform, { pullRequests }) => {
-          const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-          platform.addReviewThread(number, { resolved: false, outdated: false, path: "a.ts", author: mona });
-          return () => pullRequests.reviewThreads(number);
-        }],
-        ["checks", true, async (platform, { pullRequests }) => {
-          const { status, conclusion } = platform.words.finishedCheck;
-          platform.addCheck(head, { name: "Test", status, conclusion, completedAt: "2026-01-02T00:00:00Z" });
-          return () => pullRequests.checks(head);
-        }],
-        ["mergesThroughQueue", false, async (platform, { pullRequests }) => {
-          const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-          return () => pullRequests.mergesThroughQueue(number);
-        }],
-        ["comment", false, async (platform, { pullRequests }) => {
-          const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-          return () => pullRequests.comment(number, "hi");
-        }],
-        ["squashMerge", false, async (platform, { pullRequests }) => {
-          const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-          return () => pullRequests.squashMerge(number, { expectedHead: head, title: "t", body: "b" });
-        }],
-        ["releases", true, async (platform, { releaseSource }) => {
-          platform.addRelease({ tag: "v1.0.0", name: "1.0.0", draft: false, prerelease: false, publishedAt: "2026-01-02T00:00:00Z" });
-          return () => releaseSource.releases();
-        }],
-        ["tagCommit of a lightweight tag", false, async (platform, { releaseSource }) => {
-          platform.addTag("v1.0.0", head);
-          return () => releaseSource.tagCommit("v1.0.0");
-        }],
-        ["tagCommit of an annotated tag", false, async (platform, { releaseSource }) => {
-          platform.addTag("v1.0.0", head, { annotated: true });
-          return () => releaseSource.tagCommit("v1.0.0");
-        }],
-        ["viewer", false, async (_platform, { access }) => () => access.viewer()],
-        ["role", false, async (platform, { access }) => {
-          platform.setRole("mona", platform.words.role);
-          return () => access.role("mona");
-        }],
+        [
+          "issues",
+          true,
+          async (platform, { issueTracker }) => (
+            platform.addIssue(),
+            () => issueTracker.issues()
+          ),
+        ],
+        [
+          "issue",
+          true,
+          async (platform, { issueTracker }) => {
+            const number = platform.addIssue({ labels: ["bug"] });
+            return () => issueTracker.issue(number);
+          },
+        ],
+        [
+          "labelChanges",
+          true,
+          async (platform, { issueTracker }) => {
+            const number = platform.addIssue();
+            platform.addLabelChange(number, {
+              action: "added",
+              label: "bug",
+              actor: mona,
+              time: "2026-01-02T00:00:00Z",
+            });
+            return () => issueTracker.labelChanges(number);
+          },
+        ],
+        [
+          "comments",
+          true,
+          async (platform, { issueTracker }) => {
+            const number = platform.addIssue();
+            platform.addComment(number, {
+              author: mona,
+              body: "hi",
+              createdAt: "2026-01-02T00:00:00Z",
+            });
+            return () => issueTracker.comments(number);
+          },
+        ],
+        [
+          "createLabel",
+          false,
+          async (_platform, { issueTracker }) =>
+            () =>
+              issueTracker.createLabel({
+                name: "bug",
+                color: "ededed",
+                description: "",
+              }),
+        ],
+        [
+          "labels",
+          true,
+          async (platform, { issueTracker }) => {
+            platform.defineLabel({
+              name: "bug",
+              color: "ededed",
+              description: "",
+            });
+            return () => issueTracker.labels();
+          },
+        ],
+        [
+          "updateLabel",
+          false,
+          async (platform, { issueTracker }) => {
+            platform.defineLabel({
+              name: "bug",
+              color: "ededed",
+              description: "",
+            });
+            return () =>
+              issueTracker.updateLabel("bug", {
+                name: "bug",
+                color: "d73a4a",
+                description: "Updated",
+              });
+          },
+        ],
+        [
+          "createComment",
+          false,
+          async (platform, { issueTracker }) => {
+            const number = platform.addIssue();
+            return () => issueTracker.createComment(number, "hi");
+          },
+        ],
+        [
+          "updateComment",
+          false,
+          async (platform, { issueTracker }) => {
+            const number = platform.addIssue();
+            platform.addComment(number, {
+              author: mona,
+              body: "hi",
+              createdAt: "2026-01-02T00:00:00Z",
+            });
+            const [comment] = await issueTracker.comments(number);
+            return () => issueTracker.updateComment(comment!.id, "edited");
+          },
+        ],
+        [
+          "byHeadBranch",
+          true,
+          async (platform, { pullRequests }) => {
+            platform.addPullRequest({
+              headBranch: "feature",
+              headCommit: head,
+            });
+            return () => pullRequests.byHeadBranch("feature");
+          },
+        ],
+        [
+          "closing",
+          true,
+          async (platform, { pullRequests }) => {
+            const issue = platform.addIssue();
+            platform.addPullRequest({
+              headBranch: "feature",
+              headCommit: head,
+              closes: [issue],
+            });
+            return () => pullRequests.closing(issue);
+          },
+        ],
+        [
+          "pullRequest",
+          false,
+          async (platform, { pullRequests }) => {
+            const number = platform.addPullRequest({
+              headBranch: "feature",
+              headCommit: head,
+            });
+            return () => pullRequests.pullRequest(number);
+          },
+        ],
+        [
+          "reviews",
+          true,
+          async (platform, { pullRequests }) => {
+            const number = platform.addPullRequest({
+              headBranch: "feature",
+              headCommit: head,
+            });
+            platform.addReview(number, {
+              author: mona,
+              state: platform.words.approvedReview,
+              commit: head,
+              submittedAt: "2026-01-02T00:00:00Z",
+            });
+            return () => pullRequests.reviews(number);
+          },
+        ],
+        [
+          "reviewThreads",
+          true,
+          async (platform, { pullRequests }) => {
+            const number = platform.addPullRequest({
+              headBranch: "feature",
+              headCommit: head,
+            });
+            platform.addReviewThread(number, {
+              resolved: false,
+              outdated: false,
+              path: "a.ts",
+              author: mona,
+            });
+            return () => pullRequests.reviewThreads(number);
+          },
+        ],
+        [
+          "checks",
+          true,
+          async (platform, { pullRequests }) => {
+            const { status, conclusion } = platform.words.finishedCheck;
+            platform.addCheck(head, {
+              name: "Test",
+              status,
+              conclusion,
+              completedAt: "2026-01-02T00:00:00Z",
+            });
+            return () => pullRequests.checks(head);
+          },
+        ],
+        [
+          "mergesThroughQueue",
+          false,
+          async (platform, { pullRequests }) => {
+            const number = platform.addPullRequest({
+              headBranch: "feature",
+              headCommit: head,
+            });
+            return () => pullRequests.mergesThroughQueue(number);
+          },
+        ],
+        [
+          "comment",
+          false,
+          async (platform, { pullRequests }) => {
+            const number = platform.addPullRequest({
+              headBranch: "feature",
+              headCommit: head,
+            });
+            return () => pullRequests.comment(number, "hi");
+          },
+        ],
+        [
+          "squashMerge",
+          false,
+          async (platform, { pullRequests }) => {
+            const number = platform.addPullRequest({
+              headBranch: "feature",
+              headCommit: head,
+            });
+            return () =>
+              pullRequests.squashMerge(number, {
+                expectedHead: head,
+                title: "t",
+                body: "b",
+              });
+          },
+        ],
+        [
+          "releases",
+          true,
+          async (platform, { releaseSource }) => {
+            platform.addRelease({
+              tag: "v1.0.0",
+              name: "1.0.0",
+              draft: false,
+              prerelease: false,
+              publishedAt: "2026-01-02T00:00:00Z",
+            });
+            return () => releaseSource.releases();
+          },
+        ],
+        [
+          "tagCommit of a lightweight tag",
+          false,
+          async (platform, { releaseSource }) => {
+            platform.addTag("v1.0.0", head);
+            return () => releaseSource.tagCommit("v1.0.0");
+          },
+        ],
+        [
+          "tagCommit of an annotated tag",
+          false,
+          async (platform, { releaseSource }) => {
+            platform.addTag("v1.0.0", head, { annotated: true });
+            return () => releaseSource.tagCommit("v1.0.0");
+          },
+        ],
+        [
+          "viewer",
+          false,
+          async (_platform, { access }) =>
+            () =>
+              access.viewer(),
+        ],
+        [
+          "role",
+          false,
+          async (platform, { access }) => {
+            platform.setRole("mona", platform.words.role);
+            return () => access.role("mona");
+          },
+        ],
       ];
       const every: Malformation[] = ["missingFields", "wrongTypes"];
-      const pages: Malformation[] = ["brokenLists", "pageWithoutCursor", "pageFlagMissing", "pageFlagNull", "pageFlagWrongType"];
+      const pages: Malformation[] = [
+        "brokenLists",
+        "pageWithoutCursor",
+        "pageFlagMissing",
+        "pageFlagNull",
+        "pageFlagWrongType",
+      ];
       for (const [name, paged, prepare] of reads) {
         for (const malformation of paged ? [...every, ...pages] : every) {
           it(`fails ${name} with invalidResponse and the response's status for ${malformation}`, async () => {
@@ -972,46 +1826,84 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
     group("credentials", () => {
       it("redacts credentials from listed and updated label facts and failures", async () => {
         const platform = harness.start();
-        const label = { name: `owned-${platform.token}`, color: "abcdef", description: `secret ${platform.token}` };
+        const label = {
+          name: `owned-${platform.token}`,
+          color: "abcdef",
+          description: `secret ${platform.token}`,
+        };
         platform.defineLabel(label);
         const tracker = platform.connect({ tokenFunction: true }).issueTracker;
         const updated = await tracker.updateLabel(label.name, label);
         const listed = await tracker.labels();
         for (const result of [updated, listed]) {
-          assert.doesNotMatch(JSON.stringify(result), new RegExp(platform.token));
+          assert.doesNotMatch(
+            JSON.stringify(result),
+            new RegExp(platform.token),
+          );
           assert.match(JSON.stringify(result), /<REDACTED>/);
         }
-        for (const call of [() => tracker.labels(), () => tracker.updateLabel(label.name, label)]) {
+        for (const call of [
+          () => tracker.labels(),
+          () => tracker.updateLabel(label.name, label),
+        ]) {
           platform.failNext({ reason: "rejected", echo: platform.token });
           await assert.rejects(call(), (error) => {
             isReason("rejected")(error);
-            assert.doesNotMatch(JSON.stringify(error, Object.getOwnPropertyNames(error)), new RegExp(platform.token));
-            assert.match((error as PlatformError).platformMessage!, /<REDACTED>/);
+            assert.doesNotMatch(
+              JSON.stringify(error, Object.getOwnPropertyNames(error)),
+              new RegExp(platform.token),
+            );
+            assert.match(
+              (error as PlatformError).platformMessage!,
+              /<REDACTED>/,
+            );
             return true;
           });
         }
       });
 
-      for (const reason of ["unauthenticated", "rejected", "unavailable"] as const) {
+      for (const reason of [
+        "unauthenticated",
+        "rejected",
+        "unavailable",
+      ] as const) {
         it(`keeps the credential out of a ${reason} error that echoes it`, async () => {
           const platform = harness.start();
-          platform.failNext({ reason, echo: `token ${platform.token} refused` });
-          await assert.rejects(platform.connect().releaseSource.releases(), (error) => {
-            isReason(reason)(error);
-            const seen = JSON.stringify(error, Object.getOwnPropertyNames(error)) + String((error as Error).cause);
-            assert.doesNotMatch(seen, new RegExp(platform.token));
-            assert.doesNotMatch((error as Error).message, new RegExp(platform.token));
-            return true;
+          platform.failNext({
+            reason,
+            echo: `token ${platform.token} refused`,
           });
+          await assert.rejects(
+            platform.connect().releaseSource.releases(),
+            (error) => {
+              isReason(reason)(error);
+              const seen =
+                JSON.stringify(error, Object.getOwnPropertyNames(error)) +
+                String((error as Error).cause);
+              assert.doesNotMatch(seen, new RegExp(platform.token));
+              assert.doesNotMatch(
+                (error as Error).message,
+                new RegExp(platform.token),
+              );
+              return true;
+            },
+          );
         });
       }
 
       it("keeps the credential out of results that contain it", async () => {
         const platform = harness.start();
         const number = platform.addIssue({ body: `pasted ${platform.token}` });
-        platform.addComment(number, { author: mona, body: `again ${platform.token}`, createdAt: "2026-01-01T00:00:00Z" });
+        platform.addComment(number, {
+          author: mona,
+          body: `again ${platform.token}`,
+          createdAt: "2026-01-01T00:00:00Z",
+        });
         const tracker = platform.connect().issueTracker;
-        const results = JSON.stringify([await tracker.issue(number), await tracker.comments(number)]);
+        const results = JSON.stringify([
+          await tracker.issue(number),
+          await tracker.comments(number),
+        ]);
         assert.doesNotMatch(results, new RegExp(platform.token));
         assert.match(results, /<REDACTED>/);
       });
@@ -1020,11 +1912,17 @@ export function runAdapterContract(harness: AdapterHarness, only?: readonly Cont
         const platform = harness.start();
         const number = platform.addIssue({ body: `pasted ${platform.token}` });
         const connection = platform.connect({ tokenFunction: true });
-        assert.doesNotMatch(JSON.stringify(await connection.issueTracker.issue(number)), new RegExp(platform.token));
+        assert.doesNotMatch(
+          JSON.stringify(await connection.issueTracker.issue(number)),
+          new RegExp(platform.token),
+        );
         platform.failNext({ reason: "forbidden", echo: platform.token });
         await assert.rejects(connection.access.viewer(), (error) => {
           isReason("forbidden")(error);
-          assert.doesNotMatch(JSON.stringify(error, Object.getOwnPropertyNames(error)), new RegExp(platform.token));
+          assert.doesNotMatch(
+            JSON.stringify(error, Object.getOwnPropertyNames(error)),
+            new RegExp(platform.token),
+          );
           return true;
         });
       });
