@@ -23,7 +23,10 @@ interface Outcome {
   requests: number;
 }
 
-async function run(read: Read, change?: { skip: number; body: (json: unknown) => unknown }): Promise<Outcome> {
+async function run(
+  read: Read,
+  change?: { skip: number; body: (json: unknown) => unknown },
+): Promise<Outcome> {
   const { platform, fake } = startGitHub();
   const call = read(platform, platform.connect());
   if (change) fake.malformNext({ status, body: change.body }, change.skip);
@@ -80,8 +83,34 @@ const nullable = new Set([
   "pullRequest",
 ]);
 // Names, logins, identifiers and platform words, which are never empty.
-const words = new Set(["login", "node_id", "headRefName", "baseRefName", "tag_name", "path", "state", "status", "context", "event", "type", "__typename", "permission", "role_name", "conclusion"]);
-const malformedErrors = [[{}], [null], ["boom"], [{ type: "NOT_FOUND" }], [{ message: 1 }], [{ message: "m", type: 2 }], "boom", {}, 1];
+const words = new Set([
+  "login",
+  "node_id",
+  "headRefName",
+  "baseRefName",
+  "tag_name",
+  "path",
+  "state",
+  "status",
+  "context",
+  "event",
+  "type",
+  "__typename",
+  "permission",
+  "role_name",
+  "conclusion",
+]);
+const malformedErrors = [
+  [{}],
+  [null],
+  ["boom"],
+  [{ type: "NOT_FOUND" }],
+  [{ message: 1 }],
+  [{ message: "m", type: 2 }],
+  "boom",
+  {},
+  1,
+];
 
 // The changes to one value that make it unreadable wherever the adapter
 // reads it, so the result can only be the original one or `invalidResponse`.
@@ -92,45 +121,86 @@ function changes(value: unknown, key: string | number | null): Change[] {
     string: [0, true, {}, []],
     number: ["1", false, {}, []],
     boolean: ["true", 1, {}, []],
-    object: value === null ? ["x", 0, {}, []] : Array.isArray(value) ? [{}, "x", 1] : ["x", 1, [], true],
+    object:
+      value === null
+        ? ["x", 0, {}, []]
+        : Array.isArray(value)
+          ? [{}, "x", 1]
+          : ["x", 1, [], true],
   };
-  for (const other of retypes[typeof value] ?? []) result.push([`retype to ${JSON.stringify(other)}`, other]);
-  if (value !== null && !(typeof key === "string" && nullable.has(key))) result.push(["retype to null", null]);
-  const corrupt = (values: unknown[]) => values.forEach((other) => result.push([`corrupt to ${JSON.stringify(other)}`, other]));
+  for (const other of retypes[typeof value] ?? [])
+    result.push([`retype to ${JSON.stringify(other)}`, other]);
+  if (value !== null && !(typeof key === "string" && nullable.has(key)))
+    result.push(["retype to null", null]);
+  const corrupt = (values: unknown[]) =>
+    values.forEach((other) =>
+      result.push([`corrupt to ${JSON.stringify(other)}`, other]),
+    );
   if (typeof value === "string") {
     if (/^\d{4}-\d{2}-\d{2}T/.test(value)) corrupt(badTimes);
-    if (/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(value)) corrupt([value.slice(1), `${value}0`, `g${value.slice(1)}`, ""]);
-    if (/^[1-9][0-9]*$/.test(value)) corrupt(["", "0", "01", "1.0", "-1", "1e3", " 1", "9007199254740993"]);
-    if (/^(?:OPEN|CLOSED|MERGED)$/.test(value)) corrupt(["open", "Open", "DRAFT", ""]);
-    if (/^https?:\/\//.test(value)) corrupt(["", "not a url", "ftp://github.com/x", "javascript:alert(1)"]);
-    if (key === "nameWithOwner") corrupt(["", "octo", "a/b/c", "/hello", "octo/"]);
+    if (/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(value))
+      corrupt([value.slice(1), `${value}0`, `g${value.slice(1)}`, ""]);
+    if (/^[1-9][0-9]*$/.test(value))
+      corrupt(["", "0", "01", "1.0", "-1", "1e3", " 1", "9007199254740993"]);
+    if (/^(?:OPEN|CLOSED|MERGED)$/.test(value))
+      corrupt(["open", "Open", "DRAFT", ""]);
+    if (/^https?:\/\//.test(value))
+      corrupt(["", "not a url", "ftp://github.com/x", "javascript:alert(1)"]);
+    if (key === "nameWithOwner")
+      corrupt(["", "octo", "a/b/c", "/hello", "octo/"]);
     if (typeof key === "string" && words.has(key)) corrupt([""]);
   }
-  if (Number.isInteger(value) && (value as number) > 0) corrupt([0, -1, 1.5, 2 ** 53, 1e300]);
+  if (Number.isInteger(value) && (value as number) > 0)
+    corrupt([0, -1, 1.5, 2 ** 53, 1e300]);
   return result;
 }
 
 // Every place in a response: each field and item, and the response itself.
-function places(value: unknown, path: (string | number)[] = []): (string | number)[][] {
+function places(
+  value: unknown,
+  path: (string | number)[] = [],
+): (string | number)[][] {
   const here = [path];
-  if (Array.isArray(value)) return here.concat(...value.map((item, index) => places(item, [...path, index])));
+  if (Array.isArray(value))
+    return here.concat(
+      ...value.map((item, index) => places(item, [...path, index])),
+    );
   if (value !== null && typeof value === "object") {
-    return here.concat(...Object.entries(value).map(([key, item]) => places(item, [...path, key])));
+    return here.concat(
+      ...Object.entries(value).map(([key, item]) =>
+        places(item, [...path, key]),
+      ),
+    );
   }
   return here;
 }
 
 // The response with one value changed, and what changed.
-function mutate(random: Random, json: unknown): { json: unknown; change: string } {
+function mutate(
+  random: Random,
+  json: unknown,
+): { json: unknown; change: string } {
   const copy = structuredClone(json);
-  const isGraphql = copy !== null && typeof copy === "object" && !Array.isArray(copy) && "data" in copy;
+  const isGraphql =
+    copy !== null &&
+    typeof copy === "object" &&
+    !Array.isArray(copy) &&
+    "data" in copy;
   if (isGraphql && random.chance(0.1)) {
     const errors = random.pick(malformedErrors);
-    return { json: { ...copy, errors }, change: `errors set to ${JSON.stringify(errors)}` };
+    return {
+      json: { ...copy, errors },
+      change: `errors set to ${JSON.stringify(errors)}`,
+    };
   }
   const path = random.pick(places(copy));
   const key = path.at(-1) ?? null;
-  const parent = path.slice(0, -1).reduce((node, step) => node[step] as Record<string | number, unknown>, copy as Record<string | number, unknown>);
+  const parent = path
+    .slice(0, -1)
+    .reduce(
+      (node, step) => node[step] as Record<string | number, unknown>,
+      copy as Record<string | number, unknown>,
+    );
   const value = key === null ? copy : parent[key];
   const options = changes(value, key);
   if (options.length === 0) return { json: copy, change: "nothing" };
@@ -146,7 +216,11 @@ describe("GitHub responses changed in one place (property)", () => {
   for (const [name, read] of Object.entries(reads) as [string, Read][]) {
     it(`read as the original or fail with invalidResponse and the status: ${name}`, async () => {
       const original = await run(read);
-      assert.equal(original.error, undefined, `${name} fails on the fake's own responses`);
+      assert.equal(
+        original.error,
+        undefined,
+        `${name} fails on the fake's own responses`,
+      );
       const property = `responses to ${name}`;
       let unreadable = 0;
       for (let index = 0; index < runs; index++) {
@@ -162,12 +236,23 @@ describe("GitHub responses changed in one place (property)", () => {
         });
         const context = `${reproduce(property, index)}: ${change}`;
         if (outcome.error === undefined) {
-          assert.deepEqual(outcome.value, original.value, `${context}: read a different result`);
+          assert.deepEqual(
+            outcome.value,
+            original.value,
+            `${context}: read a different result`,
+          );
           continue;
         }
         const error = outcome.error;
-        assert.ok(error instanceof PlatformError, `${context}: failed with ${String(error)}`);
-        assert.equal(error.reason, "invalidResponse", `${context}: failed with ${error.reason}: ${error.message}`);
+        assert.ok(
+          error instanceof PlatformError,
+          `${context}: failed with ${String(error)}`,
+        );
+        assert.equal(
+          error.reason,
+          "invalidResponse",
+          `${context}: failed with ${error.reason}: ${error.message}`,
+        );
         assert.equal(error.status, status, `${context}: lost the status`);
         unreadable++;
       }

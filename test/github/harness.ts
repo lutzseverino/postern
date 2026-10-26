@@ -1,8 +1,18 @@
 // The GitHub adapter's contract harness over the local GitHub fake.
 
 import { connect } from "../../src/index.ts";
-import type { Account, ConnectOptions, ConnectionWithLabels } from "../../src/index.ts";
-import type { AdapterHarness, ContractPlatform, Failure, Malformation, SeedReference } from "../contract/harness.ts";
+import type {
+  Account,
+  ConnectOptions,
+  ConnectionWithLabels,
+} from "../../src/index.ts";
+import type {
+  AdapterHarness,
+  ContractPlatform,
+  Failure,
+  Malformation,
+  SeedReference,
+} from "../contract/harness.ts";
 import { githubIssueEvent } from "./events.ts";
 import { GitHubFake } from "./fake.ts";
 import type { FakeUser, Injected, Malformed } from "./fake.ts";
@@ -16,13 +26,18 @@ const fakeUser = (account: Account | undefined): FakeUser | null =>
 
 // The response GitHub sends for each failure reason.
 function githubFailure({ reason, retryAt, echo = "" }: Failure): Injected {
-  const body = (message: string) => JSON.stringify({ message: `${message}${echo ? ` (${echo})` : ""}` });
-  const reset = retryAt === undefined ? undefined : String(Date.parse(retryAt) / 1000);
+  const body = (message: string) =>
+    JSON.stringify({ message: `${message}${echo ? ` (${echo})` : ""}` });
+  const reset =
+    retryAt === undefined ? undefined : String(Date.parse(retryAt) / 1000);
   switch (reason) {
     case "unauthenticated":
       return { status: 401, body: body("Bad credentials") };
     case "forbidden":
-      return { status: 403, body: body("Resource not accessible by integration") };
+      return {
+        status: 403,
+        body: body("Resource not accessible by integration"),
+      };
     case "notFound":
       return { status: 404, body: body("Not Found") };
     case "conflict":
@@ -32,7 +47,10 @@ function githubFailure({ reason, retryAt, echo = "" }: Failure): Injected {
     case "rateLimited":
       return {
         status: 403,
-        headers: { "x-ratelimit-remaining": "0", ...(reset === undefined ? {} : { "x-ratelimit-reset": reset }) },
+        headers: {
+          "x-ratelimit-remaining": "0",
+          ...(reset === undefined ? {} : { "x-ratelimit-reset": reset }),
+        },
         body: body("API rate limit exceeded"),
       };
     case "unavailable":
@@ -45,17 +63,31 @@ function githubFailure({ reason, retryAt, echo = "" }: Failure): Injected {
 // Fields a malformation leaves alone, so the adapter still reaches the facts
 // it reads: an event's or Git object's kind, an account's type, and a
 // connection's pagination.
-const structural = new Set(["event", "type", "__typename", "hasNextPage", "endCursor"]);
+const structural = new Set([
+  "event",
+  "type",
+  "__typename",
+  "hasNextPage",
+  "endCursor",
+]);
 
 // Every scalar field outside the structural ones, in every object of a
 // response, changed; a change to `undefined` drops the field.
-function everyScalar(value: unknown, change: (scalar: unknown) => unknown): unknown {
-  if (Array.isArray(value)) return value.map((item) => everyScalar(item, change));
+function everyScalar(
+  value: unknown,
+  change: (scalar: unknown) => unknown,
+): unknown {
+  if (Array.isArray(value))
+    return value.map((item) => everyScalar(item, change));
   if (value === null || typeof value !== "object") return value;
   const result: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value)) {
     const next =
-      item !== null && typeof item === "object" ? everyScalar(item, change) : structural.has(key) ? item : change(item);
+      item !== null && typeof item === "object"
+        ? everyScalar(item, change)
+        : structural.has(key)
+          ? item
+          : change(item);
     if (next !== undefined) result[key] = next;
   }
   return result;
@@ -64,22 +96,34 @@ function everyScalar(value: unknown, change: (scalar: unknown) => unknown): unkn
 function everyList(value: unknown): unknown {
   if (Array.isArray(value)) return {};
   if (value === null || typeof value !== "object") return value;
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, everyList(item)]));
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, everyList(item)]),
+  );
 }
 
 function withoutCursors(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(withoutCursors);
   if (value === null || typeof value !== "object") return value;
-  const result = Object.fromEntries(Object.entries(value).map(([key, item]) => [key, withoutCursors(item)]));
-  return "hasNextPage" in result ? { ...result, hasNextPage: true, endCursor: null } : result;
+  const result = Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, withoutCursors(item)]),
+  );
+  return "hasNextPage" in result
+    ? { ...result, hasNextPage: true, endCursor: null }
+    : result;
 }
 
 // Every GraphQL `pageInfo` in a response, with its `hasNextPage` changed; a
 // change to `undefined` drops it.
 function everyPageFlag(value: unknown, change: () => unknown): unknown {
-  if (Array.isArray(value)) return value.map((item) => everyPageFlag(item, change));
+  if (Array.isArray(value))
+    return value.map((item) => everyPageFlag(item, change));
   if (value === null || typeof value !== "object") return value;
-  const result = Object.fromEntries(Object.entries(value).map(([key, item]) => [key, everyPageFlag(item, change)]));
+  const result = Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      everyPageFlag(item, change),
+    ]),
+  );
   if (!("hasNextPage" in result)) return result;
   const { hasNextPage: _, ...rest } = result;
   const flag = change();
@@ -96,30 +140,56 @@ const nextPageUrl = "https://api.github.com/repositories/1/items?page=2";
 // no list of links.
 const malformations: Record<Malformation, Omit<Malformed, "status">> = {
   missingFields: { body: (json) => everyScalar(json, () => undefined) },
-  wrongTypes: { body: (json) => everyScalar(json, (scalar) => (typeof scalar === "string" ? 0 : "x")) },
+  wrongTypes: {
+    body: (json) =>
+      everyScalar(json, (scalar) => (typeof scalar === "string" ? 0 : "x")),
+  },
   brokenLists: { body: everyList },
-  pageWithoutCursor: { headers: { link: '; rel="next"' }, body: withoutCursors },
-  pageFlagMissing: { headers: { link: `<${nextPageUrl}>` }, body: (json) => everyPageFlag(json, () => undefined) },
-  pageFlagNull: { headers: { link: "null" }, body: (json) => everyPageFlag(json, () => null) },
-  pageFlagWrongType: { headers: { link: "true" }, body: (json) => everyPageFlag(json, () => "true") },
+  pageWithoutCursor: {
+    headers: { link: '; rel="next"' },
+    body: withoutCursors,
+  },
+  pageFlagMissing: {
+    headers: { link: `<${nextPageUrl}>` },
+    body: (json) => everyPageFlag(json, () => undefined),
+  },
+  pageFlagNull: {
+    headers: { link: "null" },
+    body: (json) => everyPageFlag(json, () => null),
+  },
+  pageFlagWrongType: {
+    headers: { link: "true" },
+    body: (json) => everyPageFlag(json, () => "true"),
+  },
 };
 
 /** Opens a connection the way `connect` does. */
-export type Opener = (remote: string, options: ConnectOptions) => ConnectionWithLabels;
+export type Opener = (
+  remote: string,
+  options: ConnectOptions,
+) => ConnectionWithLabels;
 
 /** A harness over the GitHub fake whose connections `open` makes, by default through `connect`. */
-export const harnessOver = (name: string, open: Opener = connect): AdapterHarness => ({
+export const harnessOver = (
+  name: string,
+  open: Opener = connect,
+): AdapterHarness => ({
   name,
   start: () => startGitHub(open).platform,
 });
 
 /** A contract platform over a fresh GitHub fake, with the fake itself for GitHub-specific tests. */
-export function startGitHub(open: Opener = connect): { platform: ContractPlatform; fake: GitHubFake } {
+export function startGitHub(open: Opener = connect): {
+  platform: ContractPlatform;
+  fake: GitHubFake;
+} {
   const fake = new GitHubFake(path);
   fake.tokens.set(token, viewer);
   fake.users.set(viewer.login, viewer);
   const key = (reference: SeedReference) =>
-    typeof reference === "number" ? `${path}#${reference}` : `${reference.repository}#${reference.number}`;
+    typeof reference === "number"
+      ? `${path}#${reference}`
+      : `${reference.repository}#${reference.number}`;
   const issue = (number: number) => {
     const found = fake.issues.get(`${path}#${number}`);
     if (!found) throw new Error(`No seeded issue ${number}`);
@@ -141,24 +211,47 @@ export function startGitHub(open: Opener = connect): { platform: ContractPlatfor
       finishedCheck: { status: "completed", conclusion: "success" },
     },
     connect({ anonymous = false, tokenFunction = false, ...options } = {}) {
-      const credential = anonymous ? {} : { credential: tokenFunction ? async () => token : token };
-      return open(`https://github.com/${path}.git`, { ...options, ...credential, fetch: fake.fetch });
+      const credential = anonymous
+        ? {}
+        : { credential: tokenFunction ? async () => token : token };
+      return open(`https://github.com/${path}.git`, {
+        ...options,
+        ...credential,
+        fetch: fake.fetch,
+      });
     },
     serveTransportPages(pages) {
-      fake.transportPages.splice(0, fake.transportPages.length, ...pages.map((page) => {
-        const next = page.next;
-        const link = next === undefined ? {} : {
-          link: next === "unreadable" ? "not a Link header" :
-            `<${next === "foreign" ? "https://elsewhere.example/items" : `https://api.github.com/contract-pages?page=${next}`}>; rel="next"`,
-        };
-        return { status: page.status, data: page.data, headers: { ...page.headers, ...link } };
-      }));
+      fake.transportPages.splice(
+        0,
+        fake.transportPages.length,
+        ...pages.map((page) => {
+          const next = page.next;
+          const link =
+            next === undefined
+              ? {}
+              : {
+                  link:
+                    next === "unreadable"
+                      ? "not a Link header"
+                      : `<${next === "foreign" ? "https://elsewhere.example/items" : `https://api.github.com/contract-pages?page=${next}`}>; rel="next"`,
+                };
+          return {
+            status: page.status,
+            data: page.data,
+            headers: { ...page.headers, ...link },
+          };
+        }),
+      );
       return "/contract-pages?page=0";
     },
     pageSize(size) {
       fake.maxPageSize = size;
     },
-    issueEvent: (seed, variation) => githubIssueEvent({ ...seed, repository: seed.repository ?? path }, variation),
+    issueEvent: (seed, variation) =>
+      githubIssueEvent(
+        { ...seed, repository: seed.repository ?? path },
+        variation,
+      ),
     addIssue(seed = {}) {
       const repository = seed.repository ?? path;
       const number = fake.nextNumber(repository);
@@ -191,7 +284,9 @@ export function startGitHub(open: Opener = connect): { platform: ContractPlatfor
       return Object.entries(sections)
         .map(([name, references]) => {
           const links = references.map((reference) =>
-            typeof reference === "number" ? `#${reference}` : `${reference.repository}#${reference.number}`,
+            typeof reference === "number"
+              ? `#${reference}`
+              : `${reference.repository}#${reference.number}`,
           );
           return `## ${name}\n\n${links.map((link) => `- ${link}`).join("\n")}`;
         })
@@ -208,10 +303,21 @@ export function startGitHub(open: Opener = connect): { platform: ContractPlatfor
         label: { name: change.label, color: "ededed" },
         created_at: change.time,
       });
-      issue(number).events.push({ id: fake.nextId(), event: "mentioned", actor: null, created_at: change.time });
+      issue(number).events.push({
+        id: fake.nextId(),
+        event: "mentioned",
+        actor: null,
+        created_at: change.time,
+      });
     },
     addComment(number, comment) {
-      fake.addComment(`${path}#${number}`, fakeUser(comment.author)!, comment.body, comment.createdAt, comment.updatedAt);
+      fake.addComment(
+        `${path}#${number}`,
+        fakeUser(comment.author)!,
+        comment.body,
+        comment.createdAt,
+        comment.updatedAt,
+      );
     },
     defineLabel(label) {
       const labels = fake.labels.get(path) ?? new Map();
@@ -226,7 +332,12 @@ export function startGitHub(open: Opener = connect): { platform: ContractPlatfor
         number,
         databaseId,
         nodeId: `PR_${databaseId}`,
-        state: seed.state === "merged" ? "MERGED" : seed.state === "closed" ? "CLOSED" : "OPEN",
+        state:
+          seed.state === "merged"
+            ? "MERGED"
+            : seed.state === "closed"
+              ? "CLOSED"
+              : "OPEN",
         title: seed.title ?? `Pull request ${number}`,
         body: seed.body ?? "",
         author: fakeUser(seed.author ?? { login: "mona", bot: false }),
@@ -270,7 +381,10 @@ export function startGitHub(open: Opener = connect): { platform: ContractPlatfor
             {
               author:
                 author.type === "Bot"
-                  ? { __typename: "Bot", login: author.login.replace(/\[bot\]$/, "") }
+                  ? {
+                      __typename: "Bot",
+                      login: author.login.replace(/\[bot\]$/, ""),
+                    }
                   : { __typename: "User", login: author.login },
             },
           ],
@@ -311,17 +425,32 @@ export function startGitHub(open: Opener = connect): { platform: ContractPlatfor
     },
     setRole(login, role) {
       fake.users.set(login, { login, type: "User" });
-      fake.collaborators.set(login, role === null ? { permission: "none", role_name: "none" } : { permission: "write", role_name: role });
+      fake.collaborators.set(
+        login,
+        role === null
+          ? { permission: "none", role_name: "none" }
+          : { permission: "write", role_name: role },
+      );
     },
     issueLabels: (number) => [...issue(number).labels],
-    issueState: (number) => (issue(number).state === "OPEN" ? "open" : "closed"),
+    issueState: (number) =>
+      issue(number).state === "OPEN" ? "open" : "closed",
     commentBodies: (number) =>
-      [...fake.comments.values()].filter((comment) => comment.key === `${path}#${number}`).map((comment) => String(comment.body)),
+      [...fake.comments.values()]
+        .filter((comment) => comment.key === `${path}#${number}`)
+        .map((comment) => String(comment.body)),
     label(name) {
       const found = fake.labels.get(path)?.get(name);
-      return found ? { name: String(found.name), color: String(found.color), description: String(found.description) } : undefined;
+      return found
+        ? {
+            name: String(found.name),
+            color: String(found.color),
+            description: String(found.description),
+          }
+        : undefined;
     },
-    pullRequestState: (number) => pull(number).state.toLowerCase() as "open" | "closed" | "merged",
+    pullRequestState: (number) =>
+      pull(number).state.toLowerCase() as "open" | "closed" | "merged",
     mergeOf(number) {
       const merge = pull(number).merge;
       return merge ? { title: merge.title, body: merge.message } : null;

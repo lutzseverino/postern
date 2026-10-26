@@ -12,7 +12,8 @@ import { harnessOver } from "./harness.ts";
 
 const withoutBotMarking: PlatformAdapter = (context) => {
   const ports = githubAdapter(context);
-  const { botMarking: _botMarking, ...capabilities } = ports.issueTracker.capabilities;
+  const { botMarking: _botMarking, ...capabilities } =
+    ports.issueTracker.capabilities;
   return { ...ports, issueTracker: { ...ports.issueTracker, capabilities } };
 };
 

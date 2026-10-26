@@ -3,7 +3,13 @@
 // Values the platform names itself, such as roles and review states, come
 // from the harness's `words`.
 
-import type { Account, ConnectOptions, ConnectionWithLabels, Label, PlatformErrorReason } from "../../src/index.ts";
+import type {
+  Account,
+  ConnectOptions,
+  ConnectionWithLabels,
+  Label,
+  PlatformErrorReason,
+} from "../../src/index.ts";
 
 /** An issue in another repository on the same platform, or a number in the connected one. */
 export type SeedReference = number | { repository: string; number: number };
@@ -77,8 +83,16 @@ export interface TransportPage {
 
 /** Event facts the harness encodes in its platform's webhook shape. */
 export interface IssueEventSeed {
-  kind: "opened" | "reopened" | "closed" | "edited" | "labeled" | "unlabeled"
-    | "commentCreated" | "commentEdited" | "commentDeleted";
+  kind:
+    | "opened"
+    | "reopened"
+    | "closed"
+    | "edited"
+    | "labeled"
+    | "unlabeled"
+    | "commentCreated"
+    | "commentEdited"
+    | "commentDeleted";
   issue: number;
   actor: Account;
   repository?: string;
@@ -89,7 +103,8 @@ export interface IssueEventSeed {
   comment?: { id: number; nodeId?: string; body: string };
 }
 
-export type IssueEventVariation = "pullRequest" | "unsupportedAction" | "unsupportedEvent" | "malformed";
+export type IssueEventVariation =
+  "pullRequest" | "unsupportedAction" | "unsupportedEvent" | "malformed";
 
 export interface ContractPlatform {
   /** The connected repository's Git remote URL. */
@@ -113,25 +128,80 @@ export interface ContractPlatform {
    * Opens a connection to the fake, authenticated with `token` unless
    * anonymous, passed as a function returning it with `tokenFunction`.
    */
-  connect(options?: Omit<ConnectOptions, "fetch" | "credential"> & { anonymous?: boolean; tokenFunction?: boolean }): ConnectionWithLabels;
+  connect(
+    options?: Omit<ConnectOptions, "fetch" | "credential"> & {
+      anonymous?: boolean;
+      tokenFunction?: boolean;
+    },
+  ): ConnectionWithLabels;
   /** Makes the fake serve at most this many items per page. */
   pageSize(size: number): void;
   /** Serves these authenticated transport pages and returns the first page's request path. */
   serveTransportPages(pages: TransportPage[]): string;
 
   /** A platform event with these facts; independent of the fake's current state. */
-  issueEvent(seed: IssueEventSeed, variation?: IssueEventVariation): { name: string; payload: unknown };
+  issueEvent(
+    seed: IssueEventSeed,
+    variation?: IssueEventVariation,
+  ): { name: string; payload: unknown };
   addIssue(seed?: IssueSeed): number;
   /** An issue body holding these named sections, each referencing issues in the platform's syntax. */
   sectionBody(sections: Record<string, SeedReference[]>): string;
-  addLabelChange(issue: number, change: { action: "added" | "removed"; label: string; actor: Account; time: string }): void;
-  addComment(issue: number, comment: { author: Account; body: string; createdAt: string; updatedAt?: string }): void;
+  addLabelChange(
+    issue: number,
+    change: {
+      action: "added" | "removed";
+      label: string;
+      actor: Account;
+      time: string;
+    },
+  ): void;
+  addComment(
+    issue: number,
+    comment: {
+      author: Account;
+      body: string;
+      createdAt: string;
+      updatedAt?: string;
+    },
+  ): void;
   defineLabel(label: Label): void;
   addPullRequest(seed: PullRequestSeed): number;
-  addReview(pullRequest: number, review: { author: Account; state: string; commit: string; submittedAt: string; body?: string }): void;
-  addReviewThread(pullRequest: number, thread: { resolved: boolean; outdated: boolean; path: string; author: Account }): void;
-  addCheck(commit: string, check: { name: string; status: string; conclusion: string | null; completedAt: string | null }): void;
-  addRelease(release: { tag: string; name: string; draft: boolean; prerelease: boolean; publishedAt: string | null }): void;
+  addReview(
+    pullRequest: number,
+    review: {
+      author: Account;
+      state: string;
+      commit: string;
+      submittedAt: string;
+      body?: string;
+    },
+  ): void;
+  addReviewThread(
+    pullRequest: number,
+    thread: {
+      resolved: boolean;
+      outdated: boolean;
+      path: string;
+      author: Account;
+    },
+  ): void;
+  addCheck(
+    commit: string,
+    check: {
+      name: string;
+      status: string;
+      conclusion: string | null;
+      completedAt: string | null;
+    },
+  ): void;
+  addRelease(release: {
+    tag: string;
+    name: string;
+    draft: boolean;
+    prerelease: boolean;
+    publishedAt: string | null;
+  }): void;
   addTag(name: string, commit: string, options?: { annotated?: boolean }): void;
   /** Gives an account the role, or no role at all. */
   setRole(login: string, role: string | null): void;

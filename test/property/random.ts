@@ -14,7 +14,9 @@ function readSeed(value: string | undefined): number {
   if (value === "random") return Math.floor(Math.random() * 2 ** 32);
   const number = Number(value);
   if (!Number.isInteger(number) || number < 0 || number >= 2 ** 32) {
-    throw new Error("POSTERN_PROPERTY_SEED is an integer from 0 to 4294967295, or random.");
+    throw new Error(
+      "POSTERN_PROPERTY_SEED is an integer from 0 to 4294967295, or random.",
+    );
   }
   return number;
 }
@@ -22,7 +24,8 @@ function readSeed(value: string | undefined): number {
 function readRuns(value: string | undefined): number {
   if (value === undefined || value === "") return defaultRuns;
   const number = Number(value);
-  if (!Number.isInteger(number) || number < 1) throw new Error("POSTERN_PROPERTY_RUNS is a positive integer.");
+  if (!Number.isInteger(number) || number < 1)
+    throw new Error("POSTERN_PROPERTY_RUNS is a positive integer.");
   return number;
 }
 
@@ -59,14 +62,17 @@ export class Random {
 
   /** A string of up to `longest` pieces from `alphabet`. */
   text(alphabet: readonly string[], longest: number): string {
-    return Array.from({ length: this.below(longest + 1) }, () => this.pick(alphabet)).join("");
+    return Array.from({ length: this.below(longest + 1) }, () =>
+      this.pick(alphabet),
+    ).join("");
   }
 }
 
 /** The random source of one case of one property, independent of every other case. */
 export function caseRandom(property: string, index: number): Random {
   let hash = seed ^ 0x811c9dc5;
-  for (const character of `${property}#${index}`) hash = Math.imul(hash ^ character.charCodeAt(0), 0x01000193);
+  for (const character of `${property}#${index}`)
+    hash = Math.imul(hash ^ character.charCodeAt(0), 0x01000193);
   return new Random(hash);
 }
 

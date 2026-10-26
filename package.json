@@ -36,11 +36,17 @@
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/**/*.test.ts\"",
-    "validate": "npm run typecheck && npm run build && npm test"
+    "validate": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm build && pnpm test",
+    "lint": "oxlint --deny-warnings",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@types/node": "24.19.2",
     "esbuild": "0.28.2",
+    "oxlint": "1.89.0",
+    "prettier": "3.9.10",
     "typescript": "7.0.2"
-  }
+  },
+  "packageManager": "pnpm@11.28.8"
 }

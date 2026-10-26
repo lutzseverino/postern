@@ -11,14 +11,35 @@ const secretsOf = (...values: string[]) => {
 
 describe("redaction", () => {
   it("redacts objects without a prototype", () => {
-    const value = Object.assign(Object.create(null) as Record<string, unknown>, { note: "uses t0ken", list: ["t0ken"] });
-    assert.deepEqual({ ...secretsOf("t0ken").redact(value) }, { note: "uses <REDACTED>", list: ["<REDACTED>"] });
+    const value = Object.assign(
+      Object.create(null) as Record<string, unknown>,
+      { note: "uses t0ken", list: ["t0ken"] },
+    );
+    assert.deepEqual(
+      { ...secretsOf("t0ken").redact(value) },
+      { note: "uses <REDACTED>", list: ["<REDACTED>"] },
+    );
   });
 
   for (const [name, values, text, expected] of [
-    ["a credential that extends an earlier one", ["abc", "abcdef"], "token abcdef", "token <REDACTED>"],
-    ["a credential contained in a later one", ["abcdef", "abc"], "abc then abcdef", "<REDACTED> then <REDACTED>"],
-    ["credentials that overlap", ["abcdef", "defghi"], "xabcdefghix", "x<REDACTED>x"],
+    [
+      "a credential that extends an earlier one",
+      ["abc", "abcdef"],
+      "token abcdef",
+      "token <REDACTED>",
+    ],
+    [
+      "a credential contained in a later one",
+      ["abcdef", "abc"],
+      "abc then abcdef",
+      "<REDACTED> then <REDACTED>",
+    ],
+    [
+      "credentials that overlap",
+      ["abcdef", "defghi"],
+      "xabcdefghix",
+      "x<REDACTED>x",
+    ],
     ["a credential that overlaps itself", ["aa"], "aaa", "<REDACTED>"],
     ["adjacent credentials", ["abc", "def"], "abcdef", "<REDACTED><REDACTED>"],
   ] as const) {

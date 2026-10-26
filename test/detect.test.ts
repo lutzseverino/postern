@@ -38,17 +38,23 @@ describe("detectPlatform", () => {
     it(`fails with unsupported for ${JSON.stringify(remote)}`, () => {
       assert.throws(
         () => detectPlatform(remote),
-        (error) => error instanceof PlatformError && error.reason === "unsupported",
+        (error) =>
+          error instanceof PlatformError && error.reason === "unsupported",
       );
     });
   }
 
   it("keeps credentials in a remote out of its error", () => {
     assert.throws(
-      () => detectPlatform("https://x-access-token:s3cr3t-value@gitlab.com/a/b.git"),
+      () =>
+        detectPlatform(
+          "https://x-access-token:s3cr3t-value@gitlab.com/a/b.git",
+        ),
       (error) =>
         error instanceof PlatformError &&
-        !JSON.stringify({ ...error, message: error.message }).includes("s3cr3t-value"),
+        !JSON.stringify({ ...error, message: error.message }).includes(
+          "s3cr3t-value",
+        ),
     );
   });
 });

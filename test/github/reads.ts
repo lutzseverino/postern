@@ -4,7 +4,10 @@
 import type { ConnectionWithLabels } from "../../src/index.ts";
 import type { ContractPlatform } from "../contract/harness.ts";
 
-export type Read = (platform: ContractPlatform, connection: ConnectionWithLabels) => () => Promise<unknown>;
+export type Read = (
+  platform: ContractPlatform,
+  connection: ConnectionWithLabels,
+) => () => Promise<unknown>;
 
 export const head = "a".repeat(40);
 export const mona = { login: "mona", bot: false };
@@ -12,7 +15,12 @@ export const mona = { login: "mona", bot: false };
 export const reads = {
   issue: (platform, { issueTracker }) => {
     const parent = platform.addIssue();
-    const number = platform.addIssue({ parent, labels: ["bug"], blockedBy: [parent], bodyEditTime: "2026-01-04T00:00:00Z" });
+    const number = platform.addIssue({
+      parent,
+      labels: ["bug"],
+      blockedBy: [parent],
+      bodyEditTime: "2026-01-04T00:00:00Z",
+    });
     platform.addIssue({ parent: number });
     return () => issueTracker.issue(number);
   },
@@ -23,12 +31,21 @@ export const reads = {
   },
   labelChanges: (platform, { issueTracker }) => {
     const number = platform.addIssue();
-    platform.addLabelChange(number, { action: "added", label: "bug", actor: mona, time: "2026-01-02T00:00:00Z" });
+    platform.addLabelChange(number, {
+      action: "added",
+      label: "bug",
+      actor: mona,
+      time: "2026-01-02T00:00:00Z",
+    });
     return () => issueTracker.labelChanges(number);
   },
   comments: (platform, { issueTracker }) => {
     const number = platform.addIssue();
-    platform.addComment(number, { author: mona, body: "hi", createdAt: "2026-01-02T00:00:00Z" });
+    platform.addComment(number, {
+      author: mona,
+      body: "hi",
+      createdAt: "2026-01-02T00:00:00Z",
+    });
     return () => issueTracker.comments(number);
   },
   createComment: (platform, { issueTracker }) => {
@@ -40,7 +57,10 @@ export const reads = {
     return () => issueTracker.closeIssue(number);
   },
   pullRequest: (platform, { pullRequests }) => {
-    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
+    const number = platform.addPullRequest({
+      headBranch: "feature",
+      headCommit: head,
+    });
     return () => pullRequests.pullRequest(number);
   },
   byHeadBranch: (platform, { pullRequests }) => {
@@ -49,33 +69,76 @@ export const reads = {
   },
   closing: (platform, { pullRequests }) => {
     const issue = platform.addIssue();
-    platform.addPullRequest({ headBranch: "feature", headCommit: head, closes: [issue] });
+    platform.addPullRequest({
+      headBranch: "feature",
+      headCommit: head,
+      closes: [issue],
+    });
     return () => pullRequests.closing(issue);
   },
   reviews: (platform, { pullRequests }) => {
-    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-    platform.addReview(number, { author: mona, state: "APPROVED", commit: head, submittedAt: "2026-01-02T00:00:00Z" });
+    const number = platform.addPullRequest({
+      headBranch: "feature",
+      headCommit: head,
+    });
+    platform.addReview(number, {
+      author: mona,
+      state: "APPROVED",
+      commit: head,
+      submittedAt: "2026-01-02T00:00:00Z",
+    });
     return () => pullRequests.reviews(number);
   },
   reviewThreads: (platform, { pullRequests }) => {
-    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-    platform.addReviewThread(number, { resolved: false, outdated: false, path: "a.ts", author: mona });
+    const number = platform.addPullRequest({
+      headBranch: "feature",
+      headCommit: head,
+    });
+    platform.addReviewThread(number, {
+      resolved: false,
+      outdated: false,
+      path: "a.ts",
+      author: mona,
+    });
     return () => pullRequests.reviewThreads(number);
   },
   checks: (platform, { pullRequests }) => {
-    platform.addCheck(head, { name: "Test", status: "completed", conclusion: "success", completedAt: "2026-01-02T00:00:00Z" });
+    platform.addCheck(head, {
+      name: "Test",
+      status: "completed",
+      conclusion: "success",
+      completedAt: "2026-01-02T00:00:00Z",
+    });
     return () => pullRequests.checks(head);
   },
   mergesThroughQueue: (platform, { pullRequests }) => {
-    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head, mergeQueue: true });
+    const number = platform.addPullRequest({
+      headBranch: "feature",
+      headCommit: head,
+      mergeQueue: true,
+    });
     return () => pullRequests.mergesThroughQueue(number);
   },
   squashMerge: (platform, { pullRequests }) => {
-    const number = platform.addPullRequest({ headBranch: "feature", headCommit: head });
-    return () => pullRequests.squashMerge(number, { expectedHead: head, title: "t", body: "b" });
+    const number = platform.addPullRequest({
+      headBranch: "feature",
+      headCommit: head,
+    });
+    return () =>
+      pullRequests.squashMerge(number, {
+        expectedHead: head,
+        title: "t",
+        body: "b",
+      });
   },
   releases: (platform, { releaseSource }) => {
-    platform.addRelease({ tag: "v1.0.0", name: "1.0.0", draft: false, prerelease: false, publishedAt: "2026-01-02T00:00:00Z" });
+    platform.addRelease({
+      tag: "v1.0.0",
+      name: "1.0.0",
+      draft: false,
+      prerelease: false,
+      publishedAt: "2026-01-02T00:00:00Z",
+    });
     return () => releaseSource.releases();
   },
   tagCommit: (platform, { releaseSource }) => {
@@ -90,14 +153,29 @@ export const reads = {
     platform.setRole("mona", "maintain");
     return () => access.role("mona");
   },
-  viewer: (_platform, { access }) => () => access.viewer(),
-  createLabel: (_platform, { issueTracker }) => () => issueTracker.createLabel({ name: "bug", color: "ededed", description: "" }),
+  viewer:
+    (_platform, { access }) =>
+    () =>
+      access.viewer(),
+  createLabel:
+    (_platform, { issueTracker }) =>
+    () =>
+      issueTracker.createLabel({
+        name: "bug",
+        color: "ededed",
+        description: "",
+      }),
   labels: (platform, { issueTracker }) => {
     platform.defineLabel({ name: "bug", color: "ededed", description: "" });
     return () => issueTracker.labels();
   },
   updateLabel: (platform, { issueTracker }) => {
     platform.defineLabel({ name: "bug", color: "ededed", description: "" });
-    return () => issueTracker.updateLabel("bug", { name: "triaged", color: "abcdef", description: "Updated" });
+    return () =>
+      issueTracker.updateLabel("bug", {
+        name: "triaged",
+        color: "abcdef",
+        description: "Updated",
+      });
   },
 } satisfies Record<string, Read>;

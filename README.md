@@ -60,12 +60,12 @@ try {
 
 A connection exposes `issueTracker`, `pullRequests`, `releaseSource` and `access`. Each reports `capabilities`, its capability flags: an absent flag means the platform does not offer that feature. An operation that needs an absent flag fails with `unsupported`, and a field that needs one is `null`.
 
-| Port            | Flags                                                                 |
-| --------------- | --------------------------------------------------------------------- |
+| Port            | Flags                                                                      |
+| --------------- | -------------------------------------------------------------------------- |
 | `issueTracker`  | `nativeParent`, `nativeBlockers`, `bodyEditTime`, `linkTime`, `botMarking` |
-| `pullRequests`  | `closingReferences`, `reviewCommits`                                  |
-| `releaseSource` | `drafts`, `prereleases`                                               |
-| `access`        | none                                                                  |
+| `pullRequests`  | `closingReferences`, `reviewCommits`                                       |
+| `releaseSource` | `drafts`, `prereleases`                                                    |
+| `access`        | none                                                                       |
 
 The GitHub adapter offers every flag. Roles, review states and check results use the platform's own words.
 

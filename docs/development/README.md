@@ -4,29 +4,34 @@ This guide describes how to set up and validate changes to Postern.
 
 ## Setup and validation
 
-Use stable Node.js 24 or 26 with its bundled npm, Git 2.18.0 or newer, and
+Use stable Node.js 24 or 26 with pnpm 11.28.8, Git 2.18.0 or newer, and
 GitHub CLI 2.57.0 or newer for authenticated GitHub operations. Clone the
 repository and work on a branch. In a fresh checkout, install the development
-dependencies and the pinned standards runtime:
+dependencies and the pinned support runtime:
 
 ```sh
-npm ci --ignore-scripts
+pnpm install --frozen-lockfile
 npm ci --prefix .repo-standards/runtime
 ```
 
-Before requesting review, type-check, build and test the package, run the
-installed standards checks, and check the whole change for whitespace errors:
+Before requesting review, validate the package, run the
+installed support checks, and check the whole change for whitespace errors:
 
 ```sh
-npm run validate
+pnpm validate
 .repo-standards/runtime/node_modules/.bin/repo-standards check
 git diff --check origin/main...HEAD
 ```
 
-`npm run validate` runs `npm run typecheck`, `npm run build` and `npm test`.
+`pnpm validate` runs the typecheck (TypeScript 7), lint (oxlint 1), format
+check (Prettier 3), build and tests (`node --test`), in that order. Run
+`pnpm format` to apply formatting and `pnpm lint` to check code. The lint and
+format configurations exclude generated, vendored and installed support files.
+The `pnpm-workspace.yaml` setting disables esbuild's install script; its
+optional platform package supplies the build executable.
 The tests run the TypeScript sources directly through Node.js type stripping,
 so the sources use only erasable TypeScript syntax. The package tests need the
-build, so run `npm run build` before running `npm test` alone. No test reaches
+build, so run `pnpm build` before running `pnpm test` alone. No test reaches
 the network: each adapter is tested against a local fake of its platform API.
 CI runs the same validation on Node.js 24 and 26 and reports it as the `Test`
 check.

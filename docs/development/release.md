@@ -7,14 +7,14 @@ ruleset lets only the owner create, move or delete `v*` tags, and the
 
 ## Start here
 
-| State                                                     | Next action                                                                                     |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| A `Release` run is queued or running                      | Wait for it to finish before inspecting or retrying anything.                                   |
-| The `npm` environment does not exist yet                  | Ask the orchestrator to create it, as in **The `npm` environment** below.                       |
-| No version is published yet                               | Follow **First publication** below.                                                             |
-| New version, no publication attempted                     | Follow **Publish** below.                                                                       |
-| A publication attempt failed or its outcome is uncertain  | Follow **Recover a publication** below before dispatching another publishing run.               |
-| npm and the GitHub release exist; public checks failed    | Dispatch `Release` with `verify_published: true`, as in **Retry the public checks** below.      |
+| State                                                    | Next action                                                                                |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| A `Release` run is queued or running                     | Wait for it to finish before inspecting or retrying anything.                              |
+| The `npm` environment does not exist yet                 | Ask the orchestrator to create it, as in **The `npm` environment** below.                  |
+| No version is published yet                              | Follow **First publication** below.                                                        |
+| New version, no publication attempted                    | Follow **Publish** below.                                                                  |
+| A publication attempt failed or its outcome is uncertain | Follow **Recover a publication** below before dispatching another publishing run.          |
+| npm and the GitHub release exist; public checks failed   | Dispatch `Release` with `verify_published: true`, as in **Retry the public checks** below. |
 
 ## The `npm` environment
 
@@ -95,8 +95,9 @@ in this order:
 The workflow refuses to publish unless it runs at `refs/tags/v<version>`,
 `package.json` records that version, and the notes are not empty. It then:
 
-- validates on Node.js 24 and 26 with `npm run validate`;
-- packs the tarball once, on Node.js 24, with its `SHA256SUMS`, and keeps the
+- validates on Node.js 24 and 26 with `pnpm validate`;
+- packs the tarball once with `pnpm pack`, on Node.js 24,
+  with its `SHA256SUMS`, and keeps the
   tarball and notes as the `release-bundle` and `release-notes` artifacts;
 - in the `npm` environment, after the owner approves the deployment, checks
   the hashes and publishes that exact tarball with provenance through
@@ -106,7 +107,7 @@ The workflow refuses to publish unless it runs at `refs/tags/v<version>`,
 - installs the version from the public registry on Node.js 24 and 26 with
   `scripts/public-smoke.mjs`, after waiting up to ten minutes for it to
   appear. The check verifies registry signatures with `npm audit
-  signatures`, and requires the version's provenance attestation, which
+signatures`, and requires the version's provenance attestation, which
   that command does not. It then reads this repository's releases and tag
   anonymously through the installed package, and runs its single file
   copied alone.
@@ -125,13 +126,13 @@ gh release view v<version> --repo lutzseverino/postern
 A missing artifact, an unavailable service or an authentication failure
 leaves the state unknown; it does not prove that publication is absent.
 
-| Established state                                               | Recovery action                                                                                                                                       |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Validation failed                                               | Nothing was published. Fix the cause on `main`; if the tag must move to a new commit, use a new version instead.                                      |
-| npm lacks the version; the run's `release-bundle` is intact     | Correct the trusted publisher, or for the first publication the `NPM_TOKEN` secret, then dispatch `Release` again at the same tag.                   |
-| npm has the version; its integrity matches the original tarball; the GitHub release is missing | Create the release from the original artifacts, as below.                                                    |
-| npm, the tag and the GitHub release all match                   | Run **Retry the public checks**.                                                                                                                      |
-| Anything differs or cannot be established                       | Stop and resolve the discrepancy, keeping the original artifacts and observations.                                                                    |
+| Established state                                                                              | Recovery action                                                                                                                    |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Validation failed                                                                              | Nothing was published. Fix the cause on `main`; if the tag must move to a new commit, use a new version instead.                   |
+| npm lacks the version; the run's `release-bundle` is intact                                    | Correct the trusted publisher, or for the first publication the `NPM_TOKEN` secret, then dispatch `Release` again at the same tag. |
+| npm has the version; its integrity matches the original tarball; the GitHub release is missing | Create the release from the original artifacts, as below.                                                                          |
+| npm, the tag and the GitHub release all match                                                  | Run **Retry the public checks**.                                                                                                   |
+| Anything differs or cannot be established                                                      | Stop and resolve the discrepancy, keeping the original artifacts and observations.                                                 |
 
 To compare integrity, download the original bundle and compare the npm
 `dist.integrity` with the tarball's:
