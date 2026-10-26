@@ -14,6 +14,23 @@ pnpm install --frozen-lockfile
 npm ci --prefix .repo-standards/runtime
 ```
 
+Local development uses pnpm's platform defaults for its content store. If
+`pnpm store path` resolves inside the checkout, select a writable directory
+outside it for the current shell before installing, for example:
+
+```sh
+export pnpm_config_store_dir="$HOME/.local/share/pnpm/store"
+pnpm store path
+pnpm install --frozen-lockfile
+```
+
+pnpm 11 reads `pnpm_config_store_dir`; it ignores `npm_config_store_dir` and
+non-authentication settings in `.npmrc`. The factory toolchain image sets this
+variable to `/home/agent/.local/share/pnpm/store` for the runtime agent user.
+When the checkout and store are on separate filesystems, pnpm copies packages
+instead of hard-linking them. Existing root `.pnpm-store/` directories are
+ignored by Git and can stay in place; no cache deletion or migration is needed.
+
 Before requesting review, validate the package, run the
 installed support checks, and check the whole change for whitespace errors:
 
