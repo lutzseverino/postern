@@ -58,6 +58,29 @@ function attribute(node, name) {
   );
 }
 
+function isCentered(node, { paragraphContent = false } = {}) {
+  // Image and picture alignment does not horizontally center their content.
+  if (
+    node.tagName !== "img" &&
+    node.tagName !== "picture" &&
+    attribute(node, "align")?.toLocaleLowerCase("en-US") === "center"
+  )
+    return true;
+  for (
+    let ancestor = node.parentNode;
+    ancestor;
+    ancestor = ancestor.parentNode
+  ) {
+    if (
+      (ancestor.tagName === "div" ||
+        (paragraphContent && ancestor.tagName === "p")) &&
+      attribute(ancestor, "align")?.toLocaleLowerCase("en-US") === "center"
+    )
+      return true;
+  }
+  return false;
+}
+
 function visibility(additionalNonRenderedElements) {
   const nonRenderedElements = new Set([
     ...defaultNonRenderedElements,
@@ -134,22 +157,42 @@ function semanticElements(
   spans = null,
 ) {
   const elements = [];
+  const appendHeadingTargets = (children) => {
+    for (const child of children) {
+      if (child.type === "link" || child.type === "image") {
+        child.insideHeading = true;
+        elements.push(child);
+      }
+      if (child.type === "link") appendHeadingTargets(child.elements);
+    }
+  };
   const visitTargets = (node) => {
     if (isHidden(node)) return;
     if (node.tagName === "a") {
-      elements.push({
+      const link = {
         type: "link",
         text: renderedText(node, isHidden).trim(),
         target: attribute(node, "href") ?? "",
         containsMedia: containsMedia(node, isHidden),
         insideHeading: true,
-      });
+        elements: semanticElements(
+          { childNodes: node.childNodes },
+          isHidden,
+          markdownHeadingMarker,
+        ),
+      };
+      elements.push(link);
+      // Keep heading targets in the flat sequence for existing consumers,
+      // sharing their identity with the link's rendered children.
+      appendHeadingTargets(link.elements);
+      return;
     } else if (node.tagName === "img") {
       elements.push({
         type: "image",
         text: attribute(node, "alt") ?? "",
         target: attribute(node, "src") ?? "",
         insideHeading: true,
+        centered: isCentered(node, { paragraphContent: true }),
       });
       return;
     }
@@ -196,6 +239,11 @@ function semanticElements(
         text: renderedText(node, isHidden).trim(),
         target: attribute(node, "href"),
         containsMedia: containsMedia(node, isHidden),
+        elements: semanticElements(
+          { childNodes: node.childNodes },
+          isHidden,
+          markdownHeadingMarker,
+        ),
       };
       if (!containsHeading(node, isHidden)) {
         elements.push(link);
@@ -210,11 +258,26 @@ function semanticElements(
         type: "image",
         text: attribute(node, "alt") ?? "",
         target: attribute(node, "src") ?? "",
+        centered: isCentered(node, { paragraphContent: true }),
       });
       return;
     }
+    if (node.tagName === "picture") {
+      const picture = {
+        type: "content",
+        tag: "picture",
+        centered: isCentered(node, { paragraphContent: true }),
+      };
+      elements.push(picture);
+      const start = elements.length;
+      for (const child of node.childNodes ?? []) visit(child, centered);
+      // Keep the flat sequence for existing consumers, and expose the same
+      // child elements so callers can recognize one picture and its fallback.
+      picture.elements = elements.slice(start);
+      return;
+    }
     if (renderedElementsWithoutText.has(node.tagName))
-      elements.push({ type: "content" });
+      elements.push({ type: "content", tag: node.tagName });
     const insideCenter = centered || (node.tagName === "div" && ownCenter);
     for (const child of node.childNodes ?? []) visit(child, insideCenter);
   };
@@ -256,7 +319,12 @@ function sectionBlocks({ fragment, elements, spans, isHidden }, start, end) {
       return [
         {
           tag: child.tagName,
+          centered: isCentered(child),
           text: text(child).trim(),
+          elements: elements.slice(
+            Math.max(span[0], start),
+            Math.min(span[1], end),
+          ),
           links: elements
             .slice(Math.max(span[0], start), Math.min(span[1], end))
             .filter(

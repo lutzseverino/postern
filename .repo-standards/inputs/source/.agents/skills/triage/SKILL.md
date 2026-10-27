@@ -33,24 +33,25 @@ Two **category** roles:
 Five **state** roles:
 
 - `needs-triage`: maintainer needs to evaluate
-- `needs-info`: waiting on reporter for more information
+- `needs-info`: information is missing; you, the orchestrating agent, answer it or route it (see [Route questions](#route-questions))
 - `ready-for-agent`: fully specified, ready for an AFK agent
-- `ready-for-human`: needs human implementation
+- `ready-for-human`: needs the owner's own accounts or credentials, or a taste call the owner reserved for themselves
 - `wontfix`: will not be actioned
 
-For a PR, the same states read against the attached code: `ready-for-agent` means a brief is attached and an agent should take the next step on the diff; `ready-for-human` means it's ready for a human to merge.
+For a PR, the same states read against the attached code: `ready-for-agent` means a brief is attached and an agent should take the next step on the diff; `ready-for-human` keeps the owner-only meaning above. Work an agent can perform stays `ready-for-agent`, including work awaiting the owner's review. In repositories with installed factory rules, follow those rules for work the factory must not pick up.
 
 Every triaged issue should carry exactly one category role and one state role. If state roles conflict, flag it and ask the maintainer before doing anything else.
 
-These are canonical role names. The actual label strings are in the triage label configuration, `docs/agents/triage-labels.md`.
+These are canonical role names. The actual label strings are in the triage label configuration, `docs/agents/triage-labels.md`. For role meanings, follow the installed `github-repository-configuration` rules and the contribution guide; they take precedence over the configuration's upstream Meaning column.
 
-State transitions: an unlabeled issue normally goes to `needs-triage` first; from there it moves to `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`. `needs-info` returns to `needs-triage` once the reporter replies. The maintainer can override at any time; flag transitions that look unusual and ask before proceeding.
+State transitions: an unlabeled issue normally goes to `needs-triage` first; from there it moves to `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`. `needs-info` returns to `needs-triage` once the missing information arrives: your own answer, the reporter's reply, or the owner's decision. The maintainer can override at any time; flag transitions that look unusual and ask before proceeding.
 
 ## Who does what
 
-- **You, the orchestrating agent**: the session the maintainer invoked. You sort each request, start its research run, review what comes back as if a stranger wrote it, put intent questions to the owner, and accept a brief that holds.
-- **The research run**: a sub-agent you start for one request, with a fresh context. It gathers facts and verifies the claim, then writes the brief once no intent question is open. Leave readiness, labels, and the judgment of its brief to yourself.
-- **The owner**: holds the project's intent. Ask them intent questions, and leave readiness to them only when you cannot apply it; never ask them to finish a brief.
+- **You, the orchestrating agent**: the session the maintainer invoked. You sort each request, start its research run, receive every question first, answer the intent questions you can cite, send the rest to a grill with the owner, keep the decision inbox, review each brief as if a stranger wrote it, and accept a brief that holds. You never write a brief you accept. When the owner runs triage themselves, they are the orchestrating agent.
+- **The research run**: a sub-agent you start for one request, with a fresh context. It gathers facts and verifies the claim, then writes the brief once no intent question is open, unless a grill drafts it. Leave readiness, labels, and the judgment of its brief to yourself.
+- **The grill**: a grilling session with the owner, in its own session, for intent questions you cannot infer. It records the owner's decisions and drafts the briefs; it files no issue and applies no readiness.
+- **The owner**: holds the project's intent. Questions for the owner reach them only through your decision inbox, or in a grill they join. Leave readiness to them only when you cannot apply it; never ask them to finish a brief.
 
 If you cannot start a sub-agent, do the research yourself, post the brief, and stop: tell the owner, with a link, that the brief still needs a reviewer who did not write it.
 
@@ -69,7 +70,7 @@ Query the issue tracker and present three buckets, oldest first:
 
 1. **Unlabeled**: never triaged.
 2. **`needs-triage`**: evaluation in progress.
-3. **`needs-info` with reporter activity since the last triage notes**: needs re-evaluation.
+3. **`needs-info` with reporter activity or an owner decision since the last triage notes**: needs re-evaluation.
 
 When PRs are in scope, include external PRs in these buckets and tag each line `[PR]` or `[issue]`. Discovery surfaces only *external* PRs (the tracker config defines who counts as external), so a collaborator's in-flight PR is not triage work. This filter is discovery-only; an explicitly named PR is always triaged regardless of author.
 
@@ -82,13 +83,13 @@ Before any research, decide where the answer to the request's open questions liv
 - **Code-bound**: the expected result is clear, and the code, logs, or a reproduction can answer everything else. A bug whose report or documentation states what should happen is usually code-bound.
 - **Intent-bound**: the missing answer is the owner's intent, a policy, or a trade-off only they can choose: a new capability, a "should" question, a limit, a default, a timeout, a naming or scope call.
 
-The test: if the brief would have to carry an open question for the owner, a list of options for someone to pick from, or a value nobody chose (a fallback, a default, a limit), the request is intent-bound. That holds for a request labeled `bug` too: a bug whose fix needs a policy choice is intent-bound. Missing evidence or missing access never licenses inventing the policy; it is a `needs-info` question for the reporter or a question for the owner.
+The test: if the brief would have to carry an open question for the owner, a list of options for someone to pick from, or a value nobody chose (a fallback, a default, a limit), the request is intent-bound. That holds for a request labeled `bug` too: a bug whose fix needs a policy choice is intent-bound. Missing evidence or missing access never licenses inventing the policy; it is a `needs-info` question, routed as [Route questions](#route-questions) says.
 
-A request can move from code-bound to intent-bound when research turns up an intent question. It moves back only when the owner's answers settle every such question.
+A request can move from code-bound to intent-bound when research turns up an intent question. It moves back only when the owner's answers, or answers you infer under the [inference test](#intent-bound-path), settle every such question.
 
 ## Triage a specific issue or PR
 
-1. **Gather context.** Read the full issue or PR (body, comments, labels, author, dates; for a PR, the diff too). Parse prior triage notes and recorded owner decisions so you don't re-ask resolved questions. Read `.out-of-scope/*.md` and surface any that resembles this request (prior rejection). Read enough of the codebase, using the project's domain glossary and its ADRs, to sort the request.
+1. **Gather context.** Read the full issue or PR (body, comments, labels, author, dates; for a PR, the diff too). Parse prior triage notes and recorded owner decisions so you don't re-ask resolved questions. Read `.out-of-scope/*.md` and surface any that resembles this request (prior rejection). Read enough of the codebase, using the project's domain glossary and its ADRs, to sort the request. Pass any recorded owner-review reservation and its dated source to the brief's writer on either path.
 
 Every research run, on either path, does two checks first:
 
@@ -118,34 +119,65 @@ Every research run, on either path, does two checks first:
 
 1. **Fact-finding.** Start the research run with the issue link, its path, the two checks, and this task: gather the code facts the owner's decision needs (current behavior, constraints, prior decisions in the issue, ADRs, and glossary, and the options with what each would cost), and write no brief yet. Post its findings as a triage notes comment when the owner will read them on the issue.
 
-2. **Grill the owner.** Call the Skill tool twice, for "grilling" and "domain-modeling". Ask only what the facts cannot answer, in short rounds of numbered questions, each with your recommended answer and its reason. Skip every question a recorded owner decision already answers. When the owner is in the session, ask there; otherwise post the round as one issue comment under the contribution guide's owner-question rules and stop until they answer.
+2. **Infer what you can cite.** Answer an intent question yourself only when all three hold:
+   - **Cited**: you can cite the answer's source, with its date: the owner's approved goal for the work, a recorded owner decision, a recorded owner wish, or the owner's quoted words.
+   - **Reversible within the work**: no value or policy outlives it, and it adds no public name and no breaking change. Never infer a default, limit, timeout, or fallback that persists in the product.
+   - **Within the goal**: it changes neither the goal nor the scope.
 
-3. **Record the decisions.** After each round, record the owner's answers on the issue as triage notes, one line per decision with a link to where they gave it, so later triage reuses them. Update `GLOSSARY.md` and ADRs inline as decisions land.
+   Otherwise the question goes to the owner. Each inferred answer is stated as behavior in the brief and listed with its citation under **Inferred intent** in the triage notes. List every inferred answer in your next report to the owner, so they can veto it; a veto is an owner decision, and the brief is revised from it. When you infer every intent question, have the research run write the brief from the facts and your inferred answers, then go to step 6.
 
-4. **Brief.** Have the research run write the brief from the facts and the recorded decisions, each decision stated as behavior.
+3. **Grill the owner** on the questions you cannot infer, in a grilling session of its own. Give it the issue links, the facts, your inferred answers, the recorded owner decisions, and [AGENT-BRIEF.md](AGENT-BRIEF.md). The grill calls the Skill tool twice, for "grilling" and "domain-modeling", and asks only what the facts and your inferences cannot answer, in short rounds of numbered questions, each with a recommended answer and its reason. It skips every question a recorded owner decision already answers, records each owner decision with its date and where the owner gave it, updates `GLOSSARY.md` and ADRs inline as decisions land, and drafts the agent briefs in a proposed ticket split. It files no issue and applies no readiness. When the owner cannot join a grill now, put the request in your decision inbox with your recommendation.
 
-5. **Review** it as on the code-bound path, and also refuse a brief that carries owner intent in disguise: a choice left to the implementing agent, an option list, a fallback or default nobody decided, or an open question. Put those questions to the owner as the next round, and accept only once every one they must answer is answered. A question a recorded decision already settles goes back to the research run as a correction instead.
+4. **Decide the split.** Merge, split, or drop a draft, or set it aside for later work. When your split changes a draft substantially, have the grill rewrite that brief; never write or rewrite one yourself. Start a research run to write a brief only when it needs code facts the grill did not gather.
 
-6. **Accept** it, as below.
+5. **File** the issues with the grill's briefs: post each brief on its intake issue, or file a new issue for it. Each issue's triage notes record the owner decisions its brief relies on, pasted from the grill record, each with its date and where the owner gave it, so later triage reuses them.
+
+6. **Review** each brief as on the code-bound path, as a reviewer who did not write it, and also refuse a brief that carries owner intent in disguise: a choice left to the implementing agent, an option list, a fallback or default nobody decided, or an open question. Route each such question as [Route questions](#route-questions) says, and accept only once every one the owner must answer is answered. A question a recorded decision already settles goes back to the brief's writer as a correction instead.
+
+7. **Accept** each brief that holds, as below.
 
 ### Accept a brief that holds
 
 1. **Wait for the revision notice** the issue-contract workflow posts for the brief revision you reviewed. If the brief changed after your review, review the new revision. If no notice arrives, leave readiness to the owner and tell them the notice is missing.
-2. **Choose the model**, when the installed rules ask for a `model:` label: weigh the triage notes' suggestion against the work, and pick one label yourself.
-3. **Apply readiness** to that revision with the credentials you were given, together with the model label: `ready-for-agent`, or `ready-for-human` with a note on why it can't be delegated (judgment calls, external access, design decisions, manual testing).
-4. **Record blockers.** Add a native blocker for each issue whose work must land first.
-5. **Tell the owner** what you accepted, with links to each brief, the labels you applied, and the blockers you added.
+2. **Choose the readiness**:
+   - `ready-for-human` only when the work needs the owner's own accounts or credentials, or a taste call the owner reserved for themselves.
+   - `ready-for-agent` with `factory:skip` for agent work the factory must not pick up, by the tests in the installed factory rules, which also say who creates the label and who merges. Without those rules there is no skip label.
+   - `ready-for-agent` alone for any other work.
 
-When your credentials cannot apply readiness, stop at acceptance: tell the owner, with links, which revision holds, the model label you chose, and the blockers to record. When the installed rules say readiness from your account will not start the work, tell the owner a person must apply it.
+   When owner review before merge is the reason for bypassing factory pickup, verify that the brief explicitly designates it as contract behavior and its triage notes retain the dated decision source. Check this even when that reason first arises here, after the initial brief review. If the designation or its source is missing or unclear, return the brief to its writer with the recorded reservation and source; the writer corrects it. Independently review the corrected brief from the top, then return to step 1 for its new validator revision notice before applying readiness. Never write or rewrite the brief you accept.
+
+   For workflow-edit-only work without a separate owner-review designation, follow the ordinary applicable merge conditions in the installed rules; the skip marker alone supplies no designation.
+
+3. **Choose the model**, when the installed rules ask for a `model:` label: weigh the triage notes' suggestion against the work, and pick one label yourself.
+4. **Apply and confirm readiness** with the bundled command, using the `sha256:` revision from the notice you reviewed and the companion labels you chose:
+
+   ```sh
+   node <this skill's directory>/ready.mjs <issue> ready-for-agent <sha256:reviewed-revision> <model-label>
+   ```
+
+   For `ready-for-human`, name the account, credential, or reserved taste call the work needs in a note, and omit the model label when none is needed. Additional companion labels, such as `factory:skip`, follow the revision; `--repo owner/name` selects another repository. Run with Node.js 24 or 26 in the foreground, bounded by the caller's command timeout. The command uses the current `gh` credential through the vendored Postern bundle and needs no install step. Exit zero confirms the validator approved that revision by the acting account; a nonzero exit explains the refusal or rejection. Review a changed revision again before retrying. For a parent it waits for the latest child link and reapplies readiness when its timestamp is not newer than that link.
+5. **Record blockers.** Add a native blocker for each issue whose work must land first.
+6. **Tell the owner** what you accepted, with links to each brief, the labels you applied, the blockers you added, and every answer you inferred, so they can veto it.
+
+When your credentials cannot apply readiness, stop at acceptance: tell the owner, with links, which revision holds, the readiness, model and skip labels you chose, and the blockers to record. When the installed rules say readiness from your account will not start the work, tell the owner a person must apply it.
 
 ## Other outcomes
 
-- `needs-info`: post triage notes (template below).
+- `needs-info`: route the missing information as [Route questions](#route-questions) says; for a question to an outside reporter, post triage notes (template below).
 - For `wontfix`, close the issue, with the comment depending on *why*:
   - **Already implemented**: the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).
   - **Rejected (bug)**: give a polite explanation, then close.
   - **Rejected (enhancement)**: write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
 - `needs-triage`: apply the role. Optional comment if there's partial progress.
+
+## Route questions
+
+Every question reaches you first, whoever raises it: a research run, a grill, or an agent's issue comment, including one under `needs-info` or `factory:needs-input`.
+
+- **Answer what you can**: from code, logs, or a reproduction, or by inference under the [inference test](#intent-bound-path).
+- **Ask an outside reporter** what only they know, with the needs-info template below.
+- **Put an owner-only question in your decision inbox**, with your recommendation. The decision inbox is the one channel for questions to the owner.
+- **An agent's question to the owner**, posted as one issue comment under the contribution guide's owner-question rules: read it first. When the inference test lets you answer, answer on the issue, and remove `factory:needs-input` where the installed factory rules let the answerer remove it. Otherwise put it in your decision inbox.
 
 ## Quick state override
 

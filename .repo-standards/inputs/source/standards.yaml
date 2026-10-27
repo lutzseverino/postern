@@ -2,7 +2,7 @@ format: repo-standards/v2
 name: repo-canon
 description: Repository documentation, contribution, agent workflow, and GitHub validation standards
 requires:
-  repo-standards: ">=7.2.0"
+  repo-standards: ">=10.0.0"
 
 defaults:
   declarations:
@@ -76,6 +76,12 @@ defaults:
       target: .github/ISSUE_TEMPLATE/feature-request.yml
       exact: .github/ISSUE_TEMPLATE/feature-request.yml
 
+    git-attributes:
+      kind: file
+      target: .gitattributes
+      guidance: guidance/git-attributes.md
+      rules: rules/git-attributes.md
+
     github-repository-configuration:
       kind: repository
       guidance: guidance/github-repository-configuration.md
@@ -93,6 +99,17 @@ defaults:
             version-arguments: ["--version"]
             version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
           timeout-seconds: 30
+        - id: factory-review-policy
+          run:
+            executable: node
+            script: operations/check-factory-review-policy.mjs
+            resources:
+              - operations/lib/review-policy.mjs
+            arguments: []
+          prerequisite:
+            version-arguments: ["--version"]
+            version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          timeout-seconds: 30
       fixes:
         - id: canonical-labels
           run:
@@ -100,6 +117,9 @@ defaults:
             script: operations/setup-github-labels.mjs
             resources:
               - operations/lib/github-operation.mjs
+              - vendor/postern/postern.mjs
+              - vendor/postern/LICENSE
+              - vendor/postern/README.md
               - LICENSE
               - THIRD_PARTY_NOTICES.md
               - vendor/mattpocock-skills/LICENSE
@@ -119,6 +139,9 @@ defaults:
                 script: operations/probe-github-labels.mjs
                 resources:
                   - operations/lib/github-operation.mjs
+                  - vendor/postern/postern.mjs
+                  - vendor/postern/LICENSE
+                  - vendor/postern/README.md
                 arguments: []
               prerequisite:
                 version-arguments: ["--version"]
@@ -130,6 +153,9 @@ defaults:
             script: operations/setup-github-pr-integration.mjs
             resources:
               - operations/lib/github-operation.mjs
+              - vendor/postern/postern.mjs
+              - vendor/postern/LICENSE
+              - vendor/postern/README.md
             arguments: []
           prerequisite:
             version-arguments: ["--version"]
@@ -142,6 +168,9 @@ defaults:
                 script: operations/probe-github-pr-integration.mjs
                 resources:
                   - operations/lib/github-operation.mjs
+                  - vendor/postern/postern.mjs
+                  - vendor/postern/LICENSE
+                  - vendor/postern/README.md
                 arguments: []
               prerequisite:
                 version-arguments: ["--version"]
@@ -157,6 +186,31 @@ defaults:
       kind: file
       target: .github/ISSUE_TEMPLATE/implementation-ticket.yml
       exact: .github/ISSUE_TEMPLATE/implementation-ticket.yml
+
+    validator-command:
+      kind: file
+      target: scripts/validate.mjs
+      exact: scripts/validate.mjs
+
+    github-validator-trigger:
+      kind: file
+      target: .github/scripts/validate.mjs
+      exact: .github/scripts/validate.mjs
+
+    postern-bundle:
+      kind: file
+      target: vendor/postern/postern.mjs
+      exact: vendor/postern/postern.mjs
+
+    postern-license:
+      kind: file
+      target: vendor/postern/LICENSE
+      exact: vendor/postern/LICENSE
+
+    postern-provenance:
+      kind: file
+      target: vendor/postern/README.md
+      exact: vendor/postern/README.md
 
     issue-contract-validator:
       kind: file
@@ -227,6 +281,11 @@ defaults:
       kind: file
       target: .github/workflows/pr-metadata.yml
       exact: .github/workflows/pr-metadata.yml
+
+    standards-update-workflow:
+      kind: file
+      target: .github/workflows/standards-update.yml
+      exact: .github/workflows/standards-update.yml
 
     project-agent-guidance:
       kind: file
@@ -333,6 +392,11 @@ defaults:
       name: improve-codebase-architecture
       source: vendor/mattpocock-skills/skills/engineering/improve-codebase-architecture
 
+    skill-orchestrate:
+      kind: skill
+      name: orchestrate
+      source: .agents/skills/orchestrate
+
     skill-pr:
       kind: skill
       name: pr
@@ -387,6 +451,38 @@ defaults:
       kind: file
       target: docs/agents/triage-labels.md
       exact: vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/triage-labels.md
+
+    typescript-node-stack:
+      kind: repository
+      optional: true
+      guidance: guidance/typescript-node-stack.md
+      rules: rules/typescript-node-stack.md
+      discovery: discovery/typescript-node-stack.md
+      discovery-script:
+        run:
+          executable: node
+          script: discovery/draft-typescript-node-stack-scope.mjs
+          resources:
+            - operations/lib/typescript-node-stack.mjs
+            - operations/lib/local-markdown-links.mjs
+          arguments: []
+        prerequisite:
+          version-arguments: ["--version"]
+          version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+        timeout-seconds: 60
+      checks:
+        - id: typescript-node-stack-manifests
+          run:
+            executable: node
+            script: operations/check-typescript-node-stack.mjs
+            resources:
+              - operations/lib/typescript-node-stack.mjs
+              - operations/lib/local-markdown-links.mjs
+            arguments: []
+          prerequisite:
+            version-arguments: ["--version"]
+            version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          timeout-seconds: 30
 
 profiles:
   standard:

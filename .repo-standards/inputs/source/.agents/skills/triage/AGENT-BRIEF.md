@@ -38,13 +38,15 @@ State what is out of scope. This prevents the agent from gold-plating or making 
 
 ### Decisions, not options
 
-The implementing agent can't ask the owner anything, so a brief settles every question of intent before it is accepted. State each owner decision as behavior. A brief that needs one of these is not finished; its question goes to the owner:
+The implementing agent can't ask the owner anything, so a brief settles every question of intent before it is accepted. State each owner decision as behavior. A brief that needs one of these is not finished; its question goes to the orchestrating agent, which infers the answer under the inference test or takes it to the owner:
 
 - **Bad:** "Retry for a reasonable period (agent's choice)"
 - **Bad:** "Either drop the row or fail the export"
 - **Bad:** "Fall back to 60 minutes when no window is configured", when nobody chose 60 minutes
 - **Bad:** "Open question: should admins be exempt?"
 - **Good:** "Retry for 30 minutes after the first failure, then mark the Parcel failed", with the owner's decision linked from the triage notes
+
+When the owner has reserved review before merge, state that designation as contract behavior and retain its dated decision source in the triage notes for the worker's PR handoff. Use the recorded reservation, not a routing label, as its source. Follow applicable installed rules for routing and delivery.
 
 Implementation choices that don't change what users or operators see stay with the agent; leave them out.
 
@@ -54,7 +56,8 @@ The triage notes that accompany a brief follow it in the same comment, never bet
 
 - **Path**: code-bound or intent-bound, with a one-line reason.
 - **Verification**: what was checked and how (reproduction, code path, tests run), and where the redundancy search looked.
-- **Owner decisions**: on the intent-bound path, each decision with a link to where the owner gave it.
+- **Owner decisions**: each decision the brief relies on, including any owner-review reservation, with its date and a link to where the owner gave it; for a grill's brief, pasted from the grill record.
+- **Inferred intent**: each answer the orchestrating agent inferred under the inference test, which the brief states as behavior, with its citation: the owner's approved goal, recorded decision or wish, or quoted words, with its date and where it was given.
 - **Dependencies**: issues that must land first, for the reviewer to record as blockers.
 - **Model**: when the installed rules ask for it, one suggested `model:` label with a one-line reason, for the reviewer to apply or replace.
 - **Owner questions**: none, for a brief ready for review.

@@ -2,6 +2,7 @@
   "version": 1,
   "labels": {
     "ready": "ready-for-agent",
+    "skip": "factory:skip",
     "running": "factory:running",
     "failed": "factory:failed",
     "needsInput": "factory:needs-input",

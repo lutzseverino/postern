@@ -2,8 +2,7 @@ import {
   apiEndpoint,
   describeSettingChanges,
   requireOverwriteConfirmation,
-  githubApi,
-  jsonFrom,
+  githubRequest,
   prepareGithubSetup,
   readOperationRequest,
   repositoryAdministrationRole,
@@ -22,38 +21,64 @@ const mergeSettings = {
   squash_merge_commit_message: "PR_BODY",
 };
 
+// GitHub's values for a new repository. Merge settings still at all of them
+// were never chosen, so the fix applies the standard without confirmation. One
+// other value, or one absent field, makes the whole set count as chosen.
+// https://docs.github.com/en/rest/repos/repos#create-an-organization-repository
+// https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/configuring-commit-squashing-for-pull-requests
+const stockMergeSettings = {
+  allow_squash_merge: true,
+  allow_merge_commit: true,
+  allow_rebase_merge: true,
+  squash_merge_commit_title: "COMMIT_OR_PR_TITLE",
+  squash_merge_commit_message: "COMMIT_MESSAGES",
+};
+const stockNote =
+  " The merge settings were at GitHub's stock values for a new repository, so no one had chosen them and they needed no confirmation.";
+
 function matchingMergeSettings(repository) {
   return Object.entries(mergeSettings).every(
     ([name, value]) => repository[name] === value,
   );
 }
 
+function atStockMergeSettings(repository) {
+  return Object.entries(stockMergeSettings).every(
+    ([name, value]) => repository[name] === value,
+  );
+}
+
+function mergeSettingChanges(repository) {
+  return atStockMergeSettings(repository)
+    ? []
+    : describeSettingChanges(repository, mergeSettings, "repository");
+}
+
 // GitHub refuses classic protection and rulesets with a 403 naming the upgrade
 // that would offer them when a private repository's plan offers neither. The
 // read keeps its error so a caller that cannot rely on the limit still blocks.
 function readEnforcement(response) {
-  const parsed = jsonFrom(response);
   const planLimited =
     !response.ok &&
-    /HTTP 403/i.test(response.stderr ?? "") &&
+    response.failure?.status === 403 &&
     /Upgrade to GitHub .+ or make this repository public/i.test(
-      response.stderr ?? "",
+      response.failure?.platformMessage ?? "",
     );
-  return planLimited ? { ...parsed, planLimited } : parsed;
+  return planLimited ? { ...response, planLimited } : response;
 }
 
-function readBranchProtection(identity, defaultBranch, projectRoot) {
+async function readBranchProtection(identity, defaultBranch, access) {
   const endpoint = apiEndpoint(
     identity,
     `/branches/${encodeURIComponent(defaultBranch)}/protection`,
   );
-  const response = githubApi([endpoint], projectRoot);
+  const response = await githubRequest(access, endpoint);
   const parsed = readEnforcement(response);
   if (parsed.planLimited) return parsed;
   if (
     !response.ok &&
-    /Branch not protected/i.test(response.stderr ?? "") &&
-    /HTTP 404/i.test(response.stderr ?? "")
+    /Branch not protected/i.test(response.failure?.platformMessage ?? "") &&
+    response.failure?.status === 404
   ) {
     return { value: null };
   }
@@ -102,24 +127,22 @@ function readBranchProtection(identity, defaultBranch, projectRoot) {
 // from the default branch, so the check can report only once the workflow file
 // is there. The Actions workflow list is no evidence: it keeps a workflow after
 // its file leaves the default branch.
-function readWorkflowPresence(identity, defaultBranch, projectRoot) {
-  const response = githubApi(
-    [
-      apiEndpoint(
-        identity,
-        `/contents/${workflowPath}?ref=${encodeURIComponent(defaultBranch)}`,
-      ),
-    ],
-    projectRoot,
+async function readWorkflowPresence(identity, defaultBranch, access) {
+  const response = await githubRequest(
+    access,
+    apiEndpoint(
+      identity,
+      `/contents/${workflowPath}?ref=${encodeURIComponent(defaultBranch)}`,
+    ),
   );
   if (
     !response.ok &&
-    /Not Found/i.test(response.stderr ?? "") &&
-    /HTTP 404/i.test(response.stderr ?? "")
+    /Not Found/i.test(response.failure?.platformMessage ?? "") &&
+    response.failure?.status === 404
   ) {
     return { value: false };
   }
-  const parsed = jsonFrom(response);
+  const parsed = response;
   if (parsed.error) return parsed;
   if (parsed.value?.type !== "file") {
     return { error: "invalid workflow file response" };
@@ -141,14 +164,11 @@ function flattenPages(value) {
     : value;
 }
 
-function readRulesets(identity, projectRoot) {
-  const response = githubApi(
-    [
-      "--paginate",
-      "--slurp",
-      `${apiEndpoint(identity, "/rulesets")}?includes_parents=false&per_page=100`,
-    ],
-    projectRoot,
+async function readRulesets(identity, access) {
+  const response = await githubRequest(
+    access,
+    `${apiEndpoint(identity, "/rulesets")}?includes_parents=false&per_page=100`,
+    { paginate: true },
   );
   const list = readEnforcement(response);
   if (list.error) return list;
@@ -162,11 +182,9 @@ function readRulesets(identity, projectRoot) {
 
   const rulesets = [];
   for (const summary of summaries) {
-    const detail = jsonFrom(
-      githubApi(
-        [apiEndpoint(identity, `/rulesets/${summary.id}`)],
-        projectRoot,
-      ),
+    const detail = await githubRequest(
+      access,
+      apiEndpoint(identity, `/rulesets/${summary.id}`),
     );
     if (detail.error)
       return {
@@ -388,12 +406,11 @@ function blockReadback(identity, mismatches, effects) {
   );
 }
 
-function updateMergeSettings(identity, projectRoot, effects) {
-  const mutation = githubApi(
-    [apiEndpoint(identity), "--method", "PATCH", "--input", "-"],
-    projectRoot,
-    mergeSettings,
-  );
+async function updateMergeSettings(identity, access, effects) {
+  const mutation = await githubRequest(access, apiEndpoint(identity), {
+    method: "PATCH",
+    body: mergeSettings,
+  });
   if (!mutation.ok) {
     result(
       "blocked",
@@ -409,26 +426,29 @@ function updateMergeSettings(identity, projectRoot, effects) {
 // protection nor rulesets, and deferred, while the default branch lacks the
 // workflow that reports it. Either way only the merge settings apply, and the
 // outcome names what applies and why the requirement does not.
-function setupMergeSettingsOnly(identity, repository, request, outcome) {
+async function setupMergeSettingsOnly(
+  identity,
+  repository,
+  request,
+  outcome,
+  access,
+) {
   if (
     requireOverwriteConfirmation(
       request,
       operationName,
-      describeSettingChanges(repository, mergeSettings, "repository"),
+      mergeSettingChanges(repository),
     )
   )
     return;
-  const projectRoot = request.projectRoot;
   const effects = [];
   if (
     !matchingMergeSettings(repository) &&
-    !updateMergeSettings(identity, projectRoot, effects)
+    !(await updateMergeSettings(identity, access, effects))
   ) {
     return;
   }
-  const repositoryAfter = jsonFrom(
-    githubApi([apiEndpoint(identity)], projectRoot),
-  );
+  const repositoryAfter = await githubRequest(access, apiEndpoint(identity));
   if (repositoryAfter.error || !matchingMergeSettings(repositoryAfter.value)) {
     blockReadback(
       identity,
@@ -443,7 +463,7 @@ function setupMergeSettingsOnly(identity, repository, request, outcome) {
   }
   result(
     "changed",
-    `${operationName} changed ${identity}: ${effects.join(" and ")}. Final readback confirmed that ${outcome.changed}`,
+    `${operationName} changed ${identity}: ${effects.join(" and ")}. Final readback confirmed that ${outcome.changed}${atStockMergeSettings(repository) ? stockNote : ""}`,
   );
 }
 
@@ -460,8 +480,8 @@ function deferredRequirement(identity, defaultBranch) {
   return { unchanged: deferred, changed: deferred };
 }
 
-function setupIntegration(request) {
-  const prepared = prepareGithubSetup(
+async function setupIntegration(request) {
+  const prepared = await prepareGithubSetup(
     request,
     operationName,
     repositoryAdministrationRole,
@@ -483,22 +503,23 @@ function setupIntegration(request) {
     return;
   }
 
-  const branchBefore = readBranchProtection(
+  const branchBefore = await readBranchProtection(
     inferred.identity,
     repository.default_branch,
-    request.projectRoot,
+    prepared.access,
   );
-  const rulesetsBefore = readRulesets(inferred.identity, request.projectRoot);
+  const rulesetsBefore = await readRulesets(inferred.identity, prepared.access);
   if (
     repository.private === true &&
     branchBefore.planLimited &&
     rulesetsBefore.planLimited
   ) {
-    setupMergeSettingsOnly(
+    await setupMergeSettingsOnly(
       inferred.identity,
       repository,
       request,
       unavailableRequirement(inferred.identity),
+      prepared.access,
     );
     return;
   }
@@ -516,10 +537,10 @@ function setupIntegration(request) {
     );
     return;
   }
-  const workflow = readWorkflowPresence(
+  const workflow = await readWorkflowPresence(
     inferred.identity,
     repository.default_branch,
-    request.projectRoot,
+    prepared.access,
   );
   if (workflow.error) {
     result(
@@ -529,11 +550,12 @@ function setupIntegration(request) {
     return;
   }
   if (!workflow.value) {
-    setupMergeSettingsOnly(
+    await setupMergeSettingsOnly(
       inferred.identity,
       repository,
       request,
       deferredRequirement(inferred.identity, repository.default_branch),
+      prepared.access,
     );
     return;
   }
@@ -562,11 +584,7 @@ function setupIntegration(request) {
     if (plan.kind !== "none") checkAction = { type: "ruleset", plan };
   }
   const settingsNeedUpdate = !matchingMergeSettings(repository);
-  const changes = describeSettingChanges(
-    repository,
-    mergeSettings,
-    "repository",
-  );
+  const changes = mergeSettingChanges(repository);
   if (checkAction?.type === "branch") {
     const contexts = branchBefore.value.statusChecks.contexts;
     changes.push(
@@ -597,13 +615,10 @@ function setupIntegration(request) {
       inferred.identity,
       `/branches/${encodeURIComponent(repository.default_branch)}/protection/required_status_checks/contexts`,
     );
-    const mutation = githubApi(
-      [endpoint, "--method", "POST", "--input", "-"],
-      request.projectRoot,
-      {
-        contexts: [checkName],
-      },
-    );
+    const mutation = await githubRequest(prepared.access, endpoint, {
+      method: "POST",
+      body: { contexts: [checkName] },
+    });
     if (!mutation.ok) {
       result(
         "blocked",
@@ -621,16 +636,10 @@ function setupIntegration(request) {
       ? `/rulesets/${checkAction.plan.id}`
       : "/rulesets";
     const method = checkAction.plan.id ? "PUT" : "POST";
-    const mutation = githubApi(
-      [
-        apiEndpoint(inferred.identity, suffix),
-        "--method",
-        method,
-        "--input",
-        "-",
-      ],
-      request.projectRoot,
-      checkAction.plan.payload,
+    const mutation = await githubRequest(
+      prepared.access,
+      apiEndpoint(inferred.identity, suffix),
+      { method, body: checkAction.plan.payload },
     );
     if (!mutation.ok) {
       result(
@@ -639,7 +648,7 @@ function setupIntegration(request) {
       );
       return;
     }
-    const parsed = jsonFrom(mutation);
+    const parsed = mutation;
     if (parsed.error || !Number.isInteger(parsed.value?.id)) {
       result(
         "blocked",
@@ -658,20 +667,21 @@ function setupIntegration(request) {
 
   if (
     settingsNeedUpdate &&
-    !updateMergeSettings(inferred.identity, request.projectRoot, effects)
+    !(await updateMergeSettings(inferred.identity, prepared.access, effects))
   ) {
     return;
   }
 
-  const repositoryAfter = jsonFrom(
-    githubApi([apiEndpoint(inferred.identity)], request.projectRoot),
+  const repositoryAfter = await githubRequest(
+    prepared.access,
+    apiEndpoint(inferred.identity),
   );
-  const branchAfter = readBranchProtection(
+  const branchAfter = await readBranchProtection(
     inferred.identity,
     repository.default_branch,
-    request.projectRoot,
+    prepared.access,
   );
-  const rulesetsAfter = readRulesets(inferred.identity, request.projectRoot);
+  const rulesetsAfter = await readRulesets(inferred.identity, prepared.access);
   const mismatches = [];
   if (repositoryAfter.error || !matchingMergeSettings(repositoryAfter.value)) {
     mismatches.push(mismatch("squash merge settings", repositoryAfter));
@@ -715,12 +725,12 @@ function setupIntegration(request) {
   }
   result(
     "changed",
-    `${operationName} changed ${inferred.identity}: ${effects.join(" and ")}. Final readback confirmed ${checkName}, squash-only integration, PR-title subjects, and PR-body messages; unrelated settings and rules were preserved.`,
+    `${operationName} changed ${inferred.identity}: ${effects.join(" and ")}. Final readback confirmed ${checkName}, squash-only integration, PR-title subjects, and PR-body messages; unrelated settings and rules were preserved.${atStockMergeSettings(repository) ? stockNote : ""}`,
   );
 }
 
 try {
-  setupIntegration(readOperationRequest(operationName, "fixes"));
+  await setupIntegration(readOperationRequest(operationName, "fixes"));
 } catch (error) {
   process.stderr.write(
     `${error instanceof Error ? error.message : String(error)}\n`,

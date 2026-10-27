@@ -34,4 +34,4 @@ jobs:
       - name: Validate authoritative issue state
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/validate-issue-contract.mjs
+        run: node .github/scripts/validate.mjs issue-contract

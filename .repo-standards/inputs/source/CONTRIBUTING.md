@@ -44,22 +44,51 @@ licenses inventing policy.
 The orchestrating agent runs triage and starts a research run, a separate
 agent, for each request. For a code-bound request, the research run verifies
 the claim and posts the Agent Brief. For an intent-bound request, it first
-gathers the facts from the code. The orchestrating agent then asks the owner
-short rounds of numbered questions, each with a recommended answer, records the owner's decisions on the
-issue, and has the brief written from them. A recorded decision is not asked
-again.
+gathers the facts from the code.
 
-The orchestrating agent, never the run that wrote the brief, then reviews its
+Under the inference test, the orchestrating agent may answer an intent question
+itself only when all three hold: it can cite the answer's source, the owner's
+approved goal for the work, a recorded owner decision or wish, or the owner's
+quoted words, each with its date; the choice is reversible within that work, so
+no value or policy outlives it, and it adds no public name and no breaking
+change; and it changes neither the goal nor the scope. A default, limit,
+timeout, or fallback that persists in the product is never inferred. The brief
+states each inferred answer as behavior, and its triage notes list it with its
+citation under **Inferred intent**. The orchestrating agent lists every
+inferred answer in its next report to the owner, so the owner can veto it. A
+veto is an owner decision, and the brief is revised from it.
+
+Questions it cannot infer go to a separate grilling session with the owner, in
+short rounds of numbered questions, each with a recommended answer. The grill
+records the owner's decisions and drafts the Agent Briefs in a proposed ticket
+split; it files no issue and applies no readiness. The orchestrating agent
+decides the split: it may merge, split, or drop a draft, or set it aside for
+later work. It files the issues with the grill's briefs, and each issue's
+triage notes record the owner decisions its brief relies on, each with its date
+and where the owner gave it. A recorded decision is not asked again. The
+orchestrating agent never writes a brief it accepts: when its split changes a
+draft substantially, the grill rewrites that brief, and a research run writes
+one only when it needs code facts the grill did not gather.
+
+The orchestrating agent, never the agent that wrote the brief, then reviews its
 evidence, scope, acceptance criteria, dependencies, and open questions. Passing
 the structure check never makes a brief hold. A brief that leaves owner intent
 open, or disguises it as an implementation choice, an option list, or a
-fallback value, does not hold: its questions return to the owner, and an
-unanswered required question blocks acceptance. Any other gap goes back to the
-research run for correction. The orchestrating agent accepts a brief that holds
-by applying readiness to its revision, records its blockers, and tells the
-owner with links. When the revision notice never arrives, or its credentials
-cannot apply readiness, it leaves readiness to the owner and tells them under
-the [comment rules](#comments) instead.
+fallback value, does not hold: questions the inference test cannot settle go to
+the owner, and an unanswered required question blocks acceptance. Any other gap
+goes back to the brief's writer for correction. The orchestrating agent accepts
+a brief that holds by applying readiness to its revision, records its blockers,
+and tells the owner with links. When the revision notice never arrives, or its
+credentials cannot apply readiness, it leaves readiness to the owner and tells
+them under the [comment rules](#comments) instead.
+
+Every question reaches the orchestrating agent first. `needs-info` means
+information is missing: the orchestrating agent answers what it can from code,
+logs, or a reproduction, or under the inference test, and a question for an
+outside reporter still goes to the reporter. A question only the owner can
+answer goes into its decision inbox with its recommendation; the decision inbox
+is the one channel for questions to the owner. When the owner runs triage
+themselves, they are the orchestrating agent.
 
 ## Readiness
 
@@ -179,11 +208,12 @@ described below.
 
 ### Adoption pull requests
 
-An adoption pull request holds one completed Repository Standards adoption or
-update run and nothing else. Open it once the project's pinned
-`.repo-standards/runtime/node_modules/.bin/repo-standards status` reports the
-run ready to commit. Otherwise finish or recover the run with
-`repo-standards adopt`, using the pinned runtime once a run has started.
+An adoption pull request holds only one completed Repository Standards adoption or
+update run. Record the pinned
+`.repo-standards/runtime/node_modules/.bin/repo-standards status` ready-to-commit
+verdict before committing. Otherwise finish or recover with `repo-standards adopt`,
+using the pinned runtime once a run starts. An empty recorded change set can
+remain ready after committing; later readiness never replaces pre-commit evidence.
 
 Title it `chore: adopt <source> <version> with CLI <version>`, naming the
 source by the repository name in its URL and the versions from the record's
@@ -195,11 +225,15 @@ Its body is the adoption record: the output of `status --summary`, byte for
 byte, starting with its `# Repository Standards adoption record` heading. The
 record's Operations table lists the standards source's fixes and checks with
 their results. Post one check-outcomes comment with the repository's own
-validation outcomes, confirmation of the ready-to-commit verdict, and findings
+validation outcomes, confirmation of the recorded ready-to-commit verdict, and findings
 links or unfiled findings under the
-[findings rule](#findings). The record stays the body; for a breaking (`!`)
-title, add Impact and Migration sections after the record.
+[findings rule](#findings). For a breaking (`!`) title, append Impact and Migration
+sections after the record only if it lacks them.
 Write the check-outcomes comment under the [comment rules](#comments).
+
+The Repository Standards update action uses `chore!:` titles and includes
+Impact and Migration sections for major advances and breaking `0.x` minor
+advances of either pin.
 
 For adoption or update findings, use these target repositories:
 
@@ -210,6 +244,12 @@ For adoption or update findings, use these target repositories:
   `lutzseverino/repo-standards`.
 
 ### Merging
+
+Before delivery, read applicable installed rules for merge ownership and
+owner review. When they assign the merge to another agent, the worker records
+the prescribed PR handoff and stops without merging. The designated merging
+agent resumes delivery from that handoff, enforcing those rules on the current
+head alongside the conditions below.
 
 Merge a pull request once every required check passes on its latest head and
 every review thread is answered with its fix or a reasoned decline under the
@@ -252,7 +292,10 @@ issue comment under these rules, and stop without a pull request if none is open
 or leaving the open pull request unmerged and linked from the question. Work
 without an issue asks on its pull request instead. This owner handoff ends the
 agent's babysitting of the pull request. The agent neither closes the pull
-request nor waits for the answer.
+request nor waits for the answer. Subsequent continuation follows applicable
+installed rules. The orchestrating agent reads the question
+first: when it can answer under the [triage](#triage) inference test, it
+answers on the issue; otherwise it puts the question in its decision inbox.
 
 If the answer changes the implementation contract, edit the contract; that
 drops readiness and requires review again.

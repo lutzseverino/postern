@@ -43,12 +43,34 @@ so a ready fix can still return `confirmation-required` or `blocked`.
 
 ## Pull request reviewer
 
-Decide whether the repository adds the optional
-`.github/pull-request-reviewer.json`, whose schema the rules state: choose a
-reviewer, or leave the file absent, according to the repository's own setup.
-The declaration owns no reviewer file or preset. Its read-only
-`pull-request-reviewer` check passes without the file and validates the schema
-when present.
+The optional `.github/pull-request-reviewer.json` is the repository's own
+configuration, not adoption output. The declaration owns no reviewer file or
+preset and its confirmed scope is empty, so the run leaves the file untouched:
+it neither creates nor changes it. Its read-only `pull-request-reviewer` check
+passes without the file and validates the schema when present.
+
+If the repository wants a reviewer, the agent or a maintainer adds or changes
+the file in a separate commit after the run completes, following the schema in
+the rules, never in the adoption commit or pull request. The check validates it
+on the next `check` or update.
+
+## Factory app-author review policy
+
+The optional `.github/factory-review-policy.json` is the repository's own
+configuration, not adoption output. Adoption and update leave it untouched:
+they neither create nor edit it, supply a preset, select an app author nor
+enable a review exemption. Deliberate configuration belongs in a separate
+commit after the run completes, following the schema in the rules, never in
+the adoption commit or pull request.
+
+The read-only `factory-review-policy` check passes without the file; absence
+is supported and requires no policy or owner question. When present, it
+validates the version-1 schema with the same reader as the installed request
+and wait commands, without account lookup or GitHub access. Valid declarations
+using REST `<slug>[bot]` or CLI `app/<slug>` identities pass unchanged. Invalid
+declarations, including plain human logins, and file-read failures fail with
+a correction identifying the policy and the requirement from the rules. The
+check never rewrites the file or treats invalid content as absence.
 
 ## Installed workflow runners
 

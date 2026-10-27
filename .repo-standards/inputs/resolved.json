@@ -132,6 +132,15 @@
       "exact": ".github/ISSUE_TEMPLATE/feature-request.yml"
     },
     {
+      "id": "git-attributes",
+      "checks": [],
+      "fixes": [],
+      "kind": "file",
+      "target": ".gitattributes",
+      "guidance": "guidance/git-attributes.md",
+      "rules": "rules/git-attributes.md"
+    },
+    {
       "id": "github-repository-configuration",
       "checks": [
         {
@@ -141,6 +150,24 @@
             "script": "operations/check-pull-request-reviewer.mjs",
             "resources": [
               "operations/lib/pull-request-reviewer.mjs"
+            ],
+            "arguments": []
+          },
+          "prerequisite": {
+            "version-arguments": [
+              "--version"
+            ],
+            "version": ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          },
+          "timeout-seconds": 30
+        },
+        {
+          "id": "factory-review-policy",
+          "run": {
+            "executable": "node",
+            "script": "operations/check-factory-review-policy.mjs",
+            "resources": [
+              "operations/lib/review-policy.mjs"
             ],
             "arguments": []
           },
@@ -161,6 +188,9 @@
             "script": "operations/setup-github-labels.mjs",
             "resources": [
               "operations/lib/github-operation.mjs",
+              "vendor/postern/postern.mjs",
+              "vendor/postern/LICENSE",
+              "vendor/postern/README.md",
               "LICENSE",
               "THIRD_PARTY_NOTICES.md",
               "vendor/mattpocock-skills/LICENSE",
@@ -184,7 +214,10 @@
                 "executable": "node",
                 "script": "operations/probe-github-labels.mjs",
                 "resources": [
-                  "operations/lib/github-operation.mjs"
+                  "operations/lib/github-operation.mjs",
+                  "vendor/postern/postern.mjs",
+                  "vendor/postern/LICENSE",
+                  "vendor/postern/README.md"
                 ],
                 "arguments": []
               },
@@ -204,7 +237,10 @@
             "executable": "node",
             "script": "operations/setup-github-pr-integration.mjs",
             "resources": [
-              "operations/lib/github-operation.mjs"
+              "operations/lib/github-operation.mjs",
+              "vendor/postern/postern.mjs",
+              "vendor/postern/LICENSE",
+              "vendor/postern/README.md"
             ],
             "arguments": []
           },
@@ -221,7 +257,10 @@
                 "executable": "node",
                 "script": "operations/probe-github-pr-integration.mjs",
                 "resources": [
-                  "operations/lib/github-operation.mjs"
+                  "operations/lib/github-operation.mjs",
+                  "vendor/postern/postern.mjs",
+                  "vendor/postern/LICENSE",
+                  "vendor/postern/README.md"
                 ],
                 "arguments": []
               },
@@ -243,6 +282,14 @@
         "paths": [],
         "directories": []
       }
+    },
+    {
+      "id": "github-validator-trigger",
+      "checks": [],
+      "fixes": [],
+      "kind": "file",
+      "target": ".github/scripts/validate.mjs",
+      "exact": ".github/scripts/validate.mjs"
     },
     {
       "id": "humanlayer-skills-license",
@@ -347,6 +394,30 @@
       "kind": "file",
       "target": "vendor/parse5/README.md",
       "exact": "vendor/parse5/README.md"
+    },
+    {
+      "id": "postern-bundle",
+      "checks": [],
+      "fixes": [],
+      "kind": "file",
+      "target": "vendor/postern/postern.mjs",
+      "exact": "vendor/postern/postern.mjs"
+    },
+    {
+      "id": "postern-license",
+      "checks": [],
+      "fixes": [],
+      "kind": "file",
+      "target": "vendor/postern/LICENSE",
+      "exact": "vendor/postern/LICENSE"
+    },
+    {
+      "id": "postern-provenance",
+      "checks": [],
+      "fixes": [],
+      "kind": "file",
+      "target": "vendor/postern/README.md",
+      "exact": "vendor/postern/README.md"
     },
     {
       "id": "pr-metadata-validator",
@@ -537,6 +608,14 @@
       "source": "vendor/mattpocock-skills/skills/engineering/improve-codebase-architecture"
     },
     {
+      "id": "skill-orchestrate",
+      "checks": [],
+      "fixes": [],
+      "kind": "skill",
+      "name": "orchestrate",
+      "source": ".agents/skills/orchestrate"
+    },
+    {
       "id": "skill-pr",
       "checks": [],
       "fixes": [],
@@ -617,12 +696,62 @@
       "exact": ".github/ISSUE_TEMPLATE/specification.yml"
     },
     {
+      "id": "standards-update-workflow",
+      "checks": [],
+      "fixes": [],
+      "kind": "file",
+      "target": ".github/workflows/standards-update.yml",
+      "exact": ".github/workflows/standards-update.yml"
+    },
+    {
       "id": "triage-label-configuration",
       "checks": [],
       "fixes": [],
       "kind": "file",
       "target": "docs/agents/triage-labels.md",
       "exact": "vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/triage-labels.md"
+    },
+    {
+      "id": "typescript-node-stack",
+      "checks": [
+        {
+          "id": "typescript-node-stack-manifests",
+          "run": {
+            "executable": "node",
+            "script": "operations/check-typescript-node-stack.mjs",
+            "resources": [
+              "operations/lib/typescript-node-stack.mjs",
+              "operations/lib/local-markdown-links.mjs"
+            ],
+            "arguments": []
+          },
+          "prerequisite": {
+            "version-arguments": [
+              "--version"
+            ],
+            "version": ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          },
+          "timeout-seconds": 30
+        }
+      ],
+      "fixes": [],
+      "kind": "repository",
+      "guidance": "guidance/typescript-node-stack.md",
+      "rules": "rules/typescript-node-stack.md",
+      "targets": {
+        "paths": [
+          "package.json"
+        ],
+        "directories": []
+      }
+    },
+    {
+      "id": "validator-command",
+      "checks": [],
+      "fixes": [],
+      "kind": "file",
+      "target": "scripts/validate.mjs",
+      "exact": "scripts/validate.mjs"
     }
   ]
 }

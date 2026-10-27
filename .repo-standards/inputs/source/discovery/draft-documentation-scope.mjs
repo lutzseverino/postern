@@ -48,6 +48,7 @@ const manifestPath = fileURLToPath(
   new URL("../standards.yaml", import.meta.url),
 );
 
+/** @returns {never} */
 function fail(message) {
   throw new Error(message);
 }
