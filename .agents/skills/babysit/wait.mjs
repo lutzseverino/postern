@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 
 // Waits for a pull request's checks and the configured reviewer's review of
-// its head commit, polling GitHub with `gh`. It prints nothing while waiting and one line when
+// its head commit, polling through Postern. It prints nothing while waiting and one line when
 // it exits, starting with the head's full SHA, plus one line per failing
 // check, and its exit code names the outcome:
 //
 //   0  checks settled and the reviewer reviewed the head, or none is configured
-//   1  usage or `gh` error
+//   1  usage or platform error
 //   2  one or more checks failed, including a workflow whose latest run failed
 //      with no check from that run or attempt
 //   3  checks settled and the configured reviewer is unavailable
 //   4  checks settled and the configured reviewer did not review this head
 //   5  still waiting at the invocation limit; run it again
+//   6  checks settled; external review skipped by app-author policy
+//   7  invalid trusted review configuration; owner handoff, keep the PR open
 //
 // Checks settled means checks passed or no check arrived within 5 minutes
 // of a push GitHub recorded and no workflow run for the head is unfinished
@@ -22,15 +24,26 @@
 // Usage: node wait.mjs <number> [--repo <owner/name>] [--limit <seconds>]
 //        [--interval <seconds>]
 //
-// The default limit, 540 seconds, keeps one invocation inside a 10-minute
-// foreground limit, with each look at GitHub bounded to 45 seconds.
+// The default polling limit is 540 seconds. Each platform request has a
+// 45-second timeout; paginated reads retain their request bounds.
 // One invocation covers 9 minutes waited; repository data sets review bounds.
-// Run from the repository root to read .github/pull-request-reviewer.json.
+// Both review configurations come from one destination default-branch commit.
 // A head with no recorded push and no check or run never settles its checks.
-import { execFile } from "node:child_process";
-import { realpathSync } from "node:fs";
+import {
+  connectionFor,
+  executedAsScript,
+  pages,
+  checkRollup,
+  workflowRuns,
+  reviewComments,
+  pushTime,
+  conversationComments,
+} from "./platform.mjs";
 
-import { readReviewer } from "./pull-request-reviewer.mjs";
+import {
+  InvalidTrustedReviewConfiguration,
+  trustedReviewConfiguration,
+} from "./trusted-review-config.mjs";
 import {
   reviewRequestedAt,
   reviewerState,
@@ -40,6 +53,7 @@ export { reviewRequestedAt } from "./reviewer.mjs";
 
 const checksBoundMs = 5 * 60_000;
 const settledCodes = {
+  skipped: 6,
   reviewed: 0,
   unavailable: 3,
   "not requested": 4,
@@ -73,6 +87,8 @@ const workflowRunLink = (link) =>
 // is not reached.
 export const decide = ({
   reviewer,
+  policy,
+  author,
   head,
   checks,
   runs = [],
@@ -85,17 +101,17 @@ export const decide = ({
   startedAt,
   limitMs,
 }) => {
-  const state = reviewer
-    ? reviewerState(reviewer, {
-        head,
-        requestedAt,
-        pushedAt,
-        comments,
-        reviews,
-        now,
-      })
-    : undefined;
-  const review = reviewer
+  const state = reviewerState(reviewer, {
+    policy,
+    author,
+    head,
+    requestedAt,
+    pushedAt,
+    comments,
+    reviews,
+    now,
+  });
+  const review = state
     ? { reviewer: state, reviewerPhrase: reviewerPhrase(reviewer, state) }
     : {};
   const latestRuns = new Map();
@@ -148,15 +164,12 @@ export const decide = ({
   if (failing.length > 0) {
     return { code: 2, ...review, failing };
   }
-  if (!checksPending && !reviewer) {
-    const outcome = { code: 0, failing };
-    if (checks.length === 0) outcome.noChecks = true;
-    return outcome;
+  const noChecks = checks.length === 0 && { noChecks: true };
+  if (!checksPending && !state) {
+    return { code: 0, failing, ...noChecks };
   }
   if (!checksPending && state in settledCodes) {
-    const outcome = { code: settledCodes[state], ...review, failing };
-    if (checks.length === 0) outcome.noChecks = true;
-    return outcome;
+    return { code: settledCodes[state], ...review, failing, ...noChecks };
   }
   if (now - startedAt >= limitMs) {
     return { code: 5, ...review, failing, checksPending };
@@ -200,7 +213,7 @@ const failedConclusions = new Set([
   "ERROR",
 ]);
 
-// Turns `gh pr view`'s status check rollup into check states. Any unfinished
+// Turns GitHub's status check rollup, read through Access, into check states. Any unfinished
 // run keeps its check pending; otherwise the latest-started run wins.
 export const checkStates = (rollup) => {
   const latest = new Map();
@@ -248,21 +261,6 @@ export const checkStates = (rollup) => {
 
 class UsageError extends Error {}
 
-const gh = (args) =>
-  new Promise((resolve, reject) => {
-    execFile(
-      "gh",
-      args,
-      { maxBuffer: 64 * 1024 * 1024, timeout: 15_000 },
-      (error, stdout, stderr) => {
-        if (!error) return resolve(JSON.parse(stdout));
-        const message =
-          stderr.trim().split("\n").at(-1) || error.message.split("\n")[0];
-        reject(new Error(`gh ${args[0]} ${args[1]}: ${message}`));
-      },
-    );
-  });
-
 const parseArguments = (argv) => {
   const options = { limit: 540, interval: 30 };
   const positional = [];
@@ -287,147 +285,98 @@ const parseArguments = (argv) => {
   return { number: positional[0], ...options };
 };
 
-// Whether GitHub recorded the push of the pull request's head, with its time
-// for the reviewer: the recorded time, else the committer date, never before
-// opening.
-const pushTime = async (pull) => {
-  const head = pull.headRefOid;
-  const activity = await gh([
-    "api",
-    `repos/{owner}/{repo}/activity?ref=${encodeURIComponent(`refs/heads/${pull.headRefName}`)}&per_page=100`,
-  ]).catch(() => []);
-  const recorded = activity.find((entry) => entry.after === head);
-  const pushedAt =
-    recorded?.timestamp ??
-    (await gh(["api", `repos/{owner}/{repo}/commits/${head}`])).commit.committer
-      .date;
-  return {
-    pushedAt: Math.max(Date.parse(pushedAt), Date.parse(pull.createdAt)),
-    pushRecorded: Boolean(recorded),
-  };
-};
-
-// Reads one look at the pull request. The head's workflow runs are read by
-// its SHA, which also finds `pull_request_target` runs; its push time is
-// cached per head only when GitHub recorded it.
-const look = async (number, pushTimes, reviewer) => {
-  const [pull, pages, reviewPages, reviewCommentPages] = await Promise.all([
-    gh([
-      "pr",
-      "view",
-      number,
-      "--json",
-      "headRefOid,headRefName,createdAt,statusCheckRollup",
-    ]),
-    reviewer
-      ? gh([
-          "api",
-          `repos/{owner}/{repo}/issues/${number}/comments?per_page=100`,
-          "--paginate",
-          "--slurp",
-        ])
-      : [],
-    reviewer
-      ? gh([
-          "api",
-          `repos/{owner}/{repo}/pulls/${number}/reviews?per_page=100`,
-          "--paginate",
-          "--slurp",
-        ])
-      : [],
-    reviewer
-      ? gh([
-          "api",
-          `repos/{owner}/{repo}/pulls/${number}/comments?per_page=100`,
-          "--paginate",
-          "--slurp",
-        ])
-      : [],
-  ]);
-  const comments = pages.flat().map((comment) => ({
-    login: comment.user?.login,
-    createdAt: comment.created_at,
-    body: comment.body ?? "",
-  }));
-  const commentsByReview = new Map();
-  for (const comment of reviewCommentPages.flat()) {
-    const comments = commentsByReview.get(comment.pull_request_review_id) ?? [];
-    comments.push(comment);
-    commentsByReview.set(comment.pull_request_review_id, comments);
-  }
-  const head = pull.headRefOid;
-  const [runs, push] = await Promise.all([
-    gh([
-      "api",
-      `repos/{owner}/{repo}/actions/runs?head_sha=${head}&per_page=100`,
-      "--paginate",
-      "--slurp",
-    ]),
-    pushTimes.get(head) ?? pushTime(pull),
-  ]);
-  if (push.pushRecorded) pushTimes.set(head, push);
-  return {
-    head,
-    checks: checkStates(pull.statusCheckRollup),
-    runs: runs
-      .flatMap((page) => page.workflow_runs)
-      .map(
-        ({
-          workflow_id,
-          name,
-          status,
-          conclusion,
-          run_started_at,
-          html_url,
-        }) => ({
-          workflow_id,
-          name,
-          status,
-          conclusion,
-          run_started_at,
-          html_url,
-        }),
+const look = async (number, pushTimes, reviewer, policy, connection) => {
+  const path = `/repos/${connection.repository.path}`;
+  if (reviewer && !connection.pullRequests.capabilities.reviewCommits)
+    throw new Error(
+      "Review commits are unavailable; cannot establish latest-head review.",
+    );
+  const pull = await connection.pullRequests.pullRequest(Number(number));
+  const [rollup, comments, reviews, reviewCommentPages, runs, push] =
+    await Promise.all([
+      checkRollup(connection, pull.headCommit),
+      reviewer
+        ? pages(connection, `${path}/issues/${number}/comments?per_page=100`)
+        : [],
+      reviewer ? connection.pullRequests.reviews(Number(number)) : [],
+      reviewer
+        ? pages(connection, `${path}/pulls/${number}/comments?per_page=100`)
+        : [],
+      pages(
+        connection,
+        `${path}/actions/runs?head_sha=${pull.headCommit}&per_page=100`,
       ),
+      pushTimes.get(pull.headCommit) ?? pushTime(pull, connection),
+    ]);
+  const commentsByReview = new Map();
+  for (const comment of reviewComments(reviewCommentPages)) {
+    const group = commentsByReview.get(comment.pull_request_review_id) ?? [];
+    group.push(comment);
+    commentsByReview.set(comment.pull_request_review_id, group);
+  }
+  const neutralComments = conversationComments(comments);
+  if (push.pushRecorded) pushTimes.set(pull.headCommit, push);
+  return {
+    head: pull.headCommit,
+    checks: checkStates(rollup),
+    runs: workflowRuns(runs),
     reviewer,
-    reviews: reviewPages.flat().map((review) => ({
-      ...review,
+    policy,
+    author: pull.author?.login,
+    reviews: reviews.map((review) => ({
+      user: review.author,
+      commit_id: review.commit,
+      state: review.state,
+      body: review.body,
       comments: commentsByReview.get(review.id) ?? [],
     })),
     requestedAt: reviewRequestedAt(
       Date.parse(pull.createdAt),
-      comments,
+      neutralComments,
       reviewer,
+      { policy, author: pull.author?.login },
     ),
     ...push,
-    comments,
+    comments: neutralComments,
   };
 };
 
-const main = async () => {
+export const main = async (argv = process.argv.slice(2), connection) => {
   const startedAt = Date.now();
   let options;
   let reviewer;
+  let policy;
+  let evidence;
   try {
-    options = parseArguments(process.argv.slice(2));
-    reviewer = readReviewer();
+    options = parseArguments(argv);
+    connection ??= connectionFor(options.repo);
+    ({ reviewer, policy, evidence } =
+      await trustedReviewConfiguration(connection));
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
-    return 1;
+    return error instanceof InvalidTrustedReviewConfiguration ? 7 : 1;
   }
-  if (options.repo) process.env.GH_REPO = options.repo;
   const limitMs = options.limit * 1000;
   const pushTimes = new Map();
   for (;;) {
     let state;
     try {
-      state = await look(options.number, pushTimes, reviewer);
+      state = await look(
+        options.number,
+        pushTimes,
+        reviewer,
+        policy,
+        connection,
+      );
     } catch (error) {
       process.stderr.write(`wait.mjs: ${error.message}\n`);
       return 1;
     }
     const outcome = decide({ ...state, now: Date.now(), startedAt, limitMs });
     if (outcome.code !== null) {
-      process.stdout.write(`${report(outcome, state.head).join("\n")}\n`);
+      const lines = report(outcome, state.head);
+      lines[0] += `; ${evidence}`;
+      process.stdout.write(`${lines.join("\n")}\n`);
       return outcome.code;
     }
     const remaining = startedAt + limitMs - Date.now();
@@ -440,6 +389,6 @@ const main = async () => {
   }
 };
 
-if (process.argv[1] && realpathSync(process.argv[1]) === import.meta.filename) {
+if (import.meta.main ?? executedAsScript(import.meta.url)) {
   process.exitCode = await main();
 }

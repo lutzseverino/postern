@@ -3,6 +3,7 @@ import { isAbsolute, posix, sep } from "node:path";
 import {
   declarationTargets,
   documentationModel,
+  documentationRules,
   documentationRuleViolations,
 } from "./lib/documentation-model.mjs";
 
@@ -77,8 +78,11 @@ function absolutePath(projectRoot, path) {
 // Projects the documentation model onto its corrections, in order: the
 // development guide, then each root's index, stray entries, directory indexes
 // and confirmed category indexes, then broken links, then each documentation
-// rule violation, naming its file and its rule.
-function navigationCorrections(model) {
+// rule violation, naming its file and its rule. Between runs the confirmed scope
+// is frozen, so a `check` invocation leaves out every scope-membership
+// correction: the development guide's and each root index's inclusion and the
+// scope coverage rule.
+function navigationCorrections(model, { proveScope }) {
   const corrections = [];
   const guide = model.developmentGuide;
   if (guide.state === "missing") {
@@ -90,7 +94,7 @@ function navigationCorrections(model) {
       `Populate ${guide.path} with the project's prerequisites, setup, development commands, and required validation.`,
     );
   }
-  if (!guide.confirmed) {
+  if (proveScope && !guide.confirmed) {
     corrections.push(
       `Include ${guide.path} in the confirmed documentation scope.`,
     );
@@ -107,7 +111,7 @@ function navigationCorrections(model) {
         `Populate ${index.path} with the documentation map and placement rules.`,
       );
     }
-    if (!index.confirmed) {
+    if (proveScope && !index.confirmed) {
       corrections.push(
         `Include ${index.path} in the confirmed documentation scope.`,
       );
@@ -141,6 +145,7 @@ function navigationCorrections(model) {
       corrections.push(`${link.source} links to missing ${link.target}.`);
   }
   for (const { rule, path, correction } of documentationRuleViolations(model)) {
+    if (!proveScope && rule === documentationRules.scopeCoverage) continue;
     corrections.push(`${path} breaks the ${rule} rule: ${correction}`);
   }
   return [...new Set(corrections)];
@@ -161,7 +166,9 @@ try {
       declaredTargets: declarationTargets(request.declarations),
     },
   );
-  const corrections = navigationCorrections(model);
+  const corrections = navigationCorrections(model, {
+    proveScope: request.invocation !== "check",
+  });
   if (model.ambiguousRoots.length > 0) {
     const ambiguity = model.ambiguousRoots
       .map(

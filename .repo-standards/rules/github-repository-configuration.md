@@ -12,20 +12,29 @@ findings, delivery, credential and comment requirements.
 The repository carries these canonical issue labels, with these colors and
 descriptions:
 
-| Label                 | Color    | Description                                                  |
-| --------------------- | -------- | ------------------------------------------------------------ |
-| `needs-triage`        | `fbca04` | Requires review or renewed review                            |
-| `needs-info`          | `d4c5f9` | Waiting for information needed to evaluate the request       |
-| `ready-for-agent`     | `0e8a16` | Reviewed and sufficiently specified for agent implementation |
-| `ready-for-human`     | `1d76db` | Reviewed and requires human implementation                   |
-| `wontfix`             | `ffffff` | Will not be actioned                                         |
-| `bug`                 | `d73a4a` | Something isn't working                                      |
-| `enhancement`         | `a2eeef` | New feature or request                                       |
-| `wayfinder:map`       | `5319e7` | Planning map for related work                                |
-| `wayfinder:research`  | `bfd4f2` | Research question in a planning map                          |
-| `wayfinder:prototype` | `bfd4f2` | Prototype question in a planning map                         |
-| `wayfinder:grilling`  | `bfd4f2` | Design decision requiring discussion                         |
-| `wayfinder:task`      | `bfd4f2` | Task in a planning map                                       |
+| Label                 | Color    | Description                                                                |
+| --------------------- | -------- | -------------------------------------------------------------------------- |
+| `needs-triage`        | `fbca04` | Requires review or renewed review                                          |
+| `needs-info`          | `d4c5f9` | Missing information; the orchestrating agent answers or routes it          |
+| `ready-for-agent`     | `0e8a16` | Reviewed and sufficiently specified for agent implementation               |
+| `ready-for-human`     | `1d76db` | Reviewed; needs the owner's accounts, credentials or a reserved taste call |
+| `wontfix`             | `ffffff` | Will not be actioned                                                       |
+| `bug`                 | `d73a4a` | Something isn't working                                                    |
+| `enhancement`         | `a2eeef` | New feature or request                                                     |
+| `wayfinder:map`       | `5319e7` | Planning map for related work                                              |
+| `wayfinder:research`  | `bfd4f2` | Research question in a planning map                                        |
+| `wayfinder:prototype` | `bfd4f2` | Prototype question in a planning map                                       |
+| `wayfinder:grilling`  | `bfd4f2` | Design decision requiring discussion                                       |
+| `wayfinder:task`      | `bfd4f2` | Task in a planning map                                                     |
+
+`docs/agents/triage-labels.md` maps canonical roles to tracker label strings;
+use the configured string for each role. Role meanings in these rules and the
+contribution guide take precedence over its upstream Meaning column, including
+the conflicting `needs-info` and `ready-for-human` entries.
+
+For `needs-info`, follow the contribution guide's Triage section for question
+routing and its inference test. Agent work follows the agent path; where
+factory workflow rules are installed, follow them for factory pickup exclusions.
 
 These rules name no `factory:` label: a factory creates its own state labels
 from the repository's factory configuration.
@@ -91,6 +100,81 @@ organization-level value if one exists; set `["ubuntu-latest"]` to override
 that value. A runner on another machine carrying the same labels takes the jobs
 with no change at all. Changing the variable selects runners for new jobs;
 cancel and rerun a job already queued on unavailable labels.
+
+## Automated standards updates
+
+Both profiles install `.github/workflows/standards-update.yml`. Its daily
+schedule and manual `workflow_dispatch` run the job only when
+`REPO_CANON_UPDATES` is `true`; installing the file opts nobody in. The job
+reads `vars.REPO_CANON_RUNS_ON`, checks out the default branch, and serializes
+runs through one concurrency group. Workflow-level permissions are empty; its
+job's workflow token has only
+`contents: write`, `pull-requests: write`, and `issues: write` permissions.
+
+A GitHub App installation token is recommended. Install the App on the
+repository with repository permissions Contents, Pull requests, Issues and
+Workflows set to read and write. Workflows permission lets it push changes to
+workflow files. Set the repository variable `REPO_CANON_UPDATE_APP_CLIENT_ID` to
+the Client ID shown on the App's settings page, reached through the owning
+account's or organization's **Settings > Developer settings > GitHub Apps > Edit**.
+Set the secret `REPO_CANON_UPDATE_APP_PRIVATE_KEY` to its private key.
+When both are present, the workflow creates an installation token for this
+repository, explicitly limited to those four write permissions, and passes it
+to checkout and the Repository Standards action.
+Otherwise it passes `github.token` (`GITHUB_TOKEN`). Pull requests opened with
+that fallback trigger no CI, and it cannot push workflow-file changes. The
+repository must allow GitHub Actions to create pull requests for that fallback
+to open one.
+
+This job puts the App private key and a write token on the
+`REPO_CANON_RUNS_ON` runners, so the warning above about persistent runners
+running untrusted pull request code applies to it too.
+
+The action moves both pins together to the newest CLI and standards release.
+It maintains one rolling pull request on `repo-standards/update` when the
+headless update completes, or one rolling issue carrying the open questions
+when it stops or a push is refused. A newer target refreshes the rolling item;
+the same target leaves it untouched. Remote setup is deferred until the next
+local `adopt`. The installed caller never sets `agent-command`; an adopter
+wanting that input writes a repository-owned caller workflow.
+
+## Trusted review configuration
+
+For each `babysit` request or wait invocation, resolve the destination
+repository's default branch to one immutable full commit SHA. Read both
+optional repository-owned files, `.github/factory-review-policy.json` and
+`.github/pull-request-reviewer.json`, from that same commit before applying
+policy or requesting review. Report the destination repository, default branch
+and selected SHA with the command's outcome. A wait keeps the snapshot across
+all polls and head changes; each new invocation resolves the current default
+tip again, including after fixes, rebases, retries and resumed runs.
+
+Configuration additions, edits and deletions take effect only after they land
+on the destination default branch. The PR's head, source fork, chosen base
+branch or retargeting, local branch and dirty or untracked files never select
+or override this configuration.
+
+Only verified absence at the selected commit invokes the optional-file
+behavior below. A repository, default-branch, commit or file-read failure, or
+invalid trusted configuration, is an explicit error before any review-request
+mutation. It authorizes no skip and permits no fallback to local files, the
+head or another revision.
+
+Invalid JSON or a schema-invalid declaration requires an owner handoff:
+identify the destination repository, selected default-branch revision, affected
+file and validation problem, and name the correction needed. Record the owner
+question under the contribution guide's comment rules and applicable installed
+continuation rules, leave the PR open, and stop babysitting. Do not retry the
+unchanged invalid configuration or proceed to merge.
+
+The correction must land on the destination default branch through the
+applicable owner-handoff and merge procedure. A correcting PR's proposed
+configuration cannot govern its own delivery before it lands; this repair
+grants no new merge exception. After the correction lands and continuation is
+authorized, a fresh request or wait invocation resolves the current default
+branch and uses the corrected configuration. Invocation errors, permission
+refusals, platform failures and verified optional-file absence retain their
+existing handling.
 
 ## Pull request reviewer file
 
@@ -159,7 +243,62 @@ For example, with placeholder values:
 }
 ```
 
+## Factory app-author review policy
+
+The optional repository-owned `.github/factory-review-policy.json` exempts its
+declared app author from agent-issued external review requests and external
+reviewer response/review waits. Repo Canon installs no policy declaration or
+default exemption. The factory host remains independent of repository reviewer
+configuration; the installed `babysit` request and wait commands apply it
+from the [trusted review configuration](#trusted-review-configuration).
+
+The file is valid JSON holding exactly this object shape:
+
+```json
+{ "version": 1, "author": "example-factory[bot]" }
+```
+
+Both fields are required; unknown fields, unsupported versions, and malformed
+JSON are errors. `author` is a nonempty, trimmed app identity in REST
+`<slug>[bot]` or CLI `app/<slug>` form, with a nonempty slug. A plain human
+login is an invalid declaration, regardless of the PR author or whether a
+reviewer is configured; fail with a configuration error before any review
+request or policy skip. No remote account-type lookup is required. Compare
+authors case-insensitively, treating those REST and CLI forms as the same app.
+A plain human login `<slug>` remains distinct from that app.
+A different or missing PR author is not exempt. Invalid declarations
+fail explicitly and never authorize a skip.
+
+For a policy-skipped pull request, complete internal Standards and Spec reviews
+before merge. Standards checks the change against the repository's documented
+standards; Spec checks it against its originating implementation contract. The
+installed `code-review` workflow provides both axes, including its handling of
+a missing specification. These internal reviews are distinct from the configured
+external reviewer. A policy skip supplies neither internal nor external approval.
+For nonmatching and absent-policy pull requests, keep the existing applicable
+internal-review workflow.
+
+Apply this policy before the review request rules and reviewer wait
+classification, on every head, including fixes, rebases, retries and resumed
+runs. For a matching author, issue no external review request and impose no
+external response/review wait, regardless of opening-request settings or
+request bounds. Classify this outcome as a policy skip, separately from
+external approval, reviewer unavailability or a timeout. At merge, record the
+actual internal Standards and Spec review outcomes and state: "No external
+reviewer runs on app-authored PRs." Follow the contribution guide's comment
+rules for that outcome comment.
+
+Required checks and their waits, internal Standards and Spec reviews, merge
+authorization, and handling of findings that actually arrive remain enforced.
+Use only supplied credentials under the contribution guide's credential rules.
+Absent policy is supported: apply configured reviewer behavior without asking
+the owner for a missing policy. A nonmatching author also keeps that behavior.
+Without a reviewer configuration, checks-only behavior remains supported.
+
 ## Review requests
+
+Apply the [app-author policy](#factory-app-author-review-policy) first; the
+request rules below govern authors it does not exempt.
 
 With a reviewer file, a review request is the pull request's opening when
 `request.onOpen` is true, or a later comment whose whole trimmed body equals
@@ -198,6 +337,9 @@ request title, or body. To mention the request, describe it as "the review
 request comment".
 
 ## Merging with a configured reviewer
+
+Apply the [app-author policy](#factory-app-author-review-policy) first; the
+reviewer waits below govern authors it does not exempt.
 
 With a reviewer file, a pull request also waits for the configured reviewer's
 review of its latest head before it merges. When the configured reviewer does
@@ -240,6 +382,14 @@ readiness. Readiness it applies is bound to that revision like any other, so
 an edit to the brief removes it until the new revision is reviewed.
 
 ## Native blockers
+
+Repo Canon's native GitHub relationship rules take precedence over the
+fallback instructions in the upstream tracker guide installed at
+`docs/agents/issue-tracker.md`. Parent/sub-issue links and blocker/dependency
+links must use GitHub's native relationships. Task lists and `Part of`,
+`Parent`, or `Blocked by` body references do not establish those links, even
+when a native link cannot be created or the feature is unavailable. Required
+named sections retain their content requirements.
 
 GitHub's native issue dependencies are the canonical blocking relationship.
 When adding a native blocker, pass the blocking issue's numeric database ID as
@@ -299,10 +449,9 @@ A child carries exactly one of `wayfinder:research`, `wayfinder:prototype`,
 `wayfinder:grilling`, and `wayfinder:task`, and never `wayfinder:map` with it.
 Its body has a Question section that is not a placeholder, and its parent is an
 issue labeled `wayfinder:map`. Make the child a native sub-issue of its map:
-on GitHub the native parent relationship is canonical. For compatibility, the
-workflow also accepts the first issue reference in the child's `Parent`
-section when the native relationship is absent or GitHub's relationship
-endpoint is unavailable; a `Part of` line alone does not link a child.
+on GitHub only the native parent relationship counts. A `Parent` section
+retains its content requirements but a body-only reference does not link a
+child. A failed relationship read fails validation before any mutation.
 
 Maps and children carry no readiness and no workflow state label. Their
 eligibility uses open state, assignment and native blockers, and the workflow

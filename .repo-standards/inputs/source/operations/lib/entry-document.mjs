@@ -16,7 +16,7 @@ export function isOneSentence(text) {
 
 // Centered README introductions can wrap their title and paragraphs in divs.
 // Only flatten those wrappers; examples, lists and quotations are not intros.
-export function readmeDescription(document) {
+export function readmeDescriptionBlock(document) {
   const flatten = (blocks) =>
     blocks.flatMap((block) =>
       block.tag === "div" ? flatten(block.blocks) : [block],
@@ -24,9 +24,14 @@ export function readmeDescription(document) {
   const blocks = flatten(document.blocks);
   const title = blocks.findIndex((block) => block.tag === "h1");
   return title >= 0 && blocks[title + 1]?.tag === "p"
-    ? blocks[title + 1].text
+    ? blocks[title + 1]
     : null;
 }
+
+export function readmeDescription(document) {
+  return readmeDescriptionBlock(document)?.text ?? null;
+}
+
 function optionalMarkdown(projectRoot, path) {
   try {
     return readFileSync(join(projectRoot, path), "utf8");

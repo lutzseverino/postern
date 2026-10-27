@@ -6,7 +6,7 @@ import {
   glossaryCorrections,
   glossaryTerms,
   isOneSentence,
-  readmeDescription,
+  readmeDescriptionBlock,
 } from "./lib/entry-document.mjs";
 
 const resultFormat = "repo-standards/result/v2";
@@ -152,17 +152,89 @@ function checkPointerSection(
   }
 }
 
+// Links remain single semantic elements for existing consumers; their children
+// expose the images they wrap. Stop at the first non-image rendered content.
+function headerBadges(document, description) {
+  if (!description) return [];
+  const elements = document.content.elements;
+  const start = elements.indexOf(description.elements.at(-1)) + 1;
+  const badges = [];
+  for (const element of elements.slice(start)) {
+    const images = element.type === "link" ? element.elements : [element];
+    if (!images.length || images.some((image) => image.type !== "image")) break;
+    badges.push(...images);
+  }
+  return badges;
+}
+
+function headerPrefixElements(elements, seen = new Set()) {
+  const grouped = [];
+  for (let index = 0; index < elements.length; index += 1) {
+    const element = elements[index];
+    if (element.wrapsHeading || seen.has(element)) continue;
+    seen.add(element);
+    if (element.type === "link") {
+      grouped.push(...headerPrefixElements(element.elements, seen));
+    } else if (
+      element.tag === "picture" &&
+      element.elements.length === 1 &&
+      element.elements[0].type === "image" &&
+      element.elements[0].target.trim()
+    ) {
+      const image = element.elements[0];
+      seen.add(image);
+      grouped.push({ ...image, centered: image.centered || element.centered });
+      index += element.elements.length;
+    } else {
+      grouped.push(element);
+    }
+  }
+  return grouped;
+}
+
+function checkHeaderPrefix(document, corrections) {
+  const elements = document.content.elements;
+  const titleIndex = elements.findIndex(
+    (element) => element.type === "heading" && element.level === 1,
+  );
+  if (titleIndex < 0) return;
+  const prefix = headerPrefixElements(elements.slice(0, titleIndex));
+  const images = prefix.filter((element) => element.type === "image");
+  if (images.length > 1) {
+    corrections.push(
+      `Keep at most one project image before the Repository README title; found ${images.map((image) => `"${image.target}"`).join(", ")}.`,
+    );
+  }
+  for (const element of prefix) {
+    if (element.type === "image" && !element.centered) {
+      corrections.push(
+        `Center the Repository README project image "${element.target}" before its title.`,
+      );
+    } else if (element.type !== "image") {
+      const detail = element.text?.trim() || element.tag || element.type;
+      corrections.push(
+        `Remove rendered content "${detail}" before the Repository README title; only one optional centered project image may precede it.`,
+      );
+    }
+  }
+}
+
 function checkStructure(projectRoot, markdown, license) {
   if (markdown === null) return ["Create the root README.md."];
   const corrections = [];
   const document = interpretMarkdown(markdown);
+  checkHeaderPrefix(document, corrections);
   const parsedHeadings = document.headings;
   const title = parsedHeadings.find((heading) => heading.level === 1) ?? null;
-  const description = readmeDescription(document);
+  const descriptionBlock = readmeDescriptionBlock(document);
+  const description = descriptionBlock?.text ?? null;
   if (description === null || !isOneSentence(description)) {
     corrections.push(
       "Make the Repository README description after its title one sentence.",
     );
+  }
+  if (descriptionBlock && !descriptionBlock.centered) {
+    corrections.push("Center the Repository README description paragraph.");
   }
   if (description !== null) {
     corrections.push(
@@ -174,6 +246,14 @@ function checkStructure(projectRoot, markdown, license) {
   if (!title?.centered) {
     corrections.push(
       "Center the Repository README title in a nonempty HTML h1 or a centered block.",
+    );
+  }
+
+  if (
+    headerBadges(document, descriptionBlock).some((badge) => !badge.centered)
+  ) {
+    corrections.push(
+      "Center the Repository README badges after its description.",
     );
   }
 

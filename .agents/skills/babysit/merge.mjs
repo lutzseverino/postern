@@ -1,42 +1,9 @@
 #!/usr/bin/env node
 
 // Usage: node merge.mjs <number> <head SHA>, from the repository root.
-// Exit codes: 0 merged, 1 usage or gh error, 2 head changed; wait again,
+// Exit codes: 0 merged, 1 usage or platform error, 2 head changed; wait again,
 // 3 not merged; needs the owner.
-import { spawnSync } from "node:child_process";
-
-function gh(args, input) {
-  const result = spawnSync("gh", args, {
-    input,
-    encoding: "utf8",
-    timeout: 45_000,
-  });
-  if (result.error) throw result.error;
-  return result;
-}
-
-function readPullRequest(number, fields = "title,body,headRefOid") {
-  const result = gh(["pr", "view", number, "--json", fields]);
-  if (result.status !== 0) throw new Error(result.stderr.trim());
-  return JSON.parse(result.stdout);
-}
-
-function isMergeQueueEnabled(number) {
-  const result = gh([
-    "api",
-    "graphql",
-    "-f",
-    "query=query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { isMergeQueueEnabled } } }",
-    "-F",
-    "owner={owner}",
-    "-F",
-    "name={repo}",
-    "-F",
-    `number=${number}`,
-  ]);
-  if (result.status !== 0) throw new Error(result.stderr.trim());
-  return JSON.parse(result.stdout).data.repository.pullRequest.isMergeQueueEnabled;
-}
+import { connectionFor, executedAsScript } from "./platform.mjs";
 
 function needsOwner(message) {
   console.error(message);
@@ -48,8 +15,8 @@ function retry() {
   process.exitCode = 2;
 }
 
-function main() {
-  const [number, head, ...extra] = process.argv.slice(2);
+export async function main(argv = process.argv.slice(2), connection) {
+  const [number, head, ...extra] = argv;
   if (
     !/^[1-9]\d*$/.test(number ?? "") ||
     !/^[a-f0-9]{40}$/i.test(head ?? "") ||
@@ -57,41 +24,48 @@ function main() {
   ) {
     throw new Error("Usage: node merge.mjs <number> <head SHA>");
   }
-  const pullRequest = readPullRequest(number);
-  if (pullRequest.headRefOid !== head) return retry();
-  if (isMergeQueueEnabled(number)) {
+  connection ??= connectionFor();
+  const pullRequest = await connection.pullRequests.pullRequest(Number(number));
+  if (pullRequest.headCommit !== head) return retry();
+  if (await connection.pullRequests.mergesThroughQueue(Number(number))) {
     return needsOwner(
       "The base branch requires a merge queue, which cannot apply the explicit squash message CONTRIBUTING.md requires; needs the owner.",
     );
   }
-  const result = gh(
-    [
-      "pr",
-      "merge",
-      number,
-      "--squash",
-      "--match-head-commit",
-      head,
-      "--subject",
-      `${pullRequest.title} (#${number})`,
-      "--body-file",
-      "-",
-    ],
-    pullRequest.body ?? "",
-  );
-  if (result.status !== 0) {
-    if (readPullRequest(number).headRefOid !== head) return retry();
-    throw new Error(result.stderr.trim());
+  let mergedCommit;
+  try {
+    mergedCommit = await connection.pullRequests.squashMerge(Number(number), {
+      expectedHead: head,
+      title: `${pullRequest.title} (#${number})`,
+      body: pullRequest.body ?? "",
+    });
+  } catch (error) {
+    if (
+      (await connection.pullRequests.pullRequest(Number(number))).headCommit !==
+      head
+    )
+      return retry();
+    if (
+      error.reason === "invalidResponse" &&
+      error.message === "GitHub answered the merge without merging."
+    )
+      return needsOwner("The pull request did not merge; needs the owner.");
+    throw error;
   }
-  if (readPullRequest(number, "state").state !== "MERGED") {
+  if (
+    (await connection.pullRequests.pullRequest(Number(number))).state !==
+    "merged"
+  ) {
     return needsOwner("The pull request did not merge; needs the owner.");
   }
-  process.stdout.write(result.stdout);
+  process.stdout.write(`${mergedCommit}\n`);
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(error.message);
-  process.exitCode = 1;
+if (import.meta.main ?? executedAsScript(import.meta.url)) {
+  try {
+    await main();
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+  }
 }

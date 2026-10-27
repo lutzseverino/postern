@@ -6,7 +6,8 @@ per-repository configuration, installed unchanged from the upstream setup seeds.
 - [Issue tracker](issue-tracker.md): GitHub issue operations, pull requests as
   a triage surface, and Wayfinding operations.
 - [Triage labels](triage-labels.md): the label strings for the five canonical
-  triage roles.
+  triage roles. For role meanings, follow the installed
+  `github-repository-configuration` rules and the contribution guide.
 - [Domain docs](domain.md): reading the glossary and ADRs, the single- and
   multi-context layouts, and flagging ADR conflicts.
 

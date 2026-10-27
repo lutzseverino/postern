@@ -3,6 +3,6 @@
   "name": "repo-canon",
   "description": "Repository documentation, contribution, agent workflow, and GitHub validation standards",
   "requires": {
-    "repo-standards": ">=7.2.0"
+    "repo-standards": ">=10.0.0"
   }
 }

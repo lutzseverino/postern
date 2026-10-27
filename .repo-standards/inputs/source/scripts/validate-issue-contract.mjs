@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 
-import { realpathSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { setTimeout as wait } from "node:timers/promises";
 import { createHash } from "node:crypto";
-import { fileURLToPath } from "node:url";
+import { PlatformError } from "../vendor/postern/postern.mjs";
 import { lexer } from "../vendor/marked/marked.esm.js";
 import {
   interpretMarkdown,
@@ -63,43 +61,6 @@ function isSpecification({ labels, body }) {
     !names.some((name) => categoryLabels.has(name)) &&
     identifyContract(parseSections(body ?? "")) === "specification"
   );
-}
-
-// The first issue reference in the body's `Parent` section, as an API path
-// such as `/repos/<owner>/<name>/issues/<n>`, or null. An issue with no native
-// parent counts as the child of the issue it references.
-function parentSectionReference(body, repository) {
-  return (
-    issueReferences(parseSections(body).get("parent"), repository)[0] ?? null
-  );
-}
-
-// The distinct issue references in Markdown, as API paths; a bare `#<n>`
-// resolves against `repository`, written `<owner>/<name>`.
-function issueReferences(value = "", repository) {
-  const references = [];
-  const seen = new Set();
-  const expression =
-    /https:\/\/github\.com\/([^/\s]+)\/([^/\s]+)\/issues\/(\d+)|(?:^|[\s(])#(\d+)\b/gim;
-  for (const match of markdownReferenceText(value).matchAll(expression)) {
-    const reference = match[4]
-      ? `/repos/${repository}/issues/${match[4]}`
-      : `/repos/${match[1]}/${match[2]}/issues/${match[3]}`;
-    if (!seen.has(reference)) {
-      seen.add(reference);
-      references.push(reference);
-    }
-  }
-  return references;
-}
-
-function markdownReferenceText(markdown) {
-  return issueMarkdown(markdown).content.text({
-    includeCode: false,
-    includeKeyboardInput: true,
-    includeImageAlt: false,
-    includeLinkTargets: true,
-  }).text;
 }
 
 function identifyContract(sections) {
@@ -207,13 +168,10 @@ const wayfinderChildFields = new Set(["parent", "question"]);
 // The decision reads one snapshot, which the adapter below fetches in full
 // before deciding:
 // - `repository`: the `owner/name` that `#123` references resolve against;
-// - `event`: the workflow event payload;
+// - `event`: Postern neutral IssueEvent facts;
 // - `issue`, `comments`: the re-fetched issue and its complete discussion,
 //   which also holds the previous feedback comment;
-// - `blockedBy`, `parent`: the native blockers (empty when the dependency
-//   endpoint is unavailable) and the native parent, or `null`;
-// - `relatedIssues`: the issues that explicit `Parent` and `Blocked by`
-//   references resolve to, keyed by API path, `null` when unresolved;
+// - `blockedBy`, `parent`: the port relationships and the resolved parent;
 // - `bodyRevision`: the direct body's `{ id, lastEditedAt }` edit revision;
 // - `issueEvents`: the complete authoritative issue-event timeline;
 // - `permissions`: each looked-up login's repository `{ role }`, `null` when
@@ -382,9 +340,9 @@ export function decideIssueContract(snapshot) {
 export function readinessTriggerUnrecorded(snapshot) {
   const { event, issue, comments } = snapshot;
   const trigger = readinessTransitionLabel(event);
-  const sender = event.sender?.login;
+  const sender = event.actor?.login;
   if (
-    event.action !== "labeled" ||
+    event.kind !== "labeled" ||
     !trigger ||
     !sender ||
     sender === "github-actions[bot]"
@@ -435,7 +393,7 @@ function assessStructure(snapshot) {
 }
 
 function readinessTransitionLabel(event) {
-  return readyLabels.has(event.label?.name) ? event.label.name : null;
+  return readyLabels.has(event.label) ? event.label : null;
 }
 
 // What the decision reads beyond the issue and its discussion: the timeline
@@ -449,66 +407,10 @@ function snapshotNeeds(snapshot) {
   };
 }
 
-// The explicit references the adapter looks up: the first `Parent` reference
-// when no native parent exists, and each `Blocked by` reference that no native
-// blocker already supplies.
-function relationshipLookups({
-  repository,
-  issue,
-  parent: nativeParent,
-  blockedBy: nativeBlockedBy,
-}) {
-  const sections = parseSections(issue.body ?? "");
-  const parentReference = parentSectionReference(issue.body ?? "", repository);
-  const knownReferences = new Set(
-    nativeBlockedBy
-      .map((blocker) => issueReferenceFor(blocker))
-      .filter(Boolean),
-  );
-  return {
-    parentReference,
-    parent: !nativeParent && parentReference ? parentReference : null,
-    blockers: issueReferences(sections.get("blocked by"), repository).filter(
-      (reference) => !knownReferences.has(reference),
-    ),
-  };
-}
-
+// Relationships are supplied by the port. GitHub's native capabilities make
+// named body sections content requirements rather than relationship fallbacks.
 function resolveRelationships(snapshot) {
-  const lookups = relationshipLookups(snapshot);
-  const errors = [];
-  const fallbackParent = lookups.parent
-    ? relatedIssue(snapshot, lookups.parent)
-    : null;
-  const parent = snapshot.parent ?? fallbackParent;
-  if (lookups.parentReference && !parent)
-    errors.push(
-      `Could not resolve the \`Parent\` issue reference ${lookups.parentReference}.`,
-    );
-  const blockedBy = [...snapshot.blockedBy];
-  for (const reference of lookups.blockers) {
-    const blocker = relatedIssue(snapshot, reference);
-    if (blocker) blockedBy.push(blocker);
-    else
-      errors.push(
-        `Could not resolve the \`Blocked by\` issue reference ${reference}.`,
-      );
-  }
-  return { parent, blockedBy, errors };
-}
-
-function relatedIssue({ relatedIssues = {} }, reference) {
-  return Object.hasOwn(relatedIssues, reference)
-    ? relatedIssues[reference]
-    : null;
-}
-
-function issueReferenceFor(issue) {
-  if (issue.url) return new URL(issue.url).pathname;
-  const match = issue.html_url?.match(
-    /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)/,
-  );
-  return match ? `/repos/${match[1]}/${match[2]}/issues/${match[3]}` : null;
+  return { parent: snapshot.parent, blockedBy: snapshot.blockedBy, errors: [] };
 }
 
 function markdownVisibleText(markdown) {
@@ -763,7 +665,7 @@ function validateWayfinderChild(
   requireSection(sections, "Question", errors);
   if (!parent) {
     errors.push(
-      "Link the Wayfinder child to its parent map using the native parent relationship or a `Parent` section.",
+      "Link the Wayfinder child to its parent map using the native parent relationship.",
     );
   } else if (
     !(parent.labels ?? []).some((label) => labelName(label) === "wayfinder:map")
@@ -1184,7 +1086,7 @@ function creationLabelEvent(
 ) {
   if (result.contract.type !== "issue-body" || !openingEligible || !label)
     return null;
-  if (currentEvent.action === "labeled") {
+  if (currentEvent.kind === "labeled") {
     if (
       !issue.user?.login ||
       (readinessTransitionLabel(currentEvent) && !timeline.sentByOpener())
@@ -1195,18 +1097,17 @@ function creationLabelEvent(
     });
   }
   const openingReadyLabels =
-    currentEvent.issue?.labels
+    currentEvent.openingLabels
       ?.map(labelName)
       .filter((name) => readyLabels.has(name)) ?? [];
   if (
-    currentEvent.action !== "opened" ||
-    currentEvent.issue?.body !== issue.body ||
+    currentEvent.kind !== "opened" ||
     openingReadyLabels.length !== 1 ||
     openingReadyLabels[0] !== label
   ) {
     return null;
   }
-  return timeline.creationReview(label, currentEvent.sender, {
+  return timeline.creationReview(label, currentEvent.actor, {
     openingPayload: true,
   });
 }
@@ -1217,7 +1118,7 @@ function openingReviewId(issue) {
 
 function supersedingDeletedBrief(currentEvent, result) {
   if (
-    currentEvent.action !== "deleted" ||
+    currentEvent.kind !== "commentDeleted" ||
     result.contract.type !== "comment" ||
     !agentBriefHeading(currentEvent.comment?.body ?? "")
   ) {
@@ -1225,7 +1126,7 @@ function supersedingDeletedBrief(currentEvent, result) {
   }
   const deleted = currentEvent.comment;
   return latestAgentBrief([result.contract.comment, deleted]) === deleted
-    ? `deleted-comment:${deleted.node_id ?? deleted.id}`
+    ? `deleted-comment:${deleted.nodeId ?? deleted.id}`
     : null;
 }
 
@@ -1255,8 +1156,8 @@ function reviewerLogins({ event, comments, issueEvents }) {
     findFeedback(comments)?.body,
   )?.reviewer;
   if (recordedReviewer) logins.add(recordedReviewer);
-  if (event.action === "opened" && event.sender?.login)
-    logins.add(event.sender.login);
+  if (event.kind === "opened" && event.actor?.login)
+    logins.add(event.actor.login);
   return [...logins];
 }
 
@@ -1379,7 +1280,7 @@ function issueTimeline({ event, issue, issueEvents }) {
   // Whether the run's sender is the issue's opener.
   function sentByOpener() {
     return (
-      Boolean(issue.user?.login) && event.sender?.login === issue.user.login
+      Boolean(issue.user?.login) && event.actor?.login === issue.user.login
     );
   }
 
@@ -1423,8 +1324,8 @@ function issueTimeline({ event, issue, issueEvents }) {
 
   function openedWith(label) {
     return (
-      event.action === "opened" &&
-      (event.issue?.labels ?? []).some(
+      event.kind === "opened" &&
+      (event.openingLabels ?? []).some(
         (candidate) => labelName(candidate) === label,
       )
     );
@@ -1674,239 +1575,106 @@ function resolvedFeedback(kind, previousFeedback) {
 const triggerWaitInterval = 2000;
 const triggerWaitBound = 30000;
 
-// The GitHub adapter runs only when the workflow executes this file. It reads
-// the event, fetches the complete snapshot, decides, and applies the writes.
-// Node.js 24.2 and later report that as `import.meta.main`. Earlier 24
-// releases lack it, so there the adapter compares the resolved script path with
-// this module's path; that is the only file-system read an import can make.
-if (import.meta.main ?? executedAsScript(import.meta.url))
-  await runIssueContractValidation(process.env);
-
-// Whether the process was started with this module as its script, following
-// symlinks on both paths. A path that cannot be resolved fails the run rather
-// than skipping the adapter.
-function executedAsScript(moduleUrl) {
-  const script = process.argv[1];
-  if (!script) return false;
-  return realpathSync(script) === realpathSync(fileURLToPath(moduleUrl));
-}
-
-async function runIssueContractValidation(environment) {
-  const required = (name) => {
-    const value = environment[name];
-    if (!value) throw new Error(`${name} is required.`);
-    return value;
-  };
-  const event = JSON.parse(
-    await readFile(required("GITHUB_EVENT_PATH"), "utf8"),
-  );
-
-  if (event.issue?.pull_request) {
+export async function runIssueContractValidation(
+  event,
+  connection,
+  resolveIssue,
+  pause = wait,
+) {
+  const tracker = connection.issueTracker;
+  if (!event) {
     console.log(
       "Skipped pull request discussion; issue contract validation handles issues only.",
     );
     return;
   }
-
-  const issueNumber = event.issue?.number;
-  if (!Number.isInteger(issueNumber))
-    throw new Error("The event does not identify an issue number.");
-
-  const repository = required("GITHUB_REPOSITORY");
-  const api = createApi({
-    baseUrl: required("GITHUB_API_URL"),
-    graphqlUrl: required("GITHUB_GRAPHQL_URL"),
-    repository,
-    token: required("GITHUB_TOKEN"),
+  const issueNumber = event.issue;
+  const current = await tracker.issue(issueNumber);
+  const legacyIssue = (issue) => ({
+    ...issue,
+    node_id: issue.nodeId,
+    created_at: issue.createdAt,
+    user: issue.author,
+    html_url: issue.url,
   });
-
-  const issue = await api.getIssue(issueNumber);
-  if (issue.pull_request) {
-    console.log(
-      "Skipped pull request discussion; issue contract validation handles issues only.",
-    );
-    return;
-  }
+  const issue = legacyIssue(current);
   if (issue.state === "closed") {
     const decision = decideIssueContract({ issue });
     for (const label of decision.removeLabels)
-      await api.removeLabel(issueNumber, label);
+      await tracker.removeLabel(issueNumber, label);
     console.log(decision.message);
     return;
   }
-
+  if (!tracker.capabilities.bodyEditTime)
+    throw new Error(
+      "Issue body edit time is unavailable; cannot validate readiness.",
+    );
   const snapshot = {
-    repository,
+    repository: event.repository,
     event,
     issue,
-    comments: await api.listComments(issueNumber),
-    blockedBy: await api.listBlockedBy(issueNumber),
-    parent: await api.getParent(issueNumber),
-    relatedIssues: {},
-    bodyRevision: null,
+    comments: (await tracker.comments(issueNumber)).map((comment) => ({
+      ...comment,
+      node_id: comment.nodeId,
+      user: comment.author,
+      created_at: comment.createdAt,
+      updated_at: comment.updatedAt,
+    })),
+    parent: current.parent
+      ? legacyIssue(await resolveIssue(current.parent))
+      : null,
+    blockedBy: current.blockedBy,
+    bodyRevision: {
+      id: current.nodeId ?? current.id,
+      lastEditedAt: current.bodyEditTime,
+    },
     issueEvents: null,
     permissions: {},
   };
-  const lookups = relationshipLookups(snapshot);
-  for (const reference of [lookups.parent, ...lookups.blockers].filter(
-    Boolean,
-  )) {
-    snapshot.relatedIssues[reference] = await api.getOptionalUrl(reference);
-  }
+  const readTimeline = async () =>
+    (await tracker.labelChanges(issueNumber)).map((change) => ({
+      id: change.id,
+      event: change.action === "added" ? "labeled" : "unlabeled",
+      label: { name: change.label },
+      actor: change.actor,
+      created_at: change.time,
+    }));
   let needs = snapshotNeeds(snapshot);
   if (needs.timeline) {
-    snapshot.issueEvents = await api.listEvents(issueNumber);
+    snapshot.issueEvents = await readTimeline();
     needs = snapshotNeeds(snapshot);
   }
-  if (needs.contract?.type === "issue-body")
-    snapshot.bodyRevision = await api.getIssueBodyRevision(issueNumber);
   if (needs.contract) {
     for (
       let waited = 0;
       waited < triggerWaitBound && readinessTriggerUnrecorded(snapshot);
       waited += triggerWaitInterval
     ) {
-      await wait(triggerWaitInterval);
-      snapshot.issueEvents = await api.listEvents(issueNumber);
+      await pause(triggerWaitInterval);
+      snapshot.issueEvents = await readTimeline();
     }
-    for (const login of reviewerLogins(snapshot))
-      snapshot.permissions[login] = await readPermission(api, login);
+    for (const login of reviewerLogins(snapshot)) {
+      snapshot.permissions[login] = {
+        role: await connection.access.role(login).catch((error) => {
+          if (error instanceof PlatformError && error.reason === "notFound")
+            return null;
+          throw error;
+        }),
+      };
+    }
   }
-
   const decision = decideIssueContract(snapshot);
-  const { feedback } = decision;
   for (const label of decision.removeLabels)
-    await api.removeLabel(issueNumber, label);
-  if (decision.addLabels.length > 0)
-    await api.addLabels(issueNumber, decision.addLabels);
-  if (feedback && feedback.commentId == null)
-    await api.createComment(issueNumber, feedback.body);
-  else if (feedback) await api.updateComment(feedback.commentId, feedback.body);
-  if (decision.exitCode === 0) console.log(decision.message);
-  else console.error(decision.message);
-  process.exitCode = decision.exitCode;
-}
-
-// A failed lookup is recorded for its login and never grants authority.
-async function readPermission(apiClient, login) {
-  try {
-    const permission = await apiClient.getPermission(login);
-    return permission
-      ? { role: permission.role_name ?? permission.permission }
-      : null;
-  } catch (error) {
-    return { error: error.message };
-  }
-}
-
-function createApi({ baseUrl, graphqlUrl, repository, token }) {
-  const issuePath = `/repos/${repository}/issues`;
-
-  async function requestResponse(
-    path,
-    { allowNotFound = false, ...options } = {},
-  ) {
-    const response = await fetch(
-      path.startsWith("http") ? path : `${baseUrl}${path}`,
-      {
-        ...options,
-        headers: {
-          accept: "application/vnd.github+json",
-          authorization: `Bearer ${token}`,
-          "content-type": "application/json",
-          "x-github-api-version": "2022-11-28",
-          ...options.headers,
-        },
-      },
+    await tracker.removeLabel(issueNumber, label);
+  if (decision.addLabels.length)
+    await tracker.addLabels(issueNumber, decision.addLabels);
+  if (decision.feedback?.commentId == null && decision.feedback)
+    await tracker.createComment(issueNumber, decision.feedback.body);
+  else if (decision.feedback)
+    await tracker.updateComment(
+      decision.feedback.commentId,
+      decision.feedback.body,
     );
-    if (allowNotFound && response.status === 404)
-      return { data: null, link: null };
-    if (!response.ok) {
-      throw new Error(
-        `GitHub API ${options.method ?? "GET"} ${path} returned ${response.status}: ${await response.text()}`,
-      );
-    }
-    return {
-      data: response.status === 204 ? null : await response.json(),
-      link: response.headers.get("link"),
-    };
-  }
-
-  async function request(path, options = {}) {
-    return (await requestResponse(path, options)).data;
-  }
-
-  async function paginate(path, options = {}) {
-    const values = [];
-    let next = path;
-    while (next) {
-      const response = await requestResponse(next, options);
-      if (!response.data) break;
-      values.push(...response.data);
-      next = response.link?.match(/<([^>]+)>;\s*rel="next"/)?.[1] ?? null;
-    }
-    return values;
-  }
-
-  async function graphql(query, variables) {
-    const response = await request(graphqlUrl, {
-      method: "POST",
-      body: JSON.stringify({ query, variables }),
-    });
-    if (response.errors?.length) {
-      throw new Error(
-        `GitHub GraphQL returned errors: ${response.errors.map(({ message }) => message).join("; ")}`,
-      );
-    }
-    return response.data;
-  }
-
-  return {
-    getIssue: (number) => request(`${issuePath}/${number}`),
-    getParent: (number) =>
-      request(`${issuePath}/${number}/parent`, { allowNotFound: true }),
-    getOptionalUrl: (url) => request(url, { allowNotFound: true }),
-    getPermission: (login) =>
-      request(
-        `/repos/${repository}/collaborators/${encodeURIComponent(login)}/permission`,
-        { allowNotFound: true },
-      ),
-    getIssueBodyRevision: async (number) => {
-      const [owner, name] = repository.split("/");
-      const data = await graphql(
-        "query IssueBodyRevision($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { issue(number: $number) { id lastEditedAt } } }",
-        { owner, name, number },
-      );
-      if (!data?.repository?.issue)
-        throw new Error(`GitHub GraphQL did not return issue #${number}.`);
-      return data.repository.issue;
-    },
-    listComments: (number) =>
-      paginate(`${issuePath}/${number}/comments?per_page=100`),
-    listEvents: (number) =>
-      paginate(`${issuePath}/${number}/events?per_page=100`),
-    listBlockedBy: (number) =>
-      paginate(`${issuePath}/${number}/dependencies/blocked_by?per_page=100`, {
-        allowNotFound: true,
-      }),
-    removeLabel: (number, label) =>
-      request(`${issuePath}/${number}/labels/${encodeURIComponent(label)}`, {
-        method: "DELETE",
-      }),
-    addLabels: (number, labels) =>
-      request(`${issuePath}/${number}/labels`, {
-        method: "POST",
-        body: JSON.stringify({ labels }),
-      }),
-    createComment: (number, body) =>
-      request(`${issuePath}/${number}/comments`, {
-        method: "POST",
-        body: JSON.stringify({ body }),
-      }),
-    updateComment: (id, body) =>
-      request(`${issuePath}/comments/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ body }),
-      }),
-  };
+  (decision.exitCode === 0 ? console.log : console.error)(decision.message);
+  return decision.exitCode;
 }

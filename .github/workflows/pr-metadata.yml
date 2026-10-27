@@ -23,4 +23,4 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - name: Validate title and description
-        run: node .github/scripts/validate-pr-metadata.mjs "$GITHUB_EVENT_PATH"
+        run: node .github/scripts/validate.mjs pr-metadata

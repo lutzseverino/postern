@@ -1,7 +1,7 @@
 {
-  "format": "repo-standards/scope-history/v5",
+  "format": "repo-standards/scope-history/v6",
   "evidence": "historical",
-  "inspection": "sha256:edffbdf904b4016a4da916f3ce82977c051ba1552bf334220becd788230e6c7c",
+  "inspection": "sha256:b5be51227e43433dbee23e77047a3d2c9f86af683e370eec6185acb254102bac",
   "resolved": {
     "description": "The standard profile plus the factory's repository files and workflow rules, for a repository a factory serves",
     "declarations": [
@@ -136,6 +136,15 @@
         "exact": ".github/ISSUE_TEMPLATE/feature-request.yml"
       },
       {
+        "id": "git-attributes",
+        "checks": [],
+        "fixes": [],
+        "kind": "file",
+        "target": ".gitattributes",
+        "guidance": "guidance/git-attributes.md",
+        "rules": "rules/git-attributes.md"
+      },
+      {
         "id": "github-repository-configuration",
         "checks": [
           {
@@ -145,6 +154,24 @@
               "script": "operations/check-pull-request-reviewer.mjs",
               "resources": [
                 "operations/lib/pull-request-reviewer.mjs"
+              ],
+              "arguments": []
+            },
+            "prerequisite": {
+              "version-arguments": [
+                "--version"
+              ],
+              "version": ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+            },
+            "timeout-seconds": 30
+          },
+          {
+            "id": "factory-review-policy",
+            "run": {
+              "executable": "node",
+              "script": "operations/check-factory-review-policy.mjs",
+              "resources": [
+                "operations/lib/review-policy.mjs"
               ],
               "arguments": []
             },
@@ -165,6 +192,9 @@
               "script": "operations/setup-github-labels.mjs",
               "resources": [
                 "operations/lib/github-operation.mjs",
+                "vendor/postern/postern.mjs",
+                "vendor/postern/LICENSE",
+                "vendor/postern/README.md",
                 "LICENSE",
                 "THIRD_PARTY_NOTICES.md",
                 "vendor/mattpocock-skills/LICENSE",
@@ -188,7 +218,10 @@
                   "executable": "node",
                   "script": "operations/probe-github-labels.mjs",
                   "resources": [
-                    "operations/lib/github-operation.mjs"
+                    "operations/lib/github-operation.mjs",
+                    "vendor/postern/postern.mjs",
+                    "vendor/postern/LICENSE",
+                    "vendor/postern/README.md"
                   ],
                   "arguments": []
                 },
@@ -208,7 +241,10 @@
               "executable": "node",
               "script": "operations/setup-github-pr-integration.mjs",
               "resources": [
-                "operations/lib/github-operation.mjs"
+                "operations/lib/github-operation.mjs",
+                "vendor/postern/postern.mjs",
+                "vendor/postern/LICENSE",
+                "vendor/postern/README.md"
               ],
               "arguments": []
             },
@@ -225,7 +261,10 @@
                   "executable": "node",
                   "script": "operations/probe-github-pr-integration.mjs",
                   "resources": [
-                    "operations/lib/github-operation.mjs"
+                    "operations/lib/github-operation.mjs",
+                    "vendor/postern/postern.mjs",
+                    "vendor/postern/LICENSE",
+                    "vendor/postern/README.md"
                   ],
                   "arguments": []
                 },
@@ -247,6 +286,14 @@
           "paths": [],
           "directories": []
         }
+      },
+      {
+        "id": "github-validator-trigger",
+        "checks": [],
+        "fixes": [],
+        "kind": "file",
+        "target": ".github/scripts/validate.mjs",
+        "exact": ".github/scripts/validate.mjs"
       },
       {
         "id": "humanlayer-skills-license",
@@ -351,6 +398,30 @@
         "kind": "file",
         "target": "vendor/parse5/README.md",
         "exact": "vendor/parse5/README.md"
+      },
+      {
+        "id": "postern-bundle",
+        "checks": [],
+        "fixes": [],
+        "kind": "file",
+        "target": "vendor/postern/postern.mjs",
+        "exact": "vendor/postern/postern.mjs"
+      },
+      {
+        "id": "postern-license",
+        "checks": [],
+        "fixes": [],
+        "kind": "file",
+        "target": "vendor/postern/LICENSE",
+        "exact": "vendor/postern/LICENSE"
+      },
+      {
+        "id": "postern-provenance",
+        "checks": [],
+        "fixes": [],
+        "kind": "file",
+        "target": "vendor/postern/README.md",
+        "exact": "vendor/postern/README.md"
       },
       {
         "id": "pr-metadata-validator",
@@ -541,6 +612,14 @@
         "source": "vendor/mattpocock-skills/skills/engineering/improve-codebase-architecture"
       },
       {
+        "id": "skill-orchestrate",
+        "checks": [],
+        "fixes": [],
+        "kind": "skill",
+        "name": "orchestrate",
+        "source": ".agents/skills/orchestrate"
+      },
+      {
         "id": "skill-pr",
         "checks": [],
         "fixes": [],
@@ -621,12 +700,62 @@
         "exact": ".github/ISSUE_TEMPLATE/specification.yml"
       },
       {
+        "id": "standards-update-workflow",
+        "checks": [],
+        "fixes": [],
+        "kind": "file",
+        "target": ".github/workflows/standards-update.yml",
+        "exact": ".github/workflows/standards-update.yml"
+      },
+      {
         "id": "triage-label-configuration",
         "checks": [],
         "fixes": [],
         "kind": "file",
         "target": "docs/agents/triage-labels.md",
         "exact": "vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/triage-labels.md"
+      },
+      {
+        "id": "typescript-node-stack",
+        "checks": [
+          {
+            "id": "typescript-node-stack-manifests",
+            "run": {
+              "executable": "node",
+              "script": "operations/check-typescript-node-stack.mjs",
+              "resources": [
+                "operations/lib/typescript-node-stack.mjs",
+                "operations/lib/local-markdown-links.mjs"
+              ],
+              "arguments": []
+            },
+            "prerequisite": {
+              "version-arguments": [
+                "--version"
+              ],
+              "version": ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+            },
+            "timeout-seconds": 30
+          }
+        ],
+        "fixes": [],
+        "kind": "repository",
+        "guidance": "guidance/typescript-node-stack.md",
+        "rules": "rules/typescript-node-stack.md",
+        "targets": {
+          "paths": [
+            "package.json"
+          ],
+          "directories": []
+        }
+      },
+      {
+        "id": "validator-command",
+        "checks": [],
+        "fixes": [],
+        "kind": "file",
+        "target": "scripts/validate.mjs",
+        "exact": "scripts/validate.mjs"
       }
     ]
   },
@@ -772,6 +901,15 @@
         "exact": ".github/ISSUE_TEMPLATE/feature-request.yml"
       },
       {
+        "id": "git-attributes",
+        "checks": [],
+        "fixes": [],
+        "kind": "file",
+        "target": ".gitattributes",
+        "guidance": "guidance/git-attributes.md",
+        "rules": "rules/git-attributes.md"
+      },
+      {
         "id": "github-repository-configuration",
         "checks": [
           {
@@ -781,6 +919,24 @@
               "script": "operations/check-pull-request-reviewer.mjs",
               "resources": [
                 "operations/lib/pull-request-reviewer.mjs"
+              ],
+              "arguments": []
+            },
+            "prerequisite": {
+              "version-arguments": [
+                "--version"
+              ],
+              "version": ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+            },
+            "timeout-seconds": 30
+          },
+          {
+            "id": "factory-review-policy",
+            "run": {
+              "executable": "node",
+              "script": "operations/check-factory-review-policy.mjs",
+              "resources": [
+                "operations/lib/review-policy.mjs"
               ],
               "arguments": []
             },
@@ -801,6 +957,9 @@
               "script": "operations/setup-github-labels.mjs",
               "resources": [
                 "operations/lib/github-operation.mjs",
+                "vendor/postern/postern.mjs",
+                "vendor/postern/LICENSE",
+                "vendor/postern/README.md",
                 "LICENSE",
                 "THIRD_PARTY_NOTICES.md",
                 "vendor/mattpocock-skills/LICENSE",
@@ -824,7 +983,10 @@
                   "executable": "node",
                   "script": "operations/probe-github-labels.mjs",
                   "resources": [
-                    "operations/lib/github-operation.mjs"
+                    "operations/lib/github-operation.mjs",
+                    "vendor/postern/postern.mjs",
+                    "vendor/postern/LICENSE",
+                    "vendor/postern/README.md"
                   ],
                   "arguments": []
                 },
@@ -844,7 +1006,10 @@
               "executable": "node",
               "script": "operations/setup-github-pr-integration.mjs",
               "resources": [
-                "operations/lib/github-operation.mjs"
+                "operations/lib/github-operation.mjs",
+                "vendor/postern/postern.mjs",
+                "vendor/postern/LICENSE",
+                "vendor/postern/README.md"
               ],
               "arguments": []
             },
@@ -861,7 +1026,10 @@
                   "executable": "node",
                   "script": "operations/probe-github-pr-integration.mjs",
                   "resources": [
-                    "operations/lib/github-operation.mjs"
+                    "operations/lib/github-operation.mjs",
+                    "vendor/postern/postern.mjs",
+                    "vendor/postern/LICENSE",
+                    "vendor/postern/README.md"
                   ],
                   "arguments": []
                 },
@@ -880,6 +1048,14 @@
         "guidance": "guidance/github-repository-configuration.md",
         "rules": "rules/github-repository-configuration.md",
         "discovery": "discovery/github-repository-configuration.md"
+      },
+      {
+        "id": "github-validator-trigger",
+        "checks": [],
+        "fixes": [],
+        "kind": "file",
+        "target": ".github/scripts/validate.mjs",
+        "exact": ".github/scripts/validate.mjs"
       },
       {
         "id": "humanlayer-skills-license",
@@ -984,6 +1160,30 @@
         "kind": "file",
         "target": "vendor/parse5/README.md",
         "exact": "vendor/parse5/README.md"
+      },
+      {
+        "id": "postern-bundle",
+        "checks": [],
+        "fixes": [],
+        "kind": "file",
+        "target": "vendor/postern/postern.mjs",
+        "exact": "vendor/postern/postern.mjs"
+      },
+      {
+        "id": "postern-license",
+        "checks": [],
+        "fixes": [],
+        "kind": "file",
+        "target": "vendor/postern/LICENSE",
+        "exact": "vendor/postern/LICENSE"
+      },
+      {
+        "id": "postern-provenance",
+        "checks": [],
+        "fixes": [],
+        "kind": "file",
+        "target": "vendor/postern/README.md",
+        "exact": "vendor/postern/README.md"
       },
       {
         "id": "pr-metadata-validator",
@@ -1171,6 +1371,14 @@
         "source": "vendor/mattpocock-skills/skills/engineering/improve-codebase-architecture"
       },
       {
+        "id": "skill-orchestrate",
+        "checks": [],
+        "fixes": [],
+        "kind": "skill",
+        "name": "orchestrate",
+        "source": ".agents/skills/orchestrate"
+      },
+      {
         "id": "skill-pr",
         "checks": [],
         "fixes": [],
@@ -1251,24 +1459,97 @@
         "exact": ".github/ISSUE_TEMPLATE/specification.yml"
       },
       {
+        "id": "standards-update-workflow",
+        "checks": [],
+        "fixes": [],
+        "kind": "file",
+        "target": ".github/workflows/standards-update.yml",
+        "exact": ".github/workflows/standards-update.yml"
+      },
+      {
         "id": "triage-label-configuration",
         "checks": [],
         "fixes": [],
         "kind": "file",
         "target": "docs/agents/triage-labels.md",
         "exact": "vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/triage-labels.md"
+      },
+      {
+        "id": "typescript-node-stack",
+        "checks": [
+          {
+            "id": "typescript-node-stack-manifests",
+            "run": {
+              "executable": "node",
+              "script": "operations/check-typescript-node-stack.mjs",
+              "resources": [
+                "operations/lib/typescript-node-stack.mjs",
+                "operations/lib/local-markdown-links.mjs"
+              ],
+              "arguments": []
+            },
+            "prerequisite": {
+              "version-arguments": [
+                "--version"
+              ],
+              "version": ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+            },
+            "timeout-seconds": 30
+          }
+        ],
+        "fixes": [],
+        "kind": "repository",
+        "guidance": "guidance/typescript-node-stack.md",
+        "rules": "rules/typescript-node-stack.md",
+        "discovery": "discovery/typescript-node-stack.md",
+        "discovery-script": {
+          "run": {
+            "executable": "node",
+            "script": "discovery/draft-typescript-node-stack-scope.mjs",
+            "resources": [
+              "operations/lib/typescript-node-stack.mjs",
+              "operations/lib/local-markdown-links.mjs"
+            ],
+            "arguments": []
+          },
+          "prerequisite": {
+            "version-arguments": [
+              "--version"
+            ],
+            "version": ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          },
+          "timeout-seconds": 60
+        },
+        "optional": true
+      },
+      {
+        "id": "validator-command",
+        "checks": [],
+        "fixes": [],
+        "kind": "file",
+        "target": "scripts/validate.mjs",
+        "exact": "scripts/validate.mjs"
       }
     ]
   },
   "discovery": {
-    "identity": "sha256:1c04c540047937b30d168483203169e66396498a4178132c3aef9989bb980689",
+    "identity": "sha256:d1a6e7b277a92b0de13deabe1c2eb709cf18355cfedc9af5851dae59ba089ca9",
     "proposal": {
       "format": "repo-standards/scope/v2",
       "declarations": [
         {
           "id": "documentation",
-          "coverage": "Drafted from the repository tree by `discovery/draft-documentation-scope.mjs`: every file Git keeps under the documentation root `docs`, a new index for each of its directories without one, the development guide, and the domain glossaries and context maps the rules identify. Paths other declarations own are left out, and so is each README.md outside the documentation roots. Link-repair files and move destinations enter when the work needs them.",
+          "coverage": "Drafted from the repository tree by `discovery/draft-documentation-scope.mjs`: every file Git keeps under the documentation root `docs`, a new index for each of its directories without one, the development guide, and the domain glossaries and context maps the rules identify. Paths other declarations own are left out, and so is each README.md outside the documentation roots. Link-repair files and move destinations enter when the work needs them. Root CHANGELOG.md is release history, not categorized guidance. Source inputs, runtime dependencies, vendored code, and exact-owned files are outside this documentation scope.",
           "candidates": [
+            {
+              "path": "CHANGELOG.md",
+              "decision": "exclude",
+              "reason": "Root release history accompanies the published package; it is not usage, development or domain guidance to move into docs.",
+              "evidence": [
+                "CHANGELOG.md",
+                "package.json"
+              ]
+            },
             {
               "path": "docs/README.md",
               "decision": "include",
@@ -1385,6 +1666,27 @@
           "coverage": "No non-root Projects: the repository root holds the only package.",
           "candidates": [],
           "unresolved": []
+        },
+        {
+          "id": "typescript-node-stack",
+          "coverage": "Drafted from manifests and workspace configuration by `discovery/draft-typescript-node-stack-scope.mjs`: one `package.json` per Project, included when it matches the stack's manifest facts and excluded naming its differences otherwise. A maintained workspace root package is a Project alongside its members; a shared-only root is not. Uncertain root membership stays unresolved. A root package without workspace members is a Project.",
+          "candidates": [
+            {
+              "path": "package.json",
+              "decision": "include",
+              "reason": "The Project of `package.json` matches the typescript-node stack's manifest facts: pnpm 11, its lockfile, Node.js 24 or 26, oxlint 1, Prettier 3 and a validate script. This is the only maintained Project: pnpm-workspace.yaml has no members. TypeScript 7 typechecks src via tsconfig.json; tests use node --test; required Test aggregates both Node 24 and 26 pnpm validate jobs; docs/development/README.md names the tools. No other stack is used.",
+              "evidence": [
+                ".github/workflows/ci.yml",
+                "docs/development/README.md",
+                "package.json",
+                "pnpm-lock.yaml",
+                "pnpm-workspace.yaml",
+                "src",
+                "tsconfig.json"
+              ]
+            }
+          ],
+          "unresolved": []
         }
       ]
     },
@@ -1408,12 +1710,12 @@
         },
         "docs/development/README.md": {
           "type": "file",
-          "sha256": "febd293e569f9ad685791e930b975cfaf38b107b34a8cb3224237b043ecaa9db",
+          "sha256": "5e80820045a5e1b52c2343a3d4af6a796de662006f48f949aed2ea5459cf3a53",
           "executable": false
         },
         "docs/development/release.md": {
           "type": "file",
-          "sha256": "49eb0f45e74a2573790af2964b856bbf6d070abe857a3e1b3c632fe58d24d33b",
+          "sha256": "965f317c4087aee08f3ba5353c061dc1be4f10165b632e8afcb4f3bdece800a6",
           "executable": false
         },
         "docs/development/source-layout.md": {
@@ -1423,21 +1725,150 @@
         },
         "docs/usage/README.md": {
           "type": "file",
-          "sha256": "94634ee68060ec4d470173cf6894a6a697bd2507f1bd2b5c9f262846d270f3cc",
+          "sha256": "d2813ba30ed4410c7fd509cc16db443d0610bdd4225e192bb0aa297dfd9a18c7",
           "executable": false
         },
         "docs/usage/reference.md": {
           "type": "file",
-          "sha256": "80ce077061b3d7ae56331689ba66412b840dffeee59fd045349054c0af76811a",
+          "sha256": "e20dd630a9004cfccba1003b3ec87aa528403547d493c47d2eff205d7b5fab4b",
+          "executable": false
+        },
+        "package.json": {
+          "type": "file",
+          "sha256": "282ccf3753d3c34898812da94460115c5d28e2a06f1102174c0a0563bae6b320",
           "executable": false
         }
       }
     },
+    "drafts": [
+      {
+        "id": "documentation",
+        "coverage": "Drafted from the repository tree by `discovery/draft-documentation-scope.mjs`: every file Git keeps under the documentation root `docs`, a new index for each of its directories without one, the development guide, and the domain glossaries and context maps the rules identify. Paths other declarations own are left out, and so is each README.md outside the documentation roots. Link-repair files and move destinations enter when the work needs them.",
+        "candidates": [
+          {
+            "path": "docs/README.md",
+            "decision": "include",
+            "reason": "A file under the documentation root `docs`.",
+            "evidence": [
+              "docs/README.md"
+            ]
+          },
+          {
+            "path": "docs/adr/0001-facts-only-ports-with-platform-adapters.md",
+            "decision": "include",
+            "reason": "A file under the documentation root `docs`.",
+            "evidence": [
+              "docs/adr/0001-facts-only-ports-with-platform-adapters.md"
+            ]
+          },
+          {
+            "path": "docs/adr/README.md",
+            "decision": "include",
+            "reason": "A file under the documentation root `docs`.",
+            "evidence": [
+              "docs/adr/README.md"
+            ]
+          },
+          {
+            "path": "docs/agents/README.md",
+            "decision": "exclude",
+            "reason": "Owned by the `agent-configuration-index` declaration.",
+            "evidence": [
+              "docs/agents/README.md"
+            ]
+          },
+          {
+            "path": "docs/agents/domain.md",
+            "decision": "exclude",
+            "reason": "Owned by the `domain-configuration` declaration.",
+            "evidence": [
+              "docs/agents/domain.md"
+            ]
+          },
+          {
+            "path": "docs/agents/issue-tracker.md",
+            "decision": "exclude",
+            "reason": "Owned by the `issue-tracker-configuration` declaration.",
+            "evidence": [
+              "docs/agents/issue-tracker.md"
+            ]
+          },
+          {
+            "path": "docs/agents/triage-labels.md",
+            "decision": "exclude",
+            "reason": "Owned by the `triage-label-configuration` declaration.",
+            "evidence": [
+              "docs/agents/triage-labels.md"
+            ]
+          },
+          {
+            "path": "docs/development/README.md",
+            "decision": "include",
+            "reason": "A file under the documentation root `docs`.",
+            "evidence": [
+              "docs/development/README.md"
+            ]
+          },
+          {
+            "path": "docs/development/release.md",
+            "decision": "include",
+            "reason": "A file under the documentation root `docs`.",
+            "evidence": [
+              "docs/development/release.md"
+            ]
+          },
+          {
+            "path": "docs/development/source-layout.md",
+            "decision": "include",
+            "reason": "A file under the documentation root `docs`.",
+            "evidence": [
+              "docs/development/source-layout.md"
+            ]
+          },
+          {
+            "path": "docs/usage/README.md",
+            "decision": "include",
+            "reason": "A file under the documentation root `docs`.",
+            "evidence": [
+              "docs/usage/README.md"
+            ]
+          },
+          {
+            "path": "docs/usage/reference.md",
+            "decision": "include",
+            "reason": "A file under the documentation root `docs`.",
+            "evidence": [
+              "docs/usage/reference.md"
+            ]
+          }
+        ],
+        "unresolved": [
+          "Which of these Markdown files at the repository root are documentation this scope must cover, such as a document to move into a documentation category: `CHANGELOG.md`? Include each one, with its destination when it moves."
+        ]
+      },
+      {
+        "id": "typescript-node-stack",
+        "coverage": "Drafted from manifests and workspace configuration by `discovery/draft-typescript-node-stack-scope.mjs`: one `package.json` per Project, included when it matches the stack's manifest facts and excluded naming its differences otherwise. A maintained workspace root package is a Project alongside its members; a shared-only root is not. Uncertain root membership stays unresolved. A root package without workspace members is a Project.",
+        "candidates": [
+          {
+            "path": "package.json",
+            "decision": "include",
+            "reason": "The Project of `package.json` matches the typescript-node stack's manifest facts: pnpm 11, its lockfile, Node.js 24 or 26, oxlint 1, Prettier 3 and a validate script.",
+            "evidence": [
+              "package.json",
+              "pnpm-lock.yaml",
+              "pnpm-workspace.yaml"
+            ]
+          }
+        ],
+        "unresolved": []
+      }
+    ],
     "declarations": [
       {
         "id": "documentation",
         "source": "discovery/documentation.md",
-        "sha256": "0e84c6f5a53f8799568bef21f593c9544a7177428bbda6c8d5be0c594af1f9f7",
+        "sha256": "6ddffc023dfc46f7d11f292a245f8b9ffeffb77dff2f102baa20256af1dc8bfc",
         "executable": false
       },
       {
@@ -1456,6 +1887,12 @@
         "id": "project-readmes",
         "source": "discovery/project-readmes.md",
         "sha256": "a2cf9e7206712b7b169ebcf901d40ded7fa655100b3afbcf825296e46291b47a",
+        "executable": false
+      },
+      {
+        "id": "typescript-node-stack",
+        "source": "discovery/typescript-node-stack.md",
+        "sha256": "0ac8fb30073e6b656d8456e1f0c7cd21a5e17668494402d39ee103270824e3f9",
         "executable": false
       }
     ],
@@ -1829,7 +2266,7 @@
         },
         ".factory/Dockerfile": {
           "type": "file",
-          "sha256": "eb8bbe4439c67956bba4da86620a757bcf1d7c49d8dcd9a19c50f22ef0cce97d",
+          "sha256": "995d6b160567ff26bd0c3c856e0ba385a226f9f62d5831b7ed602bfc95ca9530",
           "executable": false
         },
         ".factory/config.json": {
@@ -1874,7 +2311,7 @@
         },
         ".github/workflows/ci.yml": {
           "type": "file",
-          "sha256": "bbd420b456e20f8f25f5fbcdffdf3140e7d77e63f12034dacf6de587946ea739",
+          "sha256": "e9bffba300f441ce2ee742cf70f32fa4eaeced141c8509cfe26679527dc0903b",
           "executable": false
         },
         ".github/workflows/issue-contracts.yml": {
@@ -1889,7 +2326,7 @@
         },
         ".github/workflows/release.yml": {
           "type": "file",
-          "sha256": "9ea59d2bb4c941371f260515de81a67b8fab4607d4acbb8ece516ca7747b103a",
+          "sha256": "f2a7cd0dfba42b93676c0d9630de5d579723481c8769df36cf570796f54ae516",
           "executable": false
         },
         ".github/workflows/sandbox-image.yml": {
@@ -1899,12 +2336,27 @@
         },
         ".gitignore": {
           "type": "file",
-          "sha256": "3fdd6f211c886a86da718ba5353174d7ec51936679d184fd28ba2f17b9c61d81",
+          "sha256": "b33fb49edcb07ac30d960a23e803e066bbc40c1c130e027d390f943891d6663b",
+          "executable": false
+        },
+        ".oxlintrc.json": {
+          "type": "file",
+          "sha256": "f1f2ab2666056e913d3850420f2f93537bd2abf81d0f4a76cb11c3131853b95b",
+          "executable": false
+        },
+        ".prettierignore": {
+          "type": "file",
+          "sha256": "d9e3c48bb78d7c06b13d9b07d57c1bf5fd41eaeb4dc1a86f432921d8434671ec",
           "executable": false
         },
         "AGENTS.md": {
           "type": "file",
           "sha256": "b07aea42b68e26527216b901bd262e69347e6993d387ad04c6a234766e728937",
+          "executable": false
+        },
+        "CHANGELOG.md": {
+          "type": "file",
+          "sha256": "fdcb6659193aa1fcbaf4024477189795040e11ab2e00911ae5b44bb001b46341",
           "executable": false
         },
         "CONTRIBUTING.md": {
@@ -1919,7 +2371,7 @@
         },
         "README.md": {
           "type": "file",
-          "sha256": "6522f85019faba0f91e39eba845bee526181feaf9efcb078c07ee78575e9cbd1",
+          "sha256": "62e13d318e2b1085b50f1bf62a0cfe6be58e65391cf4183bee9de6d6d7f80464",
           "executable": false
         },
         "docs/README.md": {
@@ -1959,12 +2411,12 @@
         },
         "docs/development/README.md": {
           "type": "file",
-          "sha256": "febd293e569f9ad685791e930b975cfaf38b107b34a8cb3224237b043ecaa9db",
+          "sha256": "5e80820045a5e1b52c2343a3d4af6a796de662006f48f949aed2ea5459cf3a53",
           "executable": false
         },
         "docs/development/release.md": {
           "type": "file",
-          "sha256": "49eb0f45e74a2573790af2964b856bbf6d070abe857a3e1b3c632fe58d24d33b",
+          "sha256": "965f317c4087aee08f3ba5353c061dc1be4f10165b632e8afcb4f3bdece800a6",
           "executable": false
         },
         "docs/development/source-layout.md": {
@@ -1974,12 +2426,12 @@
         },
         "docs/usage/README.md": {
           "type": "file",
-          "sha256": "94634ee68060ec4d470173cf6894a6a697bd2507f1bd2b5c9f262846d270f3cc",
+          "sha256": "d2813ba30ed4410c7fd509cc16db443d0610bdd4225e192bb0aa297dfd9a18c7",
           "executable": false
         },
         "docs/usage/reference.md": {
           "type": "file",
-          "sha256": "80ce077061b3d7ae56331689ba66412b840dffeee59fd045349054c0af76811a",
+          "sha256": "e20dd630a9004cfccba1003b3ec87aa528403547d493c47d2eff205d7b5fab4b",
           "executable": false
         },
         "operations/lib/rendered-markdown.mjs": {
@@ -1987,24 +2439,29 @@
           "sha256": "b885d1cd1650e61c616b6f2917b4074bc752282626b4d5eee01df4d5a923b267",
           "executable": false
         },
-        "package-lock.json": {
-          "type": "file",
-          "sha256": "27ec10e7b3bf799324f1aa7ec7fffb4d4a70e63405259c45ebd7b125bbae150e",
-          "executable": false
-        },
         "package.json": {
           "type": "file",
-          "sha256": "94fff6bf0659c6ac12f082e7a081ad82d0faa09b72136ac94586044696e19829",
+          "sha256": "282ccf3753d3c34898812da94460115c5d28e2a06f1102174c0a0563bae6b320",
+          "executable": false
+        },
+        "pnpm-lock.yaml": {
+          "type": "file",
+          "sha256": "87e9b729729dfc36b7faba3643bfeef648281853260d4600dd1eb66e9d1c1aeb",
+          "executable": false
+        },
+        "pnpm-workspace.yaml": {
+          "type": "file",
+          "sha256": "60309404b28c786df1408af8f2f7a21e5860535c71c423c357f3a0307e466223",
           "executable": false
         },
         "scripts/build.mjs": {
           "type": "file",
-          "sha256": "4c8674a30749b9567b95ea74f1cd934bbcb176677b8da787dacad5460655a273",
+          "sha256": "5d515f385989a3ff1068be54fcb94124f963b3d5cf6123940b5fead66b2a17e1",
           "executable": false
         },
         "scripts/public-smoke.mjs": {
           "type": "file",
-          "sha256": "8d936b167ca5031675794043dffdc415d40961a5e31383ba10c5599c778c1dca",
+          "sha256": "48a44895ecfaf78e46f559cb36bec53d5abd44c861d24129770057ce057730ff",
           "executable": false
         },
         "scripts/validate-issue-contract.mjs": {
@@ -2014,77 +2471,102 @@
         },
         "src/connection.ts": {
           "type": "file",
-          "sha256": "975716c641d5359dc8269cbd1773e944425d0e537157e28c3e66dde3f99029d9",
+          "sha256": "058f9c0878d0bc9fac9bacedb15d3d9dda7eebe158d4f382c9ba8ccd91d79157",
           "executable": false
         },
         "src/detect.ts": {
           "type": "file",
-          "sha256": "560eaf86eb6beebac933227d49ac1137526e100045ff53c8d6a81e0dd6e6b4e0",
+          "sha256": "030a98fd399b01352f977eba89b37af1648e195e7b5ece19d755d37010332d40",
           "executable": false
         },
         "src/errors.ts": {
           "type": "file",
-          "sha256": "591ee1d03c855550f352d35687b7c9b86b22aa0b2e7bb874b66ee685b02523ed",
+          "sha256": "fedf4175a8bc56f78c8af4416590cfba17718749c9ac2cdc7e5c117af0fc4ca7",
           "executable": false
         },
         "src/github/adapter.ts": {
           "type": "file",
-          "sha256": "84f147a065fc79a31a31fe6b531fc69ea0a78c09d43352d0fee3501167b84a38",
+          "sha256": "534f7148c80fa4ec253817b079c6c8e7304130de7232c9856c18acc624d23f28",
           "executable": false
         },
         "src/github/transport.ts": {
           "type": "file",
-          "sha256": "a1df316f011cd3f814a3e31e825e8ce85213979979751af6d65fe803c7c4f39e",
+          "sha256": "96f0fa80c90207fd58ef36a8b21b5e6a796f5b65a6fe7740342dc4ffdce91bdd",
           "executable": false
         },
         "src/index.ts": {
           "type": "file",
-          "sha256": "43dca50343c8a89b32d020f6696850583b3df4914acaef67085dc283ac0b57ba",
+          "sha256": "57a599b650c59198a9707cebc9e5b90666675b7f17ea0af23550760f5880e2f6",
           "executable": false
         },
         "src/ports.ts": {
           "type": "file",
-          "sha256": "4c8a799a5570b4227f1076d994f3ed513ed67d9f3545394be036ddb0883dcf7a",
+          "sha256": "543bd73bfd6d90ae795ceaf25e8b96f14335b134f10ead3c4df21cd49f1f73b4",
           "executable": false
         },
         "src/secrets.ts": {
           "type": "file",
-          "sha256": "87fd383bffd0820d7739639655a8fbff3b3e7fc07eb4ba899ac502fa8b323dec",
+          "sha256": "31af78cc49d76fab0c4374da65107b6986b3a58affabfb4b8c30293a8653f53a",
           "executable": false
         },
         "src/snapshot.ts": {
           "type": "file",
-          "sha256": "65b8427939333c5fbe56a37d4dc4342f0928c5fab2c742bfdb68c918727562c1",
+          "sha256": "1c802f16f356d3b2796d979035b096232a85bea1f443015edd802624ae1a1c72",
           "executable": false
         },
         "test/connection.test.ts": {
           "type": "file",
-          "sha256": "f719a53254fe728a4eca137905b6b7bc2c787af05294c1c1ed2792ef2314afbc",
+          "sha256": "3368ac2a801bbe97408906909b21d4fcfce7746568302554b016d178774a10c5",
           "executable": false
         },
         "test/contract/harness.ts": {
           "type": "file",
-          "sha256": "248831c64068d08d1af93d8f741a9f8ac72bc905aa4df679c0a4209185613a2d",
+          "sha256": "e94ddc5a8fc6b779662e1acd5e5901586a33ad80916a1a83b49b68ff6d0d8c4d",
           "executable": false
         },
         "test/contract/sectioned.test.ts": {
           "type": "file",
-          "sha256": "4a483ec7ad0b5aed374641cab20bb0d019169e6562da179250b2b1387c4475e3",
+          "sha256": "4ca9e378efd91718dc7757c2ee1bedcef3f124e80c803fac16da36538a8fbd15",
           "executable": false
         },
         "test/contract/suite.ts": {
           "type": "file",
-          "sha256": "b9295e502dff42eab0a93658e8bd8d3e3e610813e6a92bca9de17db6d4eb3afa",
+          "sha256": "648528ac3965a9f553b043169bbfbf63647f029b1b95b9193722b185688dcadf",
           "executable": false
         },
         "test/detect.test.ts": {
           "type": "file",
-          "sha256": "2cf540de93ea64efddd271af92e2cfb62e07996a24c55c18ff13644f31d4df98",
+          "sha256": "28c7901a7bca778993230e3259a69d43e3f7e3fd7114d0f5b65bff5b52e7a222",
+          "executable": false
+        },
+        "test/fixtures/additive-types.ts.txt": {
+          "type": "file",
+          "sha256": "91b2469b81b164504a5da0d4d34672ad6c313096d874719a774d49bee1a429e9",
+          "executable": false
+        },
+        "test/fixtures/event-types.ts.txt": {
+          "type": "file",
+          "sha256": "f6260286eecaed5dca700115074ed1c1bab7962640f7270c4552af2ed2433a9a",
+          "executable": false
+        },
+        "test/fixtures/legacy-types.ts.txt": {
+          "type": "file",
+          "sha256": "efa930b63a8194b2003120da3b5e31e81f09eef2a300e2061484ac533cb0aaf5",
+          "executable": false
+        },
+        "test/fixtures/published-1.0.0.d.ts.txt": {
+          "type": "file",
+          "sha256": "787dccdddd798fd2aca8f07c2365abb7add7fa94d52afa2a7d75dbd4370db571",
+          "executable": false
+        },
+        "test/fixtures/published-1.1.0.d.ts.txt": {
+          "type": "file",
+          "sha256": "75efeccfb66786023052054db15197c1bbfae2c360529b83e60eeef7f90d8452",
           "executable": false
         },
         "test/github/adapter.test.ts": {
           "type": "file",
-          "sha256": "ba81340930e9c4322b40f609ff596b0f9752eabc827f3216a92f760e1bcabf65",
+          "sha256": "f7db5a6b35071fcf4da1248c1acc689ba00b61b91a705cdd6222db28883f89d6",
           "executable": false
         },
         "test/github/contract.test.ts": {
@@ -2092,54 +2574,69 @@
           "sha256": "a3140003cae182ea40a765c1c3b7487b0a97aacf026980d547f7eb42cf2045e4",
           "executable": false
         },
+        "test/github/events.test.ts": {
+          "type": "file",
+          "sha256": "c0011a9b7608eb5675e0dd248dd53b9997244c80c6fc1349621bf5596aebb78d",
+          "executable": false
+        },
+        "test/github/events.ts": {
+          "type": "file",
+          "sha256": "f9be6446319655024277c07df0d48799175f2875ec92a8832fa79fd64ae750f1",
+          "executable": false
+        },
         "test/github/fake.ts": {
           "type": "file",
-          "sha256": "04ca8f16eb7080a67c902507caa34b195b205e0194dd141abdbc3ecd235f2059",
+          "sha256": "c4fac22874deba0ddcdcc37e25066b6b3dca844403bba8e7358203e7a9216de4",
           "executable": false
         },
         "test/github/harness.ts": {
           "type": "file",
-          "sha256": "528a6fb71b1aef112c712192ffed5de9a8dd9fbb8142e81433d9be621e9a6b4c",
+          "sha256": "9642bbeb7f900fe592bebe7e3f1eabaab7c06b30689ca8ada53815e69a5362b7",
+          "executable": false
+        },
+        "test/github/labels.test.ts": {
+          "type": "file",
+          "sha256": "92d71e31e5f6945eee480c37ef00f91037cd832ef8e267d421d1294fa078d4e2",
           "executable": false
         },
         "test/github/reads.ts": {
           "type": "file",
-          "sha256": "def612384c240d3e84fdb26dd91db2108cc97316d3f8a382221f8aea6e419d39",
+          "sha256": "f7478a159a4cb51584c4ba0e2af36e42b2f0b46e73701d4e39e5a058279a5ec3",
           "executable": false
         },
         "test/github/without-bot-marking.test.ts": {
           "type": "file",
-          "sha256": "fa4a7b4deb9ba8b9075d22eb5caac7ba3d965b34442bcc890e3636d493a9f7cc",
+          "sha256": "8a54be3cd18f4079e36e066b60368ff63612610d210b45cbe56ffcc7d666dff0",
           "executable": false
         },
         "test/package.test.ts": {
           "type": "file",
-          "sha256": "e066ce53ad7929345fb5c65e3c3307d096ff5d3d217401ad7d42ef8898c0842a",
+          "sha256": "c0db0d26c294d87473c07a3f1221d4f67a518ca8f7b9ff07e8d57217aae7db76",
           "executable": false
         },
         "test/property/inputs.test.ts": {
           "type": "file",
-          "sha256": "b5e6de637abc22c22ff3eff612f6ddf3b0fbb935cb8d44b677ed9c146b2d9572",
+          "sha256": "070e0d98ea907d90ea62d64f4bb8aae378469f8d6a1288ab810a769953faeba4",
           "executable": false
         },
         "test/property/random.ts": {
           "type": "file",
-          "sha256": "a4cb864b8b531c8ad8267aafaa50045f7f3f30109e3fa78666cb76013f3b1f74",
+          "sha256": "a2389a4dae4cc89a124105276ac4f062e583bee11ad801dc37fb8be413c8a125",
           "executable": false
         },
         "test/property/responses.test.ts": {
           "type": "file",
-          "sha256": "8e8faaa454e5ef140b084c137379f2dc953f23f85d4e24dc525c0daa0aedf4a5",
+          "sha256": "a20ef710529788ebc673f3ccd6395c8d2c149563a2429abca3ce3ba6482dee7e",
           "executable": false
         },
         "test/public-smoke.test.ts": {
           "type": "file",
-          "sha256": "e6280c6cfb0e5e4b86d0b51c96716d2f92416f24a7e4c2602ed7d334d2dd6c8a",
+          "sha256": "3bf08a65abd87dad19a735177662b5acfaf285ffbda35874405bb37b5d3fec2b",
           "executable": false
         },
         "test/secrets.test.ts": {
           "type": "file",
-          "sha256": "2e0e30e79b33240bdfdda38536b4ab4779d2c7be4d0921132015aeb1edfbe90c",
+          "sha256": "ed1da9d1ae6ed7cb6112140e28f176fafcf949c35b8561c2eadfb875dc9d23e3",
           "executable": false
         },
         "tsconfig.build.json": {
@@ -2195,14 +2692,18 @@
           ".factory",
           ".github",
           ".gitignore",
+          ".oxlintrc.json",
+          ".prettierignore",
           "AGENTS.md",
+          "CHANGELOG.md",
           "CONTRIBUTING.md",
           "LICENSE",
           "README.md",
           "docs",
           "operations",
-          "package-lock.json",
           "package.json",
+          "pnpm-lock.yaml",
+          "pnpm-workspace.yaml",
           "scripts",
           "src",
           "test",
@@ -2493,6 +2994,7 @@
           "test/connection.test.ts",
           "test/contract",
           "test/detect.test.ts",
+          "test/fixtures",
           "test/github",
           "test/package.test.ts",
           "test/property",
@@ -2504,11 +3006,21 @@
           "test/contract/sectioned.test.ts",
           "test/contract/suite.ts"
         ],
+        "test/fixtures": [
+          "test/fixtures/additive-types.ts.txt",
+          "test/fixtures/event-types.ts.txt",
+          "test/fixtures/legacy-types.ts.txt",
+          "test/fixtures/published-1.0.0.d.ts.txt",
+          "test/fixtures/published-1.1.0.d.ts.txt"
+        ],
         "test/github": [
           "test/github/adapter.test.ts",
           "test/github/contract.test.ts",
+          "test/github/events.test.ts",
+          "test/github/events.ts",
           "test/github/fake.ts",
           "test/github/harness.ts",
+          "test/github/labels.test.ts",
           "test/github/reads.ts",
           "test/github/without-bot-marking.test.ts"
         ],
@@ -2711,6 +3223,9 @@
         "test/contract": {
           "type": "directory"
         },
+        "test/fixtures": {
+          "type": "directory"
+        },
         "test/github": {
           "type": "directory"
         },
@@ -2747,7 +3262,7 @@
         },
         ".gitignore": {
           "type": "file",
-          "sha256": "3fdd6f211c886a86da718ba5353174d7ec51936679d184fd28ba2f17b9c61d81",
+          "sha256": "b33fb49edcb07ac30d960a23e803e066bbc40c1c130e027d390f943891d6663b",
           "executable": false
         },
         ".agents/.gitignore": {
@@ -2927,6 +3442,9 @@
         "test/contract/.gitignore": {
           "type": "missing"
         },
+        "test/fixtures/.gitignore": {
+          "type": "missing"
+        },
         "test/github/.gitignore": {
           "type": "missing"
         },
@@ -2953,14 +3471,9 @@
   },
   "scopeChanges": [
     {
-      "id": "documentation",
+      "id": "typescript-node-stack",
       "additions": [
-        "docs/adr/0001-facts-only-ports-with-platform-adapters.md",
-        "docs/adr/README.md",
-        "docs/development/release.md",
-        "docs/development/source-layout.md",
-        "docs/usage/README.md",
-        "docs/usage/reference.md"
+        "package.json"
       ],
       "removals": []
     }

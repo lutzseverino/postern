@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 import { spawnSync } from "node:child_process";
 
+import { connect, PlatformError } from "../../vendor/postern/postern.mjs";
+
 const resultFormat = "repo-standards/result/v2";
 const maximumOutput = 1024 * 1024;
 
@@ -86,10 +88,11 @@ export function run(executable, args, cwd, input) {
     maxBuffer: maximumOutput,
   });
   if (outcome.error) {
+    const { code } = /** @type {NodeJS.ErrnoException} */ (outcome.error);
     return {
       ok: false,
-      unavailable: outcome.error.code === "ENOENT",
-      detail: outcome.error.code ?? "spawn error",
+      unavailable: code === "ENOENT",
+      detail: code ?? "spawn error",
       stderr: "",
     };
   }
@@ -190,22 +193,41 @@ function inferRepository(projectRoot) {
   return { identity: identities.values().next().value };
 }
 
-export function jsonFrom(outcome) {
-  if (!outcome.ok) return { error: outcome.detail, outcome };
+// Access owns authentication, pagination, transport and credential redaction.
+// Keep the operation outcome shape shared by reads and mutations.
+/**
+ * @param {any} access
+ * @param {string} path
+ * @param {{ method?: string, body?: unknown, paginate?: boolean }} [options]
+ */
+export async function githubRequest(
+  access,
+  path,
+  { method = "GET", body, paginate = false } = {},
+) {
   try {
-    return { value: JSON.parse(outcome.stdout) };
-  } catch {
-    return { error: "invalid JSON response", outcome };
+    const request = {
+      path: `/${path}`,
+      method,
+      ...(body === undefined ? {} : { body }),
+    };
+    const value = paginate
+      ? (await access.requestPages(request)).map((page) => page.data)
+      : (await access.request(request)).data;
+    return { ok: true, value };
+  } catch (error) {
+    const failure =
+      error instanceof PlatformError
+        ? error
+        : new PlatformError("unavailable", "GitHub transport failed.");
+    const detail =
+      failure.reason === "invalidResponse"
+        ? "invalid JSON response"
+        : failure.status
+          ? `${failure.platformMessage ?? "GitHub API request failed"} (HTTP ${failure.status})`
+          : "GitHub transport failed";
+    return { ok: false, error: detail, detail, failure };
   }
-}
-
-export function githubApi(args, projectRoot, input) {
-  return run(
-    "gh",
-    ["api", "--hostname", "github.com", ...args],
-    projectRoot,
-    input === undefined ? undefined : `${JSON.stringify(input)}\n`,
-  );
 }
 
 export function apiEndpoint(identity, suffix = "") {
@@ -213,31 +235,31 @@ export function apiEndpoint(identity, suffix = "") {
   return `repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}${suffix}`;
 }
 
-function repositoryReadFailure(operationName, identity, outcome) {
-  // Keep host/account details and variable HTTP traces out of inspection
-  // identities and deferred setup records. Only classify gh's error text.
-  const httpError = outcome.stderr.match(/^gh: (.*) \(HTTP (\d{3})\)/m);
-  const status = httpError?.[2];
+function repositoryReadFailure(operationName, identity, failure) {
+  // A probe's reason is stable and neutral: never include platform messages,
+  // account details, transport traces or credentials in deferred setup records.
   const diagnostic = `For full details, run gh api --hostname github.com ${apiEndpoint(identity)}.`;
-  if (!status) {
-    return `${operationName} could not verify ${identity}; retry after investigating the failure. ${diagnostic}`;
+  if (failure.reason === "invalidResponse") {
+    return `${operationName} could not verify ${identity}; repository access is incomplete (invalid JSON response). ${diagnostic}`;
   }
   let next = "Retry later.";
-  if (status === "404") {
+  if (failure.reason === "notFound") {
     next =
       "Confirm the repository exists and the signed-in gh account can read it.";
-  } else if (status === "401") {
+  } else if (failure.reason === "unauthenticated") {
     next = "Sign in again with gh auth login --hostname github.com.";
-  } else if (
-    status === "429" ||
-    (status === "403" && /rate[ -]limit/i.test(httpError[1]))
-  ) {
+  } else if (failure.reason === "rateLimited") {
     next = "Retry after the GitHub API rate limit resets.";
+  } else if (failure.reason === "unavailable" && !(failure.status >= 500)) {
+    return `${operationName} could not verify ${identity}; retry after investigating the failure. ${diagnostic}`;
   }
-  return `${operationName} could not verify ${identity}: GitHub returned HTTP ${status}. ${next} ${diagnostic}`;
+  const status = failure.status
+    ? `: GitHub returned HTTP ${failure.status}.`
+    : "; GitHub access failed.";
+  return `${operationName} could not verify ${identity}${status} ${next} ${diagnostic}`;
 }
 
-export function prepareGithubRepository(request, operationName) {
+export async function prepareGithubRepository(request, operationName) {
   const nodeVersion = process.versions.node.match(/^(24|26)\.\d+\.\d+$/);
   if (!nodeVersion) {
     return { blocked: `${operationName} requires stable Node.js 24 or 26.` };
@@ -268,48 +290,57 @@ export function prepareGithubRepository(request, operationName) {
   const inferred = inferRepository(request.projectRoot);
   if (inferred.blocked) return inferred;
 
-  const authentication = run(
+  const signIn = `${operationName} requires authenticated github.com access through gh; sign in with gh auth login --hostname github.com.`;
+  const token = run(
     "gh",
-    ["auth", "status", "--hostname", "github.com", "--active"],
+    ["auth", "token", "--hostname", "github.com"],
     request.projectRoot,
   );
-  if (!authentication.ok) {
-    return {
-      blocked: `${operationName} requires authenticated github.com access through gh; sign in with gh auth login --hostname github.com.`,
-    };
-  }
+  if (!token.ok || !token.stdout.trim()) return { blocked: signIn };
 
-  const repositoryResponse = jsonFrom(
-    githubApi([apiEndpoint(inferred.identity)], request.projectRoot),
-  );
-  if (repositoryResponse.error) {
-    if (!repositoryResponse.outcome.ok) {
+  let access;
+  try {
+    ({ access } = connect(`https://github.com/${inferred.identity}`, {
+      credential: token.stdout.trim(),
+      timeoutMs: 15_000,
+    }));
+    if (!(await access.viewer())) return { blocked: signIn };
+  } catch (error) {
+    if (error instanceof PlatformError && error.reason !== "unauthenticated") {
       return {
-        blocked: repositoryReadFailure(
-          operationName,
-          inferred.identity,
-          repositoryResponse.outcome,
-        ),
+        blocked: repositoryReadFailure(operationName, inferred.identity, error),
       };
     }
+    return { blocked: signIn };
+  }
+
+  const repositoryResponse = await githubRequest(
+    access,
+    apiEndpoint(inferred.identity),
+  );
+  if (repositoryResponse.error) {
     return {
-      blocked: `${operationName} could not verify ${inferred.identity}; repository access is incomplete (${repositoryResponse.error}).`,
+      blocked: repositoryReadFailure(
+        operationName,
+        inferred.identity,
+        repositoryResponse.failure,
+      ),
     };
   }
   const repository = repositoryResponse.value;
   if (
-    typeof repository.full_name !== "string" ||
+    typeof repository?.full_name !== "string" ||
     repository.full_name.toLowerCase() !== inferred.identity.toLowerCase()
   ) {
     const resolved =
-      typeof repository.full_name === "string"
+      typeof repository?.full_name === "string"
         ? repository.full_name
         : "an unknown repository";
     return {
       blocked: `GitHub resolved ${inferred.identity} as ${resolved}; resolve the mismatched target before setup.`,
     };
   }
-  return { identity: inferred.identity, repository };
+  return { identity: inferred.identity, repository, access };
 }
 
 // The repository roles the GitHub fixes need, as GitHub reports them in the
@@ -329,8 +360,8 @@ export const repositoryAdministrationRole = {
 // Everything a GitHub fix needs before it reads or writes its own settings:
 // the tools, one confirmed repository, authenticated access, and its role.
 // None of it changes anything, locally or on GitHub.
-export function prepareGithubSetup(request, operationName, role) {
-  const prepared = prepareGithubRepository(request, operationName);
+export async function prepareGithubSetup(request, operationName, role) {
+  const prepared = await prepareGithubRepository(request, operationName);
   if (prepared.blocked) return prepared;
   if (!role.granted(prepared.repository.permissions ?? {})) {
     return {
@@ -342,9 +373,9 @@ export function prepareGithubSetup(request, operationName, role) {
 
 // A remote setup's readiness probe: ready exactly when its fix would get past
 // preparation, and otherwise not ready with the reason the fix would block.
-export function probeGithubSetup(operationName, role) {
+export async function probeGithubSetup(operationName, role) {
   try {
-    const prepared = prepareGithubSetup(
+    const prepared = await prepareGithubSetup(
       readOperationRequest(operationName, "probes"),
       operationName,
       role,

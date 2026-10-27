@@ -3,4 +3,4 @@ import {
   probeGithubSetup,
 } from "./lib/github-operation.mjs";
 
-probeGithubSetup("GitHub label setup", labelManagementRole);
+await probeGithubSetup("GitHub label setup", labelManagementRole);

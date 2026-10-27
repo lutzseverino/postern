@@ -1,0 +1,46 @@
+name: Standards update
+
+on:
+  schedule:
+    - cron: "23 6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: standards-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Update Repository Standards
+    if: vars.REPO_CANON_UPDATES == 'true'
+    runs-on: ${{ vars.REPO_CANON_RUNS_ON && fromJSON(vars.REPO_CANON_RUNS_ON) || 'ubuntu-latest' }}
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      HAS_UPDATE_APP_PRIVATE_KEY: ${{ secrets.REPO_CANON_UPDATE_APP_PRIVATE_KEY != '' }}
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        if: vars.REPO_CANON_UPDATE_APP_CLIENT_ID != '' && env.HAS_UPDATE_APP_PRIVATE_KEY == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.REPO_CANON_UPDATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.REPO_CANON_UPDATE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+          permission-workflows: write
+      - name: Check out default branch
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          token: ${{ steps.app-token.outputs.token || github.token }}
+          persist-credentials: false
+      - name: Update adoption
+        uses: lutzseverino/repo-standards@8ae21e7fec4492397640ed459dfd7a8a4ad6f251 # v10.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token || github.token }}
