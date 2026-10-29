@@ -142,8 +142,20 @@ continuation. Answering another question does not satisfy that approval
 requirement: keep both markers until explicit current-head approval is verified
 and recorded with its source and SHA, as State labels requires.
 
-Once the question is resolved, the orchestrating agent removes
-`factory:needs-input` and continues the skipped work. With no open PR, it resumes
+If the answer changes the implementation contract, edit the contract and have
+that exact revision independently reviewed and granted renewed readiness under
+the contribution guide and the `github-repository-configuration` rules,
+including the validator revision notice before readiness is applied. With or
+without an open PR, implementation
+and delivery wait for that renewed readiness. Resolving the question or
+removing `factory:needs-input` does not authorize continuation on an unreviewed
+revision. Renewed readiness does not substitute for designated current-head
+owner approval under State labels.
+If the answer leaves the contract unchanged, no new readiness cycle is required.
+
+Once the question is resolved and any required renewed readiness is recorded,
+the orchestrating agent removes `factory:needs-input` and continues the skipped
+work. With no open PR, it resumes
 or relaunches the implementing worker. With an open PR, it resumes that same PR,
 arranging any remaining worker work and continuing delivery from the prescribed
 handoff. The worker still hands off without merging; the orchestrating agent

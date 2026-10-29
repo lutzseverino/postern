@@ -1,6 +1,6 @@
 # Installed rules
 
-These rules come from https://github.com/lutzseverino/repo-canon v0.19.0, profile factory.
+These rules come from https://github.com/lutzseverino/repo-canon v0.19.1, profile factory.
 Repository Standards installs and verifies them; adopt again to change them.
 Run `repo-standards rules <path>` to print the rules that cover a path.
 

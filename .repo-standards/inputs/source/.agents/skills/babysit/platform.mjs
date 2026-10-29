@@ -8,10 +8,15 @@ export function connectionFor(repository) {
   const remote =
     repository ??
     process.env.GH_REPO ??
-    execFileSync("git", ["remote", "get-url", "origin"], {
+    (execFileSync("gh", ["repo", "set-default", "--view"], {
       encoding: "utf8",
       timeout: 15_000,
-    }).trim();
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim() ||
+      execFileSync("git", ["remote", "get-url", "origin"], {
+        encoding: "utf8",
+        timeout: 15_000,
+      }).trim());
   let credential;
   try {
     credential = execFileSync(

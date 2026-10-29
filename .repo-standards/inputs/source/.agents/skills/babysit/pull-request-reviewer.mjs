@@ -97,6 +97,8 @@ const validateReviewer = (reviewer) => {
     textField(reviewer.finished.line, "reviewer.finished.line");
     let groups;
     try {
+      // Validate the standalone pattern exactly as completion matching uses it.
+      new RegExp(reviewer.finished.line, "u");
       // The empty alternative exposes every named group even without a match.
       groups = new RegExp(`(?:${reviewer.finished.line})|`, "u").exec(
         "",

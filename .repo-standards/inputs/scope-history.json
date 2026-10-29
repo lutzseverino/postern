@@ -1,7 +1,7 @@
 {
   "format": "repo-standards/scope-history/v6",
   "evidence": "historical",
-  "inspection": "sha256:b5be51227e43433dbee23e77047a3d2c9f86af683e370eec6185acb254102bac",
+  "inspection": "sha256:ca4d1c09f6ca66c912f481b0f494fdab5f4578e4024322ab51116af9a4170f41",
   "resolved": {
     "description": "The standard profile plus the factory's repository files and workflow rules, for a repository a factory serves",
     "declarations": [
@@ -1533,7 +1533,7 @@
     ]
   },
   "discovery": {
-    "identity": "sha256:d1a6e7b277a92b0de13deabe1c2eb709cf18355cfedc9af5851dae59ba089ca9",
+    "identity": "sha256:20972ef4d1e3c97c77b9999a74401ed99ef65d4b41edfc048863eeecb47cbae9",
     "proposal": {
       "format": "repo-standards/scope/v2",
       "declarations": [
@@ -1910,27 +1910,47 @@
         },
         ".agents/skills/babysit/SKILL.md": {
           "type": "file",
-          "sha256": "5e3a33c571b8d09983b6a18600ecf7b218b487c5ea111712728fe1a808241387",
+          "sha256": "8a3d71320daf4d5a681243e13b70075a42062b8e587382fd81dac04aa9c5a8f7",
           "executable": false
         },
         ".agents/skills/babysit/merge.mjs": {
           "type": "file",
-          "sha256": "f1ba69545f9e7234666e76e1bb64283378419f9e6af963753d141107438b8d3e",
+          "sha256": "81daa7d5838e5e9b8854f74d3daf8d2b995b4d14abb2bc173939035c9c28017d",
+          "executable": false
+        },
+        ".agents/skills/babysit/platform.mjs": {
+          "type": "file",
+          "sha256": "dccb0f3e7c2f89563ed25ca0e4bf1a479af5b65732ad08fbed38304263bc8b47",
           "executable": false
         },
         ".agents/skills/babysit/pull-request-reviewer.mjs": {
           "type": "file",
-          "sha256": "661a5832f8386352d9f9f7e4f58c6f467a63b56b6b49edb41514266a4ed858d1",
+          "sha256": "77fb9197a4365dde57cba91cd4ff4c3c52eb55a275d9eb6b3fa494bac4cc3809",
+          "executable": false
+        },
+        ".agents/skills/babysit/request.mjs": {
+          "type": "file",
+          "sha256": "54760df3ef658781331b776b141d3992315cc304b6fb4bbc5103b11cc7175ca6",
+          "executable": false
+        },
+        ".agents/skills/babysit/review-policy.mjs": {
+          "type": "file",
+          "sha256": "71d74c31b19e16e066ce58106443b34a6de727c6aa46e171deb1e4069bc03f1c",
           "executable": false
         },
         ".agents/skills/babysit/reviewer.mjs": {
           "type": "file",
-          "sha256": "bda1879ccbf256b0da6ab17857e158555068bde14f4f277307ba3d99a110275d",
+          "sha256": "580098ac88a2be873d271dd7107cfcb8b0ab1ab059ccb39236f73e4f4eec3508",
+          "executable": false
+        },
+        ".agents/skills/babysit/trusted-review-config.mjs": {
+          "type": "file",
+          "sha256": "071cfe9e3dfb9bd9acdc8469272a8f859a0e65bef677c6d0f9326c1a9a46aa71",
           "executable": false
         },
         ".agents/skills/babysit/wait.mjs": {
           "type": "file",
-          "sha256": "93e4f0658510fb799009bf7681ff1844679ed496db648fb6fd8fe90ec9d72124",
+          "sha256": "abb938c0df67cb490a92171718fd1131d48c25427f22f2d3ef0be5cd220c3f1d",
           "executable": false
         },
         ".agents/skills/code-review/SKILL.md": {
@@ -2043,6 +2063,21 @@
           "sha256": "c8cb20f68ebf0edb4e497bc11ae5fcaa196004e661cd189015b04f4109ced7f1",
           "executable": false
         },
+        ".agents/skills/orchestrate/CREDITS.md": {
+          "type": "file",
+          "sha256": "2761d0a558ac5fb535af4933b813a4deb40bc3849937deb01441a0e56a994dfd",
+          "executable": false
+        },
+        ".agents/skills/orchestrate/SKILL.md": {
+          "type": "file",
+          "sha256": "3c19d4dabec8537b928b380f2fbd5edce565a2dfa0c761592b1eef30677dc83e",
+          "executable": false
+        },
+        ".agents/skills/orchestrate/agents/openai.yaml": {
+          "type": "file",
+          "sha256": "8fa9f8f0710336e9e9a32915436647c3f5c3bfa9a2acdbdcaf613daba800bf6c",
+          "executable": false
+        },
         ".agents/skills/pr/CREDITS.md": {
           "type": "file",
           "sha256": "a7a087127665d7298a72280ef6e19c41ad8404523712a788c8dc3ab414bc2497",
@@ -2140,12 +2175,12 @@
         },
         ".agents/skills/triage/AGENT-BRIEF.md": {
           "type": "file",
-          "sha256": "f308022030970cefcc69167df642641e4a5419f5e8c4fe34c7453f5aa17b2d32",
+          "sha256": "5bb3ebf5573ad4c6a1b1e96003d6f042e4c7396ec7f57a0a54bfea802bcd6686",
           "executable": false
         },
         ".agents/skills/triage/CREDITS.md": {
           "type": "file",
-          "sha256": "6193dee40b565d8b6da1c527005ea6ae5881ef6c5e451b6c63405dafd1ef9196",
+          "sha256": "b5c9d6514746fdfa842447874c09b9b49bf575b8e258f6d7b36280df76be1320",
           "executable": false
         },
         ".agents/skills/triage/OUT-OF-SCOPE.md": {
@@ -2155,12 +2190,17 @@
         },
         ".agents/skills/triage/SKILL.md": {
           "type": "file",
-          "sha256": "b271b22439d2ce8a1c19367723b24d17a2034446b3ff6804c54bbdd81368c548",
+          "sha256": "d65139901abd42d69e981905b46749c0c835abf6e2717ba13ed7c622cf45a551",
           "executable": false
         },
         ".agents/skills/triage/agents/openai.yaml": {
           "type": "file",
           "sha256": "2e683717720cf456d165d0bb1a68bb600d0b6a8ccb61841c172e50d26f95351c",
+          "executable": false
+        },
+        ".agents/skills/triage/ready.mjs": {
+          "type": "file",
+          "sha256": "24d95b6b4ec650a9abd220ede70dc0086b0c3df261193b0fc79399f8812a5386",
           "executable": false
         },
         ".agents/skills/wayfinder/SKILL.md": {
@@ -2224,6 +2264,10 @@
           "type": "symlink",
           "target": "../../.agents/skills/improve-codebase-architecture"
         },
+        ".claude/skills/orchestrate": {
+          "type": "symlink",
+          "target": "../../.agents/skills/orchestrate"
+        },
         ".claude/skills/pr": {
           "type": "symlink",
           "target": "../../.agents/skills/pr"
@@ -2271,7 +2315,12 @@
         },
         ".factory/config.json": {
           "type": "file",
-          "sha256": "9de48af731c45f963a613a6b77668ce9727834ae5a2d9b92af1c5ffcb18a1c07",
+          "sha256": "46b2ccd9b9bb783111d2e64d07e43337061681673dfbbed832ca04c1af90fba9",
+          "executable": false
+        },
+        ".gitattributes": {
+          "type": "file",
+          "sha256": "19db6077d800c8a558ca551c499fdc78cdd0e1c32c4970cc002baf47d4723ed8",
           "executable": false
         },
         ".github/ISSUE_TEMPLATE/bug-report.yml": {
@@ -2306,7 +2355,12 @@
         },
         ".github/scripts/validate-pr-metadata.mjs": {
           "type": "file",
-          "sha256": "967c93f5cb5057d50e1fd7b7315fd520ae10558e47f45ef5d286e79ab5fadcf0",
+          "sha256": "1f6eca3d133a6d08b1ed7b56d043218ebf4b159720ae1ae9c6a0707f25a9a71c",
+          "executable": false
+        },
+        ".github/scripts/validate.mjs": {
+          "type": "file",
+          "sha256": "bab5f39ee6e1fdb423d90b19dec73b1226ed68ab90a804442a7503e9e9bd6bdc",
           "executable": false
         },
         ".github/workflows/ci.yml": {
@@ -2316,12 +2370,12 @@
         },
         ".github/workflows/issue-contracts.yml": {
           "type": "file",
-          "sha256": "edcc96d6d8e040a55cd30ea2109d1291322a85bb66ea9d3a5dbbb43fa00a4588",
+          "sha256": "1734fd905c48e75b80c7a4db7518799c4ae5dbd0eecfef73b6025b0b777ad4f6",
           "executable": false
         },
         ".github/workflows/pr-metadata.yml": {
           "type": "file",
-          "sha256": "cb718da096023298e44b962dbb60a42fb0dce52ec0c98f25b9a6307d9e94eac3",
+          "sha256": "4b39ef848f5aaf887d0fa2f4e154534b247318fe8b81b413baca2a58b0122dc1",
           "executable": false
         },
         ".github/workflows/release.yml": {
@@ -2332,6 +2386,11 @@
         ".github/workflows/sandbox-image.yml": {
           "type": "file",
           "sha256": "598ab9931a8cfc63a3e1d2487fb151eca9b134a5e9a4e3bfa20d4b87b96399b3",
+          "executable": false
+        },
+        ".github/workflows/standards-update.yml": {
+          "type": "file",
+          "sha256": "0a83bd932b528b37f817acfeae56cfc35728a95ecd373e868bc8dceecfbb1226",
           "executable": false
         },
         ".gitignore": {
@@ -2351,7 +2410,7 @@
         },
         "AGENTS.md": {
           "type": "file",
-          "sha256": "b07aea42b68e26527216b901bd262e69347e6993d387ad04c6a234766e728937",
+          "sha256": "ce8ce2aab4a2f6895fda86daf17e2e6cb60e25a053ca8329acb167f47718adb0",
           "executable": false
         },
         "CHANGELOG.md": {
@@ -2361,7 +2420,7 @@
         },
         "CONTRIBUTING.md": {
           "type": "file",
-          "sha256": "956a4dec63a5c557e205ce291441ee17a51de14a0d72c290412d8556deb34a81",
+          "sha256": "a6d00639d75f1ca9c1040be7cd7349bc11715397c71ef8a817e44312191d9226",
           "executable": false
         },
         "LICENSE": {
@@ -2391,7 +2450,7 @@
         },
         "docs/agents/README.md": {
           "type": "file",
-          "sha256": "a78a8a4934c9de37cfcd11be23ce3dd58462108fa53b6cdaead4af18ca7e773b",
+          "sha256": "6d85984e4f6ae21c5d08f58bc37e260e11661beb7da481696483e635d5c9b502",
           "executable": false
         },
         "docs/agents/domain.md": {
@@ -2436,7 +2495,7 @@
         },
         "operations/lib/rendered-markdown.mjs": {
           "type": "file",
-          "sha256": "b885d1cd1650e61c616b6f2917b4074bc752282626b4d5eee01df4d5a923b267",
+          "sha256": "b89f24c60f8ad3ad1ed45590629e87661337931e858b84acfac5296a057430c2",
           "executable": false
         },
         "package.json": {
@@ -2466,7 +2525,12 @@
         },
         "scripts/validate-issue-contract.mjs": {
           "type": "file",
-          "sha256": "f7e604f218f7aab8eaa53e537aa8bdd079f9208be4f8866b5333278d92d9ea3e",
+          "sha256": "725b1494370348a99dc153f6833541014d5f2c70c80688046cc3219fa11a0a64",
+          "executable": false
+        },
+        "scripts/validate.mjs": {
+          "type": "file",
+          "sha256": "daeedb8713e64e0334ede3825297ec6338a85ee8051c0dc0385f5533373ecc32",
           "executable": false
         },
         "src/connection.ts": {
@@ -2683,6 +2747,21 @@
           "type": "file",
           "sha256": "bdf861eb0bce411afe5fcc312c770c3fe18dac9b5296771d40217d52a6ae7a93",
           "executable": false
+        },
+        "vendor/postern/LICENSE": {
+          "type": "file",
+          "sha256": "a4b5f0efcfeb828c1b344150f3c93af8031174df6147219e00b6a0bd995db6ef",
+          "executable": false
+        },
+        "vendor/postern/README.md": {
+          "type": "file",
+          "sha256": "08844d40cc709ee193871cefb2d92aed29c26f3e08654458ff6621f9b2715fe8",
+          "executable": false
+        },
+        "vendor/postern/postern.mjs": {
+          "type": "file",
+          "sha256": "5203c7e825a065c33aaa02ea4b6dbe776704ccd55b220aee75eb82427a8b83d5",
+          "executable": false
         }
       },
       "inventories": {
@@ -2690,6 +2769,7 @@
           ".agents",
           ".claude",
           ".factory",
+          ".gitattributes",
           ".github",
           ".gitignore",
           ".oxlintrc.json",
@@ -2726,6 +2806,7 @@
           ".agents/skills/grilling",
           ".agents/skills/implement",
           ".agents/skills/improve-codebase-architecture",
+          ".agents/skills/orchestrate",
           ".agents/skills/pr",
           ".agents/skills/prototype",
           ".agents/skills/repository-standards",
@@ -2740,8 +2821,12 @@
         ".agents/skills/babysit": [
           ".agents/skills/babysit/SKILL.md",
           ".agents/skills/babysit/merge.mjs",
+          ".agents/skills/babysit/platform.mjs",
           ".agents/skills/babysit/pull-request-reviewer.mjs",
+          ".agents/skills/babysit/request.mjs",
+          ".agents/skills/babysit/review-policy.mjs",
           ".agents/skills/babysit/reviewer.mjs",
+          ".agents/skills/babysit/trusted-review-config.mjs",
           ".agents/skills/babysit/wait.mjs"
         ],
         ".agents/skills/code-review": [
@@ -2809,6 +2894,14 @@
         ".agents/skills/improve-codebase-architecture/agents": [
           ".agents/skills/improve-codebase-architecture/agents/openai.yaml"
         ],
+        ".agents/skills/orchestrate": [
+          ".agents/skills/orchestrate/CREDITS.md",
+          ".agents/skills/orchestrate/SKILL.md",
+          ".agents/skills/orchestrate/agents"
+        ],
+        ".agents/skills/orchestrate/agents": [
+          ".agents/skills/orchestrate/agents/openai.yaml"
+        ],
         ".agents/skills/pr": [
           ".agents/skills/pr/CREDITS.md",
           ".agents/skills/pr/SKILL.md",
@@ -2868,7 +2961,8 @@
           ".agents/skills/triage/CREDITS.md",
           ".agents/skills/triage/OUT-OF-SCOPE.md",
           ".agents/skills/triage/SKILL.md",
-          ".agents/skills/triage/agents"
+          ".agents/skills/triage/agents",
+          ".agents/skills/triage/ready.mjs"
         ],
         ".agents/skills/triage/agents": [
           ".agents/skills/triage/agents/openai.yaml"
@@ -2901,6 +2995,7 @@
           ".claude/skills/grilling",
           ".claude/skills/implement",
           ".claude/skills/improve-codebase-architecture",
+          ".claude/skills/orchestrate",
           ".claude/skills/pr",
           ".claude/skills/prototype",
           ".claude/skills/repository-standards",
@@ -2930,14 +3025,16 @@
           ".github/ISSUE_TEMPLATE/specification.yml"
         ],
         ".github/scripts": [
-          ".github/scripts/validate-pr-metadata.mjs"
+          ".github/scripts/validate-pr-metadata.mjs",
+          ".github/scripts/validate.mjs"
         ],
         ".github/workflows": [
           ".github/workflows/ci.yml",
           ".github/workflows/issue-contracts.yml",
           ".github/workflows/pr-metadata.yml",
           ".github/workflows/release.yml",
-          ".github/workflows/sandbox-image.yml"
+          ".github/workflows/sandbox-image.yml",
+          ".github/workflows/standards-update.yml"
         ],
         "docs": [
           "docs/README.md",
@@ -2974,7 +3071,8 @@
         "scripts": [
           "scripts/build.mjs",
           "scripts/public-smoke.mjs",
-          "scripts/validate-issue-contract.mjs"
+          "scripts/validate-issue-contract.mjs",
+          "scripts/validate.mjs"
         ],
         "src": [
           "src/connection.ts",
@@ -3031,7 +3129,8 @@
         ],
         "vendor": [
           "vendor/marked",
-          "vendor/parse5"
+          "vendor/parse5",
+          "vendor/postern"
         ],
         "vendor/marked": [
           "vendor/marked/LICENSE",
@@ -3043,6 +3142,11 @@
           "vendor/parse5/LICENSE.parse5",
           "vendor/parse5/README.md",
           "vendor/parse5/parse5.esm.js"
+        ],
+        "vendor/postern": [
+          "vendor/postern/LICENSE",
+          "vendor/postern/README.md",
+          "vendor/postern/postern.mjs"
         ]
       },
       "boundaries": {
@@ -3104,6 +3208,12 @@
           "type": "directory"
         },
         ".agents/skills/improve-codebase-architecture/agents": {
+          "type": "directory"
+        },
+        ".agents/skills/orchestrate": {
+          "type": "directory"
+        },
+        ".agents/skills/orchestrate/agents": {
           "type": "directory"
         },
         ".agents/skills/pr": {
@@ -3240,6 +3350,9 @@
         },
         "vendor/parse5": {
           "type": "directory"
+        },
+        "vendor/postern": {
+          "type": "directory"
         }
       },
       "targets": {},
@@ -3323,6 +3436,12 @@
           "type": "missing"
         },
         ".agents/skills/improve-codebase-architecture/agents/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/orchestrate/.gitignore": {
+          "type": "missing"
+        },
+        ".agents/skills/orchestrate/agents/.gitignore": {
           "type": "missing"
         },
         ".agents/skills/pr/.gitignore": {
@@ -3459,6 +3578,9 @@
         },
         "vendor/parse5/.gitignore": {
           "type": "missing"
+        },
+        "vendor/postern/.gitignore": {
+          "type": "missing"
         }
       },
       "limits": {
@@ -3469,13 +3591,5 @@
       }
     }
   },
-  "scopeChanges": [
-    {
-      "id": "typescript-node-stack",
-      "additions": [
-        "package.json"
-      ],
-      "removals": []
-    }
-  ]
+  "scopeChanges": []
 }

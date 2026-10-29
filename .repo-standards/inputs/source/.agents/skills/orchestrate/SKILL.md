@@ -16,6 +16,11 @@ Comments, Findings and Pull requests sections. This skill is how to carry
 those rules across a plan. The installed `triage` skill is how to triage one
 request.
 
+Use the capabilities available in your session to carry out the steps. An
+application may enhance orchestration; the shared method works without it.
+Keep application-specific tool mappings in the owner's own setup outside
+Repo Canon.
+
 ## Workbench
 
 The workbench is a git repository of plain Markdown holding the state of every
@@ -188,20 +193,3 @@ nudge, and losing it loses nothing: act on the files.
 
 When your harness cannot send messages between sessions, re-read the active
 plan directories at each turn, and the owner tells you when a grill is done.
-
-## With T3 Code
-
-On T3 Code, these tools carry the steps:
-
-- Open grills and other owner sessions with `t3_thread_launch`, and record
-  each one's reference in the plan as `t3:<id>`.
-- A launched session reports back with one `t3_thread_send` in `auto` mode
-  to the orchestrating thread.
-- Start triage runs, research runs and workers with `delegate_task`, always
-  with its effort option set. Delegated children wake their parent by
-  themselves.
-- Watch each worker's pull request yourself with `watch_pull_request`; a
-  subagent can't watch.
-- While a plan has open T3 work, keep a 15-minute `schedule_task` heartbeat
-  that runs `babysit`'s wait command on the worker pull requests no watch
-  covers.

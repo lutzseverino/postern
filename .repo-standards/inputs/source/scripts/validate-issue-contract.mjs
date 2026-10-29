@@ -1654,13 +1654,18 @@ export async function runIssueContractValidation(
       snapshot.issueEvents = await readTimeline();
     }
     for (const login of reviewerLogins(snapshot)) {
-      snapshot.permissions[login] = {
-        role: await connection.access.role(login).catch((error) => {
-          if (error instanceof PlatformError && error.reason === "notFound")
-            return null;
-          throw error;
-        }),
-      };
+      try {
+        snapshot.permissions[login] = {
+          role: await connection.access.role(login),
+        };
+      } catch (error) {
+        // Authority can be unavailable after the contract and timeline were
+        // read. Let the decision reject readiness and apply its cleanup.
+        snapshot.permissions[login] =
+          error instanceof PlatformError && error.reason === "notFound"
+            ? { role: null }
+            : { error: error instanceof Error ? error.message : String(error) };
+      }
     }
   }
   const decision = decideIssueContract(snapshot);

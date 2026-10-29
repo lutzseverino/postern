@@ -21,7 +21,7 @@ by its respective authors:
   `.agents/skills/LICENSE.humanlayer-skills` in the adopting repository.
 - Marked 18.0.13 retains its combined
   [Marked and Markdown license notices](vendor/marked/LICENSE).
-- The bundled parse5 8.0.1 and entities 8.0.0 sources retain the separate
+- The bundled parse5 8.0.1 and entities 8.1.0 sources retain the separate
   [parse5 license](vendor/parse5/LICENSE.parse5) and
   [entities license](vendor/parse5/LICENSE.entities).
 
