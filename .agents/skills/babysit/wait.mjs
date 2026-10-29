@@ -277,7 +277,7 @@ const parseArguments = (argv) => {
       throw new UsageError(`--${flag} must be a positive number of seconds`);
     }
   }
-  if (positional.length !== 1 || !/^\d+$/.test(positional[0])) {
+  if (positional.length !== 1 || !/^[1-9]\d*$/.test(positional[0])) {
     throw new UsageError(
       "usage: wait.mjs <number> [--repo <owner/name>] [--limit <seconds>] [--interval <seconds>]",
     );

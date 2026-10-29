@@ -36,8 +36,8 @@ For `needs-info`, follow the contribution guide's Triage section for question
 routing and its inference test. Agent work follows the agent path; where
 factory workflow rules are installed, follow them for factory pickup exclusions.
 
-These rules name no `factory:` label: a factory creates its own state labels
-from the repository's factory configuration.
+These rules name no `factory:` label: the factory workflow rules govern who
+creates and manages the labels named by the repository's factory configuration.
 
 ## Merge settings
 
