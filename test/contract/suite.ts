@@ -9,7 +9,7 @@ import { describe, it } from "node:test";
 import { PlatformError, capabilityFlags } from "../../src/index.ts";
 import type {
   Account,
-  ConnectionWithLabels,
+  ConnectionWithLinkAdditions,
   IssueEventKind,
   PlatformErrorReason,
 } from "../../src/index.ts";
@@ -38,6 +38,7 @@ export type ContractGroup =
   | "issue events"
   | "issue tracker reads"
   | "issue relationships"
+  | "sub-issue link additions"
   | "issue tracker writes"
   | "accounts"
   | "pull requests"
@@ -78,6 +79,79 @@ export function runAdapterContract(
     );
 
   describe(`${harness.name} adapter contract`, () => {
+    group("sub-issue link additions", () => {
+      const supported = issueFlags.subIssueLinkAdditions === true;
+      it(
+        "fails explicitly when history is unsupported",
+        lacks(supported, "subIssueLinkAdditions"),
+        async () => {
+          const platform = harness.start();
+          const number = platform.addIssue();
+          await assert.rejects(
+            platform.connect().issueTracker.subIssueLinkAdditions(number),
+            isReason("unsupported"),
+          );
+        },
+      );
+
+      it(
+        "returns an empty list for a supported issue without additions",
+        offers(supported, "subIssueLinkAdditions"),
+        async () => {
+          const platform = harness.start();
+          const number = platform.addIssue();
+          assert.deepEqual(
+            await platform.connect().issueTracker.subIssueLinkAdditions(number),
+            [],
+          );
+        },
+      );
+
+      it(
+        "keeps every addition across pages, including mixed actors, equal times and repeated links",
+        offers(supported, "subIssueLinkAdditions"),
+        async () => {
+          const platform = harness.start();
+          platform.pageSize(1);
+          const number = platform.addIssue();
+          const tracker = platform.connect().issueTracker;
+          const subIssue = {
+            repository: platform.path,
+            number: 8,
+            state: "open" as const,
+          };
+          const first = { subIssue, actor: mona, time: "2026-01-02T00:00:00Z" };
+          platform.addSubIssueLinkAddition(number, first);
+          assert.deepEqual(await tracker.subIssueLinkAdditions(number), [
+            { ...first, actor: reported(mona) },
+          ]);
+          const second = {
+            subIssue: {
+              repository: "other/project",
+              number: 9,
+              state: "closed" as const,
+            },
+            actor: robot,
+            time: first.time,
+          };
+          platform.addSubIssueLinkAddition(number, second);
+          platform.addSubIssueLinkAddition(number, first);
+          platform.addSubIssueLinkAddition(number, {
+            subIssue: null,
+            actor: null,
+            time: first.time,
+          });
+          assert.deepEqual(await tracker.subIssueLinkAdditions(number), [
+            { ...first, actor: reported(mona) },
+            { ...second, actor: reported(robot) },
+            { ...first, actor: reported(mona) },
+            { subIssue: null, actor: null, time: first.time },
+          ]);
+          assert.deepEqual((await tracker.issue(number)).subIssues, []);
+        },
+      );
+    });
+
     group("capability flags", () => {
       it("reports only known flags, each true", () => {
         const connection = harness.start().connect();
@@ -1472,7 +1546,7 @@ export function runAdapterContract(
       ] as const;
       const operations: [
         string,
-        (connection: ConnectionWithLabels) => Promise<unknown>,
+        (connection: ConnectionWithLinkAdditions) => Promise<unknown>,
       ][] = [
         ["an issue read", (connection) => connection.issueTracker.issue(1)],
         [
@@ -1497,6 +1571,12 @@ export function runAdapterContract(
             }),
         ],
       ];
+      if (issueFlags.subIssueLinkAdditions) {
+        operations.push([
+          "sub-issue link-addition history",
+          (connection) => connection.issueTracker.subIssueLinkAdditions(1),
+        ]);
+      }
       for (const reason of reasons) {
         for (const [what, operation] of operations) {
           it(`maps the platform's ${reason} failure of ${what}`, async () => {
@@ -1524,7 +1604,7 @@ export function runAdapterContract(
       // resource holding lists that span pages of their own.
       type Prepared = (
         platform: ContractPlatform,
-        connection: ConnectionWithLabels,
+        connection: ConnectionWithLinkAdditions,
       ) => Promise<() => Promise<unknown>>;
       const reads: [name: string, paged: boolean, prepare: Prepared][] = [
         [
@@ -1799,6 +1879,21 @@ export function runAdapterContract(
           },
         ],
       ];
+      if (issueFlags.subIssueLinkAdditions) {
+        reads.push([
+          "subIssueLinkAdditions",
+          true,
+          async (platform, { issueTracker }) => {
+            const number = platform.addIssue();
+            platform.addSubIssueLinkAddition(number, {
+              subIssue: { repository: platform.path, number: 8, state: "open" },
+              actor: mona,
+              time: "2026-01-02T00:00:00Z",
+            });
+            return () => issueTracker.subIssueLinkAdditions(number);
+          },
+        ]);
+      }
       const every: Malformation[] = ["missingFields", "wrongTypes"];
       const pages: Malformation[] = [
         "brokenLists",

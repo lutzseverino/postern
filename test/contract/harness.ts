@@ -6,9 +6,10 @@
 import type {
   Account,
   ConnectOptions,
-  ConnectionWithLabels,
+  ConnectionWithLinkAdditions,
   Label,
   PlatformErrorReason,
+  SubIssueLinkAddition,
 } from "../../src/index.ts";
 
 /** An issue in another repository on the same platform, or a number in the connected one. */
@@ -133,7 +134,7 @@ export interface ContractPlatform {
       anonymous?: boolean;
       tokenFunction?: boolean;
     },
-  ): ConnectionWithLabels;
+  ): ConnectionWithLinkAdditions;
   /** Makes the fake serve at most this many items per page. */
   pageSize(size: number): void;
   /** Serves these authenticated transport pages and returns the first page's request path. */
@@ -145,6 +146,8 @@ export interface ContractPlatform {
     variation?: IssueEventVariation,
   ): { name: string; payload: unknown };
   addIssue(seed?: IssueSeed): number;
+  /** Appends one recorded addition without changing current relationships. */
+  addSubIssueLinkAddition(issue: number, addition: SubIssueLinkAddition): void;
   /** An issue body holding these named sections, each referencing issues in the platform's syntax. */
   sectionBody(sections: Record<string, SeedReference[]>): string;
   addLabelChange(

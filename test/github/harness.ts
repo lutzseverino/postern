@@ -4,7 +4,7 @@ import { connect } from "../../src/index.ts";
 import type {
   Account,
   ConnectOptions,
-  ConnectionWithLabels,
+  ConnectionWithLinkAdditions,
 } from "../../src/index.ts";
 import type {
   AdapterHarness,
@@ -14,7 +14,7 @@ import type {
   SeedReference,
 } from "../contract/harness.ts";
 import { githubIssueEvent } from "./events.ts";
-import { GitHubFake } from "./fake.ts";
+import { GitHubFake, graphqlUser } from "./fake.ts";
 import type { FakeUser, Injected, Malformed } from "./fake.ts";
 
 const path = "octo/hello";
@@ -167,7 +167,7 @@ const malformations: Record<Malformation, Omit<Malformed, "status">> = {
 export type Opener = (
   remote: string,
   options: ConnectOptions,
-) => ConnectionWithLabels;
+) => ConnectionWithLinkAdditions;
 
 /** A harness over the GitHub fake whose connections `open` makes, by default through `connect`. */
 export const harnessOver = (
@@ -270,13 +270,21 @@ export function startGitHub(open: Opener = connect): {
         lastEditedAt: seed.bodyEditTime ?? null,
         parent: seed.parent === undefined ? null : key(seed.parent),
         blockedBy: (seed.blockedBy ?? []).map(key),
-        subIssueAddedAt: [],
+        subIssueLinkAdditions: [],
         events: [],
       });
       if (seed.parent !== undefined) {
         const parent = fake.issues.get(key(seed.parent));
         if (!parent) throw new Error("Seed the parent first");
-        parent.subIssueAddedAt.push(seed.linkedAt ?? "2026-01-01T00:00:00Z");
+        parent.subIssueLinkAdditions.push({
+          createdAt: seed.linkedAt ?? "2026-01-01T00:00:00Z",
+          actor: graphqlUser(viewer),
+          subIssue: {
+            number,
+            state: seed.state === "closed" ? "CLOSED" : "OPEN",
+            repository: { nameWithOwner: repository },
+          },
+        });
       }
       return number;
     },
@@ -291,6 +299,22 @@ export function startGitHub(open: Opener = connect): {
           return `## ${name}\n\n${links.map((link) => `- ${link}`).join("\n")}`;
         })
         .join("\n\n");
+    },
+    addSubIssueLinkAddition(number, addition) {
+      const actor = addition.actor;
+      const subIssue = addition.subIssue;
+      issue(number).subIssueLinkAdditions.push({
+        createdAt: addition.time,
+        actor: graphqlUser(actor === null ? null : fakeUser(actor)),
+        subIssue:
+          subIssue === null
+            ? null
+            : {
+                number: subIssue.number,
+                state: subIssue.state.toUpperCase(),
+                repository: { nameWithOwner: subIssue.repository },
+              },
+      });
     },
     addLabelChange(number, change) {
       const actor = fakeUser(change.actor)!;

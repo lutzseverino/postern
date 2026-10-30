@@ -16,7 +16,7 @@ import type {
   IssueEvent,
   IssueEventKind,
   IssueReference,
-  IssueTrackerWithLabels,
+  IssueTrackerWithLinkAdditions,
   Label,
   LabelChange,
   PullRequest,
@@ -76,6 +76,17 @@ const issueQuery = `query PosternIssue($owner: String!, $name: String!, $number:
   repository(owner: $owner, name: $name) { issue(number: $number) { ${issueFields} } }
 }`;
 
+const subIssueLinkAdditionsQuery = `query PosternSubIssueLinkAdditions($owner: String!, $name: String!, $number: Int!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    issue(number: $number) {
+      timelineItems(first: 100, after: $after, itemTypes: [SUB_ISSUE_ADDED_EVENT]) {
+        nodes { ... on SubIssueAddedEvent { createdAt actor { __typename login } subIssue { ${referenceFields} } } }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}`;
+
 const issueConnectionQueries = {
   labels: `query PosternIssueLabels($id: ID!, $after: String) {
   node(id: $id) { ... on Issue { connection: labels(first: 100, after: $after) { nodes { name } pageInfo { hasNextPage endCursor } } } }
@@ -109,7 +120,7 @@ function issueTracker(
   repo: string,
   coordinates: Json,
   repository: string,
-): IssueTrackerWithLabels {
+): IssueTrackerWithLinkAdditions {
   // An issue with every page of its nested connections. A follow-up query
   // starts from the first page again and replaces what the issue held.
   const complete = async (value: unknown): Promise<Issue> => {
@@ -135,6 +146,7 @@ function issueTracker(
       nativeBlockers: true,
       bodyEditTime: true,
       linkTime: true,
+      subIssueLinkAdditions: true,
       botMarking: true,
     },
     async issueEvent(event) {
@@ -214,6 +226,25 @@ function issueTracker(
             `Issue #${number} was not found.`,
           );
           return complete(node);
+        },
+      );
+    },
+    async subIssueLinkAdditions(number) {
+      return transport.graphqlPages(
+        subIssueLinkAdditionsQuery,
+        { ...coordinates, number },
+        (data) =>
+          found(
+            object(data.repository).issue,
+            `Issue #${number} was not found.`,
+          ).timelineItems,
+        (value) => {
+          const event = object(value);
+          return {
+            subIssue: nullable(event.subIssue, mapReference),
+            actor: graphqlAccount(event.actor),
+            time: time(event.createdAt),
+          };
         },
       );
     },

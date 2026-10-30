@@ -96,6 +96,13 @@ export interface LabelChange {
   time: string;
 }
 
+/** One recorded sub-issue link addition; unknown facts are explicit nulls. */
+export interface SubIssueLinkAddition {
+  subIssue: IssueReference | null;
+  actor: Account | null;
+  time: string | null;
+}
+
 export interface Comment {
   id: number;
   nodeId: string | null;
@@ -129,6 +136,8 @@ export interface IssueTrackerCapabilities {
   readonly bodyEditTime?: true;
   /** Issues report `linkTime`. */
   readonly linkTime?: true;
+  /** Complete sub-issue link-addition history is available. */
+  readonly subIssueLinkAdditions?: true;
   /** Every account a connection reports, from any port, carries the platform's bot marking. */
   readonly botMarking?: true;
 }
@@ -167,6 +176,12 @@ export interface IssueTrackerWithLabels extends IssueTracker {
   labels(): Promise<Label[]>;
   /** Updates the selected label to the complete desired name, color and description. */
   updateLabel(name: string, label: Label): Promise<Label>;
+}
+
+/** An additive tracker contract with complete sub-issue link-addition reads. */
+export interface IssueTrackerWithLinkAdditions extends IssueTrackerWithLabels {
+  /** All additions in platform order, including repeated links. Needs `subIssueLinkAdditions`. */
+  subIssueLinkAdditions(number: number): Promise<SubIssueLinkAddition[]>;
 }
 
 export type PullRequestState = "open" | "closed" | "merged";
@@ -352,6 +367,7 @@ export const capabilityFlags = Object.freeze({
     "nativeBlockers",
     "bodyEditTime",
     "linkTime",
+    "subIssueLinkAdditions",
     "botMarking",
   ] as const),
   pullRequests: Object.freeze(["closingReferences", "reviewCommits"] as const),

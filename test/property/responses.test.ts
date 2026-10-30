@@ -66,6 +66,7 @@ const badTimes = [
 // as `null` or "", or, for an issue or pull request a query looks up, as not found.
 const nullable = new Set([
   "parent",
+  "subIssue",
   "lastEditedAt",
   "author",
   "user",

@@ -75,6 +75,7 @@ function sectionedAdapter(issues: Map<number, StoredIssue>) {
         },
         issueEvent: unused,
         labelChanges: unused,
+        subIssueLinkAdditions: unused,
         comments: unused,
         addLabels: unused,
         removeLabel: unused,
@@ -157,6 +158,7 @@ const sectionedHarness: AdapterHarness = {
           )
           .join("\n\n"),
       addLabelChange: unused,
+      addSubIssueLinkAddition: unused,
       addComment: unused,
       defineLabel: unused,
       addPullRequest: unused,
@@ -181,4 +183,5 @@ const sectionedHarness: AdapterHarness = {
 runAdapterContract(sectionedHarness, [
   "capability flags",
   "issue relationships",
+  "sub-issue link additions",
 ]);

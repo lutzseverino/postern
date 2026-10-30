@@ -54,6 +54,7 @@ function doubleAdapter(
         issue: async () => structuredClone(sampleIssue),
         issueEvent: unexpected,
         labelChanges: unexpected,
+        subIssueLinkAdditions: unexpected,
         comments: unexpected,
         addLabels: unexpected,
         removeLabel: unexpected,
@@ -255,6 +256,53 @@ describe("connect", () => {
 });
 
 describe("the shared port layer", () => {
+  it("preserves platform order and unknown link-addition facts without bot marking", async () => {
+    const adapter: PlatformAdapter = (context) => {
+      const ports = doubleAdapter({ subIssueLinkAdditions: true })(context);
+      return {
+        ...ports,
+        issueTracker: {
+          ...ports.issueTracker,
+          subIssueLinkAdditions: async () => [
+            { subIssue: null, actor: null, time: "2026-01-02T00:00:00Z" },
+            {
+              subIssue: null,
+              actor: { login: "helper", bot: false },
+              time: null,
+            },
+            {
+              subIssue: null,
+              actor: { login: "robot", bot: true },
+              time: "2026-01-01T00:00:00Z",
+            },
+          ],
+        },
+      };
+    };
+    const tracker = createConnection(repository, adapter, {}).issueTracker;
+    assert.deepEqual(await tracker.subIssueLinkAdditions(7), [
+      { subIssue: null, actor: null, time: "2026-01-02T00:00:00Z" },
+      { subIssue: null, actor: { login: "helper", bot: null }, time: null },
+      {
+        subIssue: null,
+        actor: { login: "robot", bot: null },
+        time: "2026-01-01T00:00:00Z",
+      },
+    ]);
+  });
+
+  it("rejects unsupported history before calling the adapter", async () => {
+    const tracker = createConnection(
+      repository,
+      doubleAdapter({}),
+      {},
+    ).issueTracker;
+    await assert.rejects(
+      tracker.subIssueLinkAdditions(7),
+      isReason("unsupported"),
+    );
+  });
+
   it("reports native relationships and times when the adapter offers every flag", async () => {
     const all = {
       nativeParent: true,
@@ -1114,6 +1162,7 @@ describe("reading what callers pass", () => {
         ["issues", () => issues.issues(value())],
         ["issue", () => issues.issue(value())],
         ["labelChanges", () => issues.labelChanges(value())],
+        ["subIssueLinkAdditions", () => issues.subIssueLinkAdditions(value())],
         ["comments", () => issues.comments(value())],
         ["addLabels number", () => issues.addLabels(value(), ["bug"])],
         ["addLabels labels", () => issues.addLabels(1, value())],
