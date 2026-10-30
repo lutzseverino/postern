@@ -21,6 +21,7 @@ import type {
   IssueFilter,
   IssueTracker,
   IssueTrackerWithLabels,
+  IssueTrackerWithLinkAdditions,
   Label,
   PlatformEvent,
   PullRequest,
@@ -68,6 +69,11 @@ export interface ConnectionWithLabels extends Connection {
   readonly access: AccessWithPages;
 }
 
+/** A concrete connection that also exposes complete sub-issue link-addition reads. */
+export interface ConnectionWithLinkAdditions extends ConnectionWithLabels {
+  readonly issueTracker: IssueTrackerWithLinkAdditions;
+}
+
 /** What an adapter receives to build its ports. */
 export interface AdapterContext {
   repository: RepositoryIdentity;
@@ -78,7 +84,7 @@ export interface AdapterContext {
 }
 
 export interface AdapterPorts {
-  issueTracker: IssueTrackerWithLabels;
+  issueTracker: IssueTrackerWithLinkAdditions;
   pullRequests: PullRequests;
   releaseSource: ReleaseSource;
   access: AccessWithPages;
@@ -151,7 +157,7 @@ const headerValue =
 export function connect(
   repository: string | RepositoryIdentity,
   options: ConnectOptions = {},
-): ConnectionWithLabels {
+): ConnectionWithLinkAdditions {
   const identity =
     typeof repository === "string"
       ? detectPlatform(repository)
@@ -165,7 +171,7 @@ export function createConnection(
   repository: RepositoryIdentity,
   adapter: PlatformAdapter,
   options: ConnectOptions,
-): ConnectionWithLabels {
+): ConnectionWithLinkAdditions {
   const checked = checkOptions(options);
   const secrets = new Secrets();
   const context: AdapterContext = {
@@ -235,11 +241,11 @@ async function shielded<T>(
 }
 
 function guardIssueTracker(
-  port: IssueTrackerWithLabels,
+  port: IssueTrackerWithLinkAdditions,
   capabilities: IssueTracker["capabilities"],
   context: AdapterContext,
   { guard, account }: Layer,
-): IssueTrackerWithLabels {
+): IssueTrackerWithLinkAdditions {
   const sections = context.relationshipSections !== null;
   const issueFacts = (issue: Issue): Issue => ({
     ...issue,
@@ -278,6 +284,16 @@ function guardIssueTracker(
       guard(async () => {
         checkNumber(number, "issue number");
         return issueFacts(await port.issue(number));
+      }),
+    subIssueLinkAdditions: (number: number) =>
+      guard(async () => {
+        checkNumber(number, "issue number");
+        if (!capabilities.subIssueLinkAdditions)
+          unsupported("subIssueLinkAdditions");
+        return (await port.subIssueLinkAdditions(number)).map((addition) => ({
+          ...addition,
+          actor: account(addition.actor),
+        }));
       }),
     labelChanges: (number: number) =>
       guard(async () => {

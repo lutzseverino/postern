@@ -28,9 +28,11 @@ any other path fails with `rejected`. Its options are:
 | `fetch`                | A `fetch`-compatible function. Defaults to the global `fetch`.                                                                |
 | `timeoutMs`            | The time one request may take before it fails with `unavailable`: whole milliseconds from 1 to 2147483647. Defaults to 30000. |
 
-`connect()` returns `ConnectionWithLabels`, with an
-`IssueTrackerWithLabels` and an `AccessWithPages`. These exported additive
-contracts require all the 1.1 operations: `issueEvent`, `labels` and
+`connect()` returns `ConnectionWithLinkAdditions`, with an
+`IssueTrackerWithLinkAdditions` and an `AccessWithPages`. The connection and
+tracker extend `ConnectionWithLabels` and `IssueTrackerWithLabels`, adding
+the required `subIssueLinkAdditions` operation without changing those older
+producer contracts. The 1.1 contracts require `issueEvent`, `labels` and
 `updateLabel` on the tracker, and `requestPages` on Access. Concrete adapters
 and contract harnesses also require these stronger contracts.
 
@@ -103,17 +105,18 @@ absent flag means the platform does not offer the feature: an operation that
 needs it fails with `unsupported`, and a field that needs it is `null`. The
 exported `capabilityFlags` lists every flag per port.
 
-| Port            | Flag                | When offered                                                              |
-| --------------- | ------------------- | ------------------------------------------------------------------------- |
-| `issueTracker`  | `nativeParent`      | `parent` and `subIssues` come from native links.                          |
-| `issueTracker`  | `nativeBlockers`    | `blockedBy` comes from native links.                                      |
-| `issueTracker`  | `bodyEditTime`      | Issues report `bodyEditTime`.                                             |
-| `issueTracker`  | `linkTime`          | Issues report `linkTime`.                                                 |
-| `issueTracker`  | `botMarking`        | Accounts on every port report `bot` as a boolean; otherwise it is `null`. |
-| `pullRequests`  | `closingReferences` | `closing` lists the pull requests that close an issue.                    |
-| `pullRequests`  | `reviewCommits`     | Reviews report the commit they reviewed; otherwise `commit` is `null`.    |
-| `releaseSource` | `drafts`            | Releases report `draft`; otherwise it is `null`.                          |
-| `releaseSource` | `prereleases`       | Releases report `prerelease`; otherwise it is `null`.                     |
+| Port            | Flag                    | When offered                                                              |
+| --------------- | ----------------------- | ------------------------------------------------------------------------- |
+| `issueTracker`  | `nativeParent`          | `parent` and `subIssues` come from native links.                          |
+| `issueTracker`  | `nativeBlockers`        | `blockedBy` comes from native links.                                      |
+| `issueTracker`  | `bodyEditTime`          | Issues report `bodyEditTime`.                                             |
+| `issueTracker`  | `linkTime`              | Issues report `linkTime`.                                                 |
+| `issueTracker`  | `subIssueLinkAdditions` | Complete sub-issue link-addition history is available.                    |
+| `issueTracker`  | `botMarking`            | Accounts on every port report `bot` as a boolean; otherwise it is `null`. |
+| `pullRequests`  | `closingReferences`     | `closing` lists the pull requests that close an issue.                    |
+| `pullRequests`  | `reviewCommits`         | Reviews report the commit they reviewed; otherwise `commit` is `null`.    |
+| `releaseSource` | `drafts`                | Releases report `draft`; otherwise it is `null`.                          |
+| `releaseSource` | `prereleases`           | Releases report `prerelease`; otherwise it is `null`.                     |
 
 ### Relationships
 
@@ -131,21 +134,22 @@ the same host, so links may cross repositories.
 
 ### `issueTracker`
 
-| Operation                                         | Result                                                                                |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `issueEvent({ name, payload })`                   | An `IssueEvent`, or `null` for an unsupported event or action; sends no request.      |
-| `issues({ state?, label? })`                      | Issues in the state (default `open`), with the label when given, oldest first.        |
-| `issue(number)`                                   | One issue in any state.                                                               |
-| `labelChanges(number)`                            | `{ id, action: "added" \| "removed", label, actor, time }`, in platform order.        |
-| `comments(number)`                                | The complete comment list.                                                            |
-| `addLabels(number, labels)`                       | Adds the labels.                                                                      |
-| `removeLabel(number, label)`                      | Removes the label; `notFound` when the issue lacks it.                                |
-| `createLabel({ name, color, description })`       | The created label; `color` is six hexadecimal digits without `#`.                     |
-| `labels()`                                        | Every repository label in platform order, across all pages; `[]` when there are none. |
-| `updateLabel(name, { name, color, description })` | The updated repository label, selected by its current name.                           |
-| `createComment(number, body)`                     | The created comment.                                                                  |
-| `updateComment(id, body)`                         | The updated comment.                                                                  |
-| `closeIssue(number)`                              | Closes the issue.                                                                     |
+| Operation                                         | Result                                                                                         |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `issueEvent({ name, payload })`                   | An `IssueEvent`, or `null` for an unsupported event or action; sends no request.               |
+| `issues({ state?, label? })`                      | Issues in the state (default `open`), with the label when given, oldest first.                 |
+| `issue(number)`                                   | One issue in any state.                                                                        |
+| `labelChanges(number)`                            | `{ id, action: "added" \| "removed", label, actor, time }`, in platform order.                 |
+| `subIssueLinkAdditions(number)`                   | Complete `{ subIssue, actor, time }` history in platform order; needs `subIssueLinkAdditions`. |
+| `comments(number)`                                | The complete comment list.                                                                     |
+| `addLabels(number, labels)`                       | Adds the labels.                                                                               |
+| `removeLabel(number, label)`                      | Removes the label; `notFound` when the issue lacks it.                                         |
+| `createLabel({ name, color, description })`       | The created label; `color` is six hexadecimal digits without `#`.                              |
+| `labels()`                                        | Every repository label in platform order, across all pages; `[]` when there are none.          |
+| `updateLabel(name, { name, color, description })` | The updated repository label, selected by its current name.                                    |
+| `createComment(number, body)`                     | The created comment.                                                                           |
+| `updateComment(id, body)`                         | The updated comment.                                                                           |
+| `closeIssue(number)`                              | Closes the issue.                                                                              |
 
 `labels()` and `updateLabel()` are available from 1.1.0 through the refined
 connection and tracker types. Each label is `{ name, color, description }`;
@@ -180,6 +184,40 @@ meets a larger one fails with `invalidResponse`. `bodyEditTime` is when the body
 and `linkTime` when the latest sub-issue was linked; each is `null` when that
 never happened. A comment is `{ id, nodeId, url, author, body, createdAt,
 updatedAt }`.
+
+#### Sub-issue link additions
+
+`subIssueLinkAdditions(number)` returns every recorded addition across all
+pages, including repeated additions of the same link and additions by different
+actors. Each `SubIssueLinkAddition` contains `subIssue: IssueReference | null`,
+`actor: Account | null` and `time: string | null`. References identify the
+linked repository and issue, including cross-repository links. Events retain
+the platform's order even when timestamps are equal or unknown; no sorting,
+deduplication or actor filtering is applied.
+
+Unknown facts are explicit `null` values where the platform schema permits
+them. An unknown bot marking is `null`, distinct from `false`. Facts are never
+inferred from issue authorship, creation time, current relationships or later
+events. GitHub's nullable `subIssue` (a deleted or inaccessible issue) and
+`actor` become `null`; its non-null `createdAt` must be a valid timestamp, so
+`createdAt: null` fails with `invalidResponse`.
+
+An absent `subIssueLinkAdditions` capability makes the operation fail with
+`unsupported`. A supported issue with no recorded additions returns `[]`.
+Any unreadable or failing page rejects the entire read, preserving the usual
+`PlatformError` contract. `Issue.subIssues` still reports current relationships
+and `Issue.linkTime` still reports the latest link time. The history makes no
+authorization decisions and does not report removals as additions.
+
+```js
+const tracker = repository.issueTracker;
+if (tracker.capabilities.subIssueLinkAdditions) {
+  const additions = await tracker.subIssueLinkAdditions(42);
+  for (const { subIssue, actor, time } of additions) {
+    console.log(subIssue, actor?.login, actor?.bot, time);
+  }
+}
+```
 
 #### Issue events
 
@@ -351,7 +389,7 @@ read twice. This applies to every list, and to the lists an issue holds.
 
 The GitHub adapter serves `github.com` repositories and offers every flag.
 
-- Issue reads, `byHeadBranch`, `closing`, `pullRequest`, `reviewThreads` and
+- Issue reads, `subIssueLinkAdditions`, `byHeadBranch`, `closing`, `pullRequest`, `reviewThreads` and
   `mergesThroughQueue` use GitHub's GraphQL API, which GitHub serves only to
   authenticated callers, so on an anonymous connection they fail with
   `unauthenticated`. Label changes, comments, reviews, checks, releases, tags,

@@ -830,7 +830,7 @@ describe("GitHub requests", () => {
       lastEditedAt: null,
       parent: null,
       blockedBy: [],
-      subIssueAddedAt: [],
+      subIssueLinkAdditions: [],
       events: [],
     });
     assert.deepEqual((await connection.issueTracker.issue(1)).author, {
@@ -1103,7 +1103,7 @@ describe("GitHub numeric IDs", () => {
       lastEditedAt: null,
       parent: null,
       blockedBy: [],
-      subIssueAddedAt: [],
+      subIssueLinkAdditions: [],
       events: [],
     });
     fake.pullRequests.set(`${path}#2`, {

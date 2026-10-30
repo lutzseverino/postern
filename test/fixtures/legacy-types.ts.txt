@@ -42,9 +42,18 @@ export const legacyConnection: Connection = publishedConnection;
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 type Assert<T extends true> = T;
-export type TrackerMatchesPublished = Assert<Equal<IssueTracker, Published.IssueTracker>>;
+// A new optional capability flag is additive; all published flags, members,
+// signatures and readonly requirements must still match exactly.
+type LegacyTrackerShape = {
+  [K in keyof IssueTracker]: K extends "capabilities"
+    ? Omit<IssueTracker[K], "subIssueLinkAdditions"> : IssueTracker[K];
+};
+type LegacyConnectionShape = {
+  [K in keyof Connection]: K extends "issueTracker" ? LegacyTrackerShape : Connection[K];
+};
+export type TrackerMatchesPublished = Assert<Equal<LegacyTrackerShape, Published.IssueTracker>>;
 export type AccessMatchesPublished = Assert<Equal<Access, Published.Access>>;
-export type ConnectionMatchesPublished = Assert<Equal<Connection, Published.Connection>>;
+export type ConnectionMatchesPublished = Assert<Equal<LegacyConnectionShape, Published.Connection>>;
 export type PullRequestsMatchesPublished = Assert<Equal<PullRequests, Published.PullRequests>>;
 export type ReleaseSourceMatchesPublished = Assert<Equal<ReleaseSource, Published.ReleaseSource>>;
 export type LegacyTrackerHasNoAdditions = Assert<

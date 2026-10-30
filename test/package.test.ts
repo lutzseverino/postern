@@ -185,6 +185,7 @@ export const read = async (): Promise<Issue | string> => tracker.issue(1).catch(
       "additive-types.ts",
       "published-1.1.0.d.ts",
       "event-types.ts",
+      "link-addition-types.ts",
     ]) {
       copyFileSync(
         join(root, `test/fixtures/${fixture}.txt`),

@@ -25,8 +25,8 @@ export interface FakeIssue {
   /** The parent's key, `owner/name#number`. */
   parent: string | null;
   blockedBy: string[];
-  /** When each sub-issue was linked to this issue. */
-  subIssueAddedAt: string[];
+  /** Recorded additions, independent of current relationships. */
+  subIssueLinkAdditions: Json[];
   events: Json[];
 }
 
@@ -482,6 +482,24 @@ export class GitHubFake {
           },
         });
       }
+      case "PosternSubIssueLinkAdditions": {
+        const issue = this.issues.get(`${this.repository}#${variables.number}`);
+        if (!issue) return missing("issue", variables.number);
+        return json(200, {
+          data: {
+            repository: {
+              issue: {
+                timelineItems: connection(
+                  issue.subIssueLinkAdditions,
+                  100,
+                  variables.after,
+                  (event) => event,
+                ),
+              },
+            },
+          },
+        });
+      }
       case "PosternIssue": {
         const issue = this.issues.get(`${this.repository}#${variables.number}`);
         if (!issue) return missing("issue", variables.number);
@@ -605,9 +623,9 @@ export class GitHubFake {
       ),
       blockedBy: page(issue.blockedBy, reference),
       timelineItems: {
-        nodes: issue.subIssueAddedAt
+        nodes: issue.subIssueLinkAdditions
           .slice(-1)
-          .map((createdAt) => ({ createdAt })),
+          .map((event) => ({ createdAt: event.createdAt })),
       },
     };
   }

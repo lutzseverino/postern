@@ -1,0 +1,34 @@
+import {
+  connect,
+  type Connection,
+  type ConnectionWithLabels,
+  type ConnectionWithLinkAdditions,
+  type IssueTracker,
+  type IssueTrackerWithLabels,
+  type IssueTrackerWithLinkAdditions,
+  type SubIssueLinkAddition,
+} from "@lutzseverino/postern";
+
+const concrete = connect("https://github.com/octo/hello");
+export const additions = concrete.issueTracker.subIssueLinkAdditions(1);
+export const connection: ConnectionWithLinkAdditions = concrete;
+export const tracker: IssueTrackerWithLinkAdditions = concrete.issueTracker;
+export const legacyConnection: Connection = concrete;
+export const labelsConnection: ConnectionWithLabels = concrete;
+export const legacyTracker: IssueTracker = concrete.issueTracker;
+export const labelsTracker: IssueTrackerWithLabels = concrete.issueTracker;
+
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Assert<T extends true> = T;
+export type AdditionsResult = Assert<Equal<typeof additions, Promise<SubIssueLinkAddition[]>>>;
+export type RequiredHistory = Assert<Equal<
+  IssueTrackerWithLinkAdditions["subIssueLinkAdditions"],
+  (number: number) => Promise<SubIssueLinkAddition[]>
+>>;
+export const unknown: SubIssueLinkAddition = { subIssue: null, actor: null, time: null };
+export const unknownBot: SubIssueLinkAddition = {
+  subIssue: { repository: "other/project", number: 2, state: "closed" },
+  actor: { login: "helper", bot: null },
+  time: "2026-01-02T00:00:00Z",
+};

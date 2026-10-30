@@ -3,6 +3,7 @@ export type {
   ConnectOptions,
   Connection,
   ConnectionWithLabels,
+  ConnectionWithLinkAdditions,
   RelationshipSections,
 } from "./connection.ts";
 export { detectPlatform } from "./detect.ts";
@@ -25,6 +26,7 @@ export type {
   IssueState,
   IssueTracker,
   IssueTrackerWithLabels,
+  IssueTrackerWithLinkAdditions,
   IssueTrackerCapabilities,
   Label,
   LabelChange,
@@ -39,6 +41,7 @@ export type {
   Review,
   ReviewThread,
   SquashMerge,
+  SubIssueLinkAddition,
   TransportRequest,
   TransportResponse,
 } from "./ports.ts";

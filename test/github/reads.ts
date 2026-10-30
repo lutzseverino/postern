@@ -1,18 +1,27 @@
 // Reads over the GitHub fake that each seed what they read and return the
 // call, so a test can change the fake's response before making it.
 
-import type { ConnectionWithLabels } from "../../src/index.ts";
+import type { ConnectionWithLinkAdditions } from "../../src/index.ts";
 import type { ContractPlatform } from "../contract/harness.ts";
 
 export type Read = (
   platform: ContractPlatform,
-  connection: ConnectionWithLabels,
+  connection: ConnectionWithLinkAdditions,
 ) => () => Promise<unknown>;
 
 export const head = "a".repeat(40);
 export const mona = { login: "mona", bot: false };
 
 export const reads = {
+  subIssueLinkAdditions: (platform, { issueTracker }) => {
+    const number = platform.addIssue();
+    platform.addSubIssueLinkAddition(number, {
+      subIssue: { repository: platform.path, number: 8, state: "open" },
+      actor: mona,
+      time: "2026-01-02T00:00:00Z",
+    });
+    return () => issueTracker.subIssueLinkAdditions(number);
+  },
   issue: (platform, { issueTracker }) => {
     const parent = platform.addIssue();
     const number = platform.addIssue({
