@@ -14,7 +14,7 @@ import type {
   SeedReference,
 } from "../contract/harness.ts";
 import { githubIssueEvent } from "./events.ts";
-import { GitHubFake } from "./fake.ts";
+import { GitHubFake, graphqlUser } from "./fake.ts";
 import type { FakeUser, Injected, Malformed } from "./fake.ts";
 
 const path = "octo/hello";
@@ -278,7 +278,7 @@ export function startGitHub(open: Opener = connect): {
         if (!parent) throw new Error("Seed the parent first");
         parent.subIssueLinkAdditions.push({
           createdAt: seed.linkedAt ?? "2026-01-01T00:00:00Z",
-          actor: { __typename: "User", login: viewer.login },
+          actor: graphqlUser(viewer),
           subIssue: {
             number,
             state: seed.state === "closed" ? "CLOSED" : "OPEN",
@@ -305,15 +305,7 @@ export function startGitHub(open: Opener = connect): {
       const subIssue = addition.subIssue;
       issue(number).subIssueLinkAdditions.push({
         createdAt: addition.time,
-        actor:
-          actor === null
-            ? null
-            : {
-                __typename: actor.bot ? "Bot" : "User",
-                login: actor.bot
-                  ? actor.login.replace(/\[bot\]$/, "")
-                  : actor.login,
-              },
+        actor: graphqlUser(actor === null ? null : fakeUser(actor)),
         subIssue:
           subIssue === null
             ? null

@@ -731,7 +731,7 @@ function graphqlDatabaseIds(id: number): Json {
   return { databaseId: id < 2 ** 31 ? id : null, fullDatabaseId: String(id) };
 }
 
-function graphqlUser(account: FakeUser | null): Json | null {
+export function graphqlUser(account: FakeUser | null): Json | null {
   if (!account) return null;
   return account.type === "Bot"
     ? { __typename: "Bot", login: account.login.replace(/\[bot\]$/, "") }
