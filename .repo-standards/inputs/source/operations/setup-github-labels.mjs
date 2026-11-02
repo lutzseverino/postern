@@ -154,6 +154,22 @@ async function setupLabels(request) {
     return;
   }
   const inferred = { identity: prepared.identity };
+  const labels =
+    request.profile === "factory"
+      ? [
+          ...canonicalLabels,
+          {
+            name: "factory:skip",
+            color: "c5def5",
+            description: "Ready agent work the factory must not pick up",
+          },
+          {
+            name: "factory:release-hold",
+            color: "c5def5",
+            description: "Hold other merges while a release PR is open",
+          },
+        ]
+      : canonicalLabels;
 
   const before = await readLabels(inferred.identity, prepared.access);
   if (before.error) {
@@ -167,7 +183,7 @@ async function setupLabels(request) {
     before.value.map((label) => [label.name.toLowerCase(), label]),
   );
   /** @type {{ kind: string, actual?: any, desired: any }[]} */
-  const actions = canonicalLabels.flatMap((desired) => {
+  const actions = labels.flatMap((desired) => {
     const actual = existing.get(desired.name.toLowerCase());
     if (!actual) return [{ kind: "create", desired }];
     return sameLabel(actual, desired)
@@ -227,7 +243,7 @@ async function setupLabels(request) {
   const verified = new Map(
     after.value.map((label) => [label.name.toLowerCase(), label]),
   );
-  const mismatches = canonicalLabels.filter((desired) => {
+  const mismatches = labels.filter((desired) => {
     const actual = verified.get(desired.name.toLowerCase());
     return !actual || !sameLabel(actual, desired);
   });
@@ -251,7 +267,7 @@ async function setupLabels(request) {
   }
   result(
     "changed",
-    `GitHub label setup changed ${inferred.identity}: ${effects}. Readback confirmed all ${canonicalLabels.length} canonical labels; unrelated labels were preserved.`,
+    `GitHub label setup changed ${inferred.identity}: ${effects}. Readback confirmed all ${labels.length} canonical labels; unrelated labels were preserved.`,
   );
 }
 

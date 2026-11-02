@@ -92,3 +92,15 @@ Rewrite unsupported forms throughout the document, including unrelated
 settings. Correcting only the member list cannot resolve unsupported YAML
 elsewhere. Until the document is readable, its membership remains unresolved;
 do not treat it as an empty, narrower or wider trusted member list.
+
+## Web exclusions
+
+Exclude Sites, Apps and shared web packages with named reasons. Name the
+intended `typescript-astro` or `typescript-vite` stack when established;
+otherwise retain unresolved/no-stack classification. A Vite-built Site never
+falls back to Node. Shared web means only web consumers; a package also used
+by a non-web Project remains a Node candidate, assessed independently. Only
+in-stack consumers choose a shared package's web stack, with Astro winning
+when both apply. Assess maintained roots independently of their members and
+keep Node, Astro and Vite scopes disjoint. Follow the
+[shared web rules](../rules/typescript-web-stacks.md) for the web boundary.

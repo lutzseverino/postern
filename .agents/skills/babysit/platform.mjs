@@ -1,22 +1,28 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
-import { connect, PlatformError } from "../../../vendor/postern/postern.mjs";
+import {
+  connect,
+  detectPlatform,
+  PlatformError,
+} from "../../../vendor/postern/postern.mjs";
 
 // The only credential is the GitHub CLI's currently authenticated credential.
 export function connectionFor(repository) {
-  const remote =
-    repository ??
-    process.env.GH_REPO ??
-    (execFileSync("gh", ["repo", "set-default", "--view"], {
-      encoding: "utf8",
-      timeout: 15_000,
-      stdio: ["ignore", "pipe", "pipe"],
-    }).trim() ||
-      execFileSync("git", ["remote", "get-url", "origin"], {
-        encoding: "utf8",
-        timeout: 15_000,
-      }).trim());
+  let remote = repository ?? process.env.GH_REPO ?? defaultRemote();
+  if (!remote.includes(":")) {
+    // CLI selectors accept [HOST/]OWNER/REPO; retain an explicit host.
+    const selector = /^(?:([a-z0-9.-]+)\/)?([a-z0-9_.-]+)\/([a-z0-9_.-]+)$/i.exec(
+      remote,
+    );
+    if (!selector)
+      throw new PlatformError(
+        "unsupported",
+        "Repository selector must use [HOST/]OWNER/REPO.",
+      );
+    remote = `https://${selector[1] ?? "github.com"}/${selector[2]}/${selector[3]}`;
+  }
+  const identity = detectPlatform(remote);
   let credential;
   try {
     credential = execFileSync(
@@ -33,10 +39,68 @@ export function connectionFor(repository) {
     throw new Error(
       "The currently authenticated GitHub CLI credential is empty.",
     );
-  return connect(
-    remote.includes(":") ? remote : `https://github.com/${remote}`,
-    { credential, timeoutMs: 45_000 },
+  return connect(identity, { credential, timeoutMs: 45_000 });
+}
+
+// --view deliberately omits the host. Recover it from the configured remote,
+// without asking a platform API (which could already target the wrong host).
+function defaultRemote() {
+  const selected = execFileSync("gh", ["repo", "set-default", "--view"], {
+    encoding: "utf8",
+    timeout: 15_000,
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+  const git = (...args) =>
+    execFileSync("git", args, {
+      encoding: "utf8",
+      timeout: 15_000,
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim();
+  if (!selected) return git("remote", "get-url", "origin");
+
+  const candidates = new Map();
+  const configuration = git(
+    "config",
+    "--null",
+    "--get-regexp",
+    "^remote\\..*\\.gh-resolved$",
   );
+  for (const entry of configuration.split("\0")) {
+    const match = /^remote\.(.+)\.gh-resolved\n([\s\S]+)$/.exec(entry);
+    if (!match) continue;
+    const [, name, resolution] = match;
+    const remote = git("remote", "get-url", name);
+    const scp = /^(?:[^@/\s]+@)?([^:/\s]+):(?!\/)(.+)$/.exec(remote);
+    const url = new URL(scp ? `ssh://${scp[1]}/${scp[2]}` : remote);
+    if (url.protocol === "ssh:" || url.protocol === "git+ssh:") {
+      const configuration = execFileSync("ssh", ["-G", url.hostname], {
+        encoding: "utf8",
+        timeout: 15_000,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      const hostname = /^hostname (\S+)$/m.exec(configuration)?.[1];
+      if (!hostname)
+        throw new Error("Could not resolve the configured SSH remote host.");
+      url.hostname = hostname;
+    }
+    const path = url.pathname.replace(/^\/+|\/+$/g, "").replace(/\.git$/, "");
+    const destination =
+      resolution === "base" ? path : resolution.split("/").slice(-2).join("/");
+    if (destination.toLowerCase() !== selected.toLowerCase()) continue;
+    const host =
+      url.protocol !== "https:" && url.hostname === "ssh.github.com"
+        ? "github.com"
+        : url.hostname;
+    if (process.env.GH_HOST && host !== process.env.GH_HOST.toLowerCase())
+      continue;
+    url.pathname = `/${selected}`;
+    candidates.set(host, url.href);
+  }
+  if (candidates.size !== 1)
+    throw new Error(
+      "Could not establish the configured GitHub CLI default repository host.",
+    );
+  return [...candidates.values()][0];
 }
 
 export async function requestData(connection, request) {

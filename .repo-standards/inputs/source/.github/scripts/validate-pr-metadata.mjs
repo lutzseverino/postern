@@ -152,7 +152,7 @@ function headingKey(name) {
 
 // The record's headings after its own heading are level-2 record sections once
 // and in order, then optionally Abandoned runs, then optionally Impact and
-// Migration together.
+// Migration together. One optional Related issue section follows the record.
 function hasRecordSections(headings) {
   const keys = headings.map((heading) => headingKey(heading.name));
   const required = recordSections.map(headingKey);
@@ -162,6 +162,7 @@ function hasRecordSections(headings) {
   )
     return false;
   const closing = keys.slice(required.length);
+  if (closing.at(-1) === "related issue") closing.pop();
   if (closing[0] === "abandoned runs") closing.shift();
   return (
     closing.length === 0 ||
@@ -208,12 +209,20 @@ function adoptionSelection(document) {
 function validateAdoptionRecord(title, document, errors) {
   const headings = document.headings
     .slice(1)
-    .filter((heading) => heading.level <= 2);
+    .filter(
+      (heading) =>
+        heading.level <= 2 || headingKey(heading.name) === "related issue",
+    );
   if (!hasRecordSections(headings)) {
     errors.push(
-      `List the adoption record's level-2 sections as ${recordSections.slice(0, -1).join(", ")} and ${recordSections.at(-1)}, each once and in that order, optionally followed by Abandoned runs, then by Impact and Migration together, with no other level-1 or level-2 heading.`,
+      `List the adoption record's level-2 sections as ${recordSections.slice(0, -1).join(", ")} and ${recordSections.at(-1)}, each once and in that order, optionally followed by Abandoned runs, then by Impact and Migration together, then optionally by one level-2 Related issue section outside the record, with no other level-1 or level-2 heading.`,
     );
   }
+
+  const relatedIssue = document
+    .sections(["related issue"], sectionOptions)
+    .get("related issue")?.[0]?.content;
+  if (relatedIssue) validateRelatedIssue(relatedIssue, errors);
 
   const ready = headings.find(
     (heading) =>
@@ -268,11 +277,11 @@ function validateSections(sections, errors) {
       "Replace the Merge Danger placeholder with the door, blast radius and relevant limits.",
     );
   }
-  if (
-    relatedIssue !== null &&
-    !hasIssueReference(relatedIssue) &&
-    !hasDirectChangeReason(relatedIssue)
-  ) {
+  if (relatedIssue !== null) validateRelatedIssue(relatedIssue, errors);
+}
+
+function validateRelatedIssue(content, errors) {
+  if (!hasIssueReference(content) && !hasDirectChangeReason(content)) {
     errors.push(
       "Link a related GitHub issue, or write Direct change: followed by a meaningful reason.",
     );

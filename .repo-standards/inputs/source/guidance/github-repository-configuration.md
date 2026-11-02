@@ -16,6 +16,13 @@ Until the PR metadata validation workflow is on the default branch, requiring
 the check is deferred, and the next adoption or update after the workflow
 merges requires it.
 
+The fix establishes and reads back strict required-check freshness through
+classic protection or its managed ruleset when it establishes the required
+check, preserving other checks, rules and bypass settings. Changes to existing
+policy require confirmation. Adoption deferrals do not authorize unattended
+merging: unavailable, unreadable or unconfirmed freshness stops it until the
+owner fixes the repository, as the rules require.
+
 ## Remote setup
 
 The `canonical-labels` and `pull-request-integration` fixes are remote setup:
@@ -54,6 +61,15 @@ the file in a separate commit after the run completes, following the schema in
 the rules, never in the adoption commit or pull request. The check validates it
 on the next `check` or update.
 
+For existing reviewer configurations, omission of `bounds.reviewRequests` now
+means a total bound of **4**, where it previously meant unbounded requests.
+Explicit positive-integer bounds keep their value. To deliberately retain
+unbounded requests, set `bounds.reviewRequests` to the exact JSON string
+`"unbounded"` in repository-owned configuration after the run, outside its
+adoption commit and adoption PR. Explain this migration without rewriting the
+reviewer file during adoption. An absent file still means no reviewer, request
+or reviewer wait, and the factory host remains independent of this file.
+
 ## Factory app-author review policy
 
 The optional `.github/factory-review-policy.json` is the repository's own
@@ -63,8 +79,14 @@ enable a review exemption. Deliberate configuration belongs in a separate
 commit after the run completes, following the schema in the rules, never in
 the adoption commit or pull request.
 
+Only a run first selecting the factory profile asks about opting in, as the
+[factory workflow guidance](factory-workflow.md#app-author-policy-opt-in)
+specifies. Standard-only runs do not ask; routine updates whose previous
+adoption record already selected factory do not ask again.
+
 The read-only `factory-review-policy` check passes without the file; absence
-is supported and requires no policy or owner question. When present, it
+is supported and requires no policy. Outside that first factory selection,
+absence requires no owner question. When present, it
 validates the version-1 schema with the same reader as the installed request
 and wait commands, without account lookup or GitHub access. Valid declarations
 using REST `<slug>[bot]` or CLI `app/<slug>` identities pass unchanged. Invalid

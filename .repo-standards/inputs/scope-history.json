@@ -1,7 +1,7 @@
 {
   "format": "repo-standards/scope-history/v6",
   "evidence": "historical",
-  "inspection": "sha256:ca4d1c09f6ca66c912f481b0f494fdab5f4578e4024322ab51116af9a4170f41",
+  "inspection": "sha256:54c8809854f274d64dbadabec0dc0842a00b13753e993b702f6cc4eb17727a6e",
   "resolved": {
     "description": "The standard profile plus the factory's repository files and workflow rules, for a repository a factory serves",
     "declarations": [
@@ -88,7 +88,7 @@
         "fixes": [],
         "kind": "file",
         "target": "docs/agents/domain.md",
-        "exact": "vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/domain.md"
+        "exact": "docs/agents/domain.md"
       },
       {
         "id": "factory-configuration",
@@ -333,7 +333,7 @@
         "fixes": [],
         "kind": "file",
         "target": "docs/agents/issue-tracker.md",
-        "exact": "vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/issue-tracker-github.md"
+        "exact": "docs/agents/issue-tracker.md"
       },
       {
         "id": "marked-license",
@@ -553,7 +553,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "code-review",
-        "source": "vendor/mattpocock-skills/skills/engineering/code-review"
+        "source": ".agents/skills/code-review"
       },
       {
         "id": "skill-codebase-design",
@@ -561,7 +561,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "codebase-design",
-        "source": "vendor/mattpocock-skills/skills/engineering/codebase-design"
+        "source": ".agents/skills/codebase-design"
       },
       {
         "id": "skill-diagnosing-bugs",
@@ -569,7 +569,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "diagnosing-bugs",
-        "source": "vendor/mattpocock-skills/skills/engineering/diagnosing-bugs"
+        "source": ".agents/skills/diagnosing-bugs"
       },
       {
         "id": "skill-domain-modeling",
@@ -577,7 +577,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "domain-modeling",
-        "source": "vendor/mattpocock-skills/skills/engineering/domain-modeling"
+        "source": ".agents/skills/domain-modeling"
       },
       {
         "id": "skill-grill-with-docs",
@@ -585,7 +585,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "grill-with-docs",
-        "source": "vendor/mattpocock-skills/skills/engineering/grill-with-docs"
+        "source": ".agents/skills/grill-with-docs"
       },
       {
         "id": "skill-grilling",
@@ -593,7 +593,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "grilling",
-        "source": "vendor/mattpocock-skills/skills/productivity/grilling"
+        "source": ".agents/skills/grilling"
       },
       {
         "id": "skill-implement",
@@ -601,7 +601,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "implement",
-        "source": "vendor/mattpocock-skills/skills/engineering/implement"
+        "source": ".agents/skills/implement"
       },
       {
         "id": "skill-improve-codebase-architecture",
@@ -609,7 +609,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "improve-codebase-architecture",
-        "source": "vendor/mattpocock-skills/skills/engineering/improve-codebase-architecture"
+        "source": ".agents/skills/improve-codebase-architecture"
       },
       {
         "id": "skill-orchestrate",
@@ -625,7 +625,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "pr",
-        "source": "vendor/mattpocock-skills/skills/engineering/pr"
+        "source": ".agents/skills/pr"
       },
       {
         "id": "skill-prototype",
@@ -633,7 +633,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "prototype",
-        "source": "vendor/mattpocock-skills/skills/engineering/prototype"
+        "source": ".agents/skills/prototype"
       },
       {
         "id": "skill-research",
@@ -641,7 +641,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "research",
-        "source": "vendor/mattpocock-skills/skills/engineering/research"
+        "source": ".agents/skills/research"
       },
       {
         "id": "skill-tdd",
@@ -649,7 +649,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "tdd",
-        "source": "vendor/mattpocock-skills/skills/engineering/tdd"
+        "source": ".agents/skills/tdd"
       },
       {
         "id": "skill-to-spec",
@@ -657,7 +657,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "to-spec",
-        "source": "vendor/mattpocock-skills/skills/engineering/to-spec"
+        "source": ".agents/skills/to-spec"
       },
       {
         "id": "skill-to-tickets",
@@ -665,7 +665,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "to-tickets",
-        "source": "vendor/mattpocock-skills/skills/engineering/to-tickets"
+        "source": ".agents/skills/to-tickets"
       },
       {
         "id": "skill-triage",
@@ -681,7 +681,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "wayfinder",
-        "source": "vendor/mattpocock-skills/skills/engineering/wayfinder"
+        "source": ".agents/skills/wayfinder"
       },
       {
         "id": "skill-writing-for-agents",
@@ -689,7 +689,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "writing-for-agents",
-        "source": "vendor/mattpocock-skills/skills/productivity/writing-for-agents"
+        "source": ".agents/skills/writing-for-agents"
       },
       {
         "id": "specification-template",
@@ -713,7 +713,19 @@
         "fixes": [],
         "kind": "file",
         "target": "docs/agents/triage-labels.md",
-        "exact": "vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/triage-labels.md"
+        "exact": "docs/agents/triage-labels.md"
+      },
+      {
+        "id": "typescript-astro-stack",
+        "checks": [],
+        "fixes": [],
+        "kind": "repository",
+        "guidance": "guidance/typescript-astro-stack.md",
+        "targets": {
+          "paths": [],
+          "directories": []
+        },
+        "no-scope": true
       },
       {
         "id": "typescript-node-stack",
@@ -748,6 +760,18 @@
           ],
           "directories": []
         }
+      },
+      {
+        "id": "typescript-vite-stack",
+        "checks": [],
+        "fixes": [],
+        "kind": "repository",
+        "guidance": "guidance/typescript-vite-stack.md",
+        "targets": {
+          "paths": [],
+          "directories": []
+        },
+        "no-scope": true
       },
       {
         "id": "validator-command",
@@ -856,7 +880,7 @@
         "fixes": [],
         "kind": "file",
         "target": "docs/agents/domain.md",
-        "exact": "vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/domain.md"
+        "exact": "docs/agents/domain.md"
       },
       {
         "id": "factory-configuration",
@@ -1095,7 +1119,7 @@
         "fixes": [],
         "kind": "file",
         "target": "docs/agents/issue-tracker.md",
-        "exact": "vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/issue-tracker-github.md"
+        "exact": "docs/agents/issue-tracker.md"
       },
       {
         "id": "marked-license",
@@ -1312,7 +1336,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "code-review",
-        "source": "vendor/mattpocock-skills/skills/engineering/code-review"
+        "source": ".agents/skills/code-review"
       },
       {
         "id": "skill-codebase-design",
@@ -1320,7 +1344,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "codebase-design",
-        "source": "vendor/mattpocock-skills/skills/engineering/codebase-design"
+        "source": ".agents/skills/codebase-design"
       },
       {
         "id": "skill-diagnosing-bugs",
@@ -1328,7 +1352,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "diagnosing-bugs",
-        "source": "vendor/mattpocock-skills/skills/engineering/diagnosing-bugs"
+        "source": ".agents/skills/diagnosing-bugs"
       },
       {
         "id": "skill-domain-modeling",
@@ -1336,7 +1360,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "domain-modeling",
-        "source": "vendor/mattpocock-skills/skills/engineering/domain-modeling"
+        "source": ".agents/skills/domain-modeling"
       },
       {
         "id": "skill-grill-with-docs",
@@ -1344,7 +1368,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "grill-with-docs",
-        "source": "vendor/mattpocock-skills/skills/engineering/grill-with-docs"
+        "source": ".agents/skills/grill-with-docs"
       },
       {
         "id": "skill-grilling",
@@ -1352,7 +1376,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "grilling",
-        "source": "vendor/mattpocock-skills/skills/productivity/grilling"
+        "source": ".agents/skills/grilling"
       },
       {
         "id": "skill-implement",
@@ -1360,7 +1384,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "implement",
-        "source": "vendor/mattpocock-skills/skills/engineering/implement"
+        "source": ".agents/skills/implement"
       },
       {
         "id": "skill-improve-codebase-architecture",
@@ -1368,7 +1392,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "improve-codebase-architecture",
-        "source": "vendor/mattpocock-skills/skills/engineering/improve-codebase-architecture"
+        "source": ".agents/skills/improve-codebase-architecture"
       },
       {
         "id": "skill-orchestrate",
@@ -1384,7 +1408,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "pr",
-        "source": "vendor/mattpocock-skills/skills/engineering/pr"
+        "source": ".agents/skills/pr"
       },
       {
         "id": "skill-prototype",
@@ -1392,7 +1416,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "prototype",
-        "source": "vendor/mattpocock-skills/skills/engineering/prototype"
+        "source": ".agents/skills/prototype"
       },
       {
         "id": "skill-research",
@@ -1400,7 +1424,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "research",
-        "source": "vendor/mattpocock-skills/skills/engineering/research"
+        "source": ".agents/skills/research"
       },
       {
         "id": "skill-tdd",
@@ -1408,7 +1432,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "tdd",
-        "source": "vendor/mattpocock-skills/skills/engineering/tdd"
+        "source": ".agents/skills/tdd"
       },
       {
         "id": "skill-to-spec",
@@ -1416,7 +1440,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "to-spec",
-        "source": "vendor/mattpocock-skills/skills/engineering/to-spec"
+        "source": ".agents/skills/to-spec"
       },
       {
         "id": "skill-to-tickets",
@@ -1424,7 +1448,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "to-tickets",
-        "source": "vendor/mattpocock-skills/skills/engineering/to-tickets"
+        "source": ".agents/skills/to-tickets"
       },
       {
         "id": "skill-triage",
@@ -1440,7 +1464,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "wayfinder",
-        "source": "vendor/mattpocock-skills/skills/engineering/wayfinder"
+        "source": ".agents/skills/wayfinder"
       },
       {
         "id": "skill-writing-for-agents",
@@ -1448,7 +1472,7 @@
         "fixes": [],
         "kind": "skill",
         "name": "writing-for-agents",
-        "source": "vendor/mattpocock-skills/skills/productivity/writing-for-agents"
+        "source": ".agents/skills/writing-for-agents"
       },
       {
         "id": "specification-template",
@@ -1472,7 +1496,61 @@
         "fixes": [],
         "kind": "file",
         "target": "docs/agents/triage-labels.md",
-        "exact": "vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/triage-labels.md"
+        "exact": "docs/agents/triage-labels.md"
+      },
+      {
+        "id": "typescript-astro-stack",
+        "checks": [
+          {
+            "id": "typescript-astro-stack-manifests",
+            "run": {
+              "executable": "node",
+              "script": "operations/check-typescript-astro-stack.mjs",
+              "resources": [
+                "operations/lib/typescript-node-stack.mjs",
+                "operations/lib/stack-files.mjs",
+                "operations/lib/typescript-web-stack.mjs",
+                "operations/lib/stack-check.mjs",
+                "operations/lib/local-markdown-links.mjs"
+              ],
+              "arguments": []
+            },
+            "prerequisite": {
+              "version-arguments": [
+                "--version"
+              ],
+              "version": ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+            },
+            "timeout-seconds": 30
+          }
+        ],
+        "fixes": [],
+        "kind": "repository",
+        "guidance": "guidance/typescript-astro-stack.md",
+        "rules": "rules/typescript-web-stacks.md",
+        "discovery": "discovery/typescript-astro-stack.md",
+        "discovery-script": {
+          "run": {
+            "executable": "node",
+            "script": "discovery/draft-typescript-astro-stack-scope.mjs",
+            "resources": [
+              "operations/lib/typescript-node-stack.mjs",
+              "operations/lib/stack-files.mjs",
+              "operations/lib/typescript-web-stack.mjs",
+              "operations/lib/stack-scope.mjs",
+              "operations/lib/local-markdown-links.mjs"
+            ],
+            "arguments": []
+          },
+          "prerequisite": {
+            "version-arguments": [
+              "--version"
+            ],
+            "version": ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          },
+          "timeout-seconds": 60
+        },
+        "optional": true
       },
       {
         "id": "typescript-node-stack",
@@ -1508,6 +1586,63 @@
             "script": "discovery/draft-typescript-node-stack-scope.mjs",
             "resources": [
               "operations/lib/typescript-node-stack.mjs",
+              "operations/lib/stack-files.mjs",
+              "operations/lib/typescript-web-stack.mjs",
+              "operations/lib/stack-scope.mjs",
+              "operations/lib/local-markdown-links.mjs"
+            ],
+            "arguments": []
+          },
+          "prerequisite": {
+            "version-arguments": [
+              "--version"
+            ],
+            "version": ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          },
+          "timeout-seconds": 60
+        },
+        "optional": true
+      },
+      {
+        "id": "typescript-vite-stack",
+        "checks": [
+          {
+            "id": "typescript-vite-stack-manifests",
+            "run": {
+              "executable": "node",
+              "script": "operations/check-typescript-vite-stack.mjs",
+              "resources": [
+                "operations/lib/typescript-node-stack.mjs",
+                "operations/lib/stack-files.mjs",
+                "operations/lib/typescript-web-stack.mjs",
+                "operations/lib/stack-check.mjs",
+                "operations/lib/local-markdown-links.mjs"
+              ],
+              "arguments": []
+            },
+            "prerequisite": {
+              "version-arguments": [
+                "--version"
+              ],
+              "version": ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+            },
+            "timeout-seconds": 30
+          }
+        ],
+        "fixes": [],
+        "kind": "repository",
+        "guidance": "guidance/typescript-vite-stack.md",
+        "rules": "rules/typescript-web-stacks.md",
+        "discovery": "discovery/typescript-vite-stack.md",
+        "discovery-script": {
+          "run": {
+            "executable": "node",
+            "script": "discovery/draft-typescript-vite-stack-scope.mjs",
+            "resources": [
+              "operations/lib/typescript-node-stack.mjs",
+              "operations/lib/stack-files.mjs",
+              "operations/lib/typescript-web-stack.mjs",
+              "operations/lib/stack-scope.mjs",
               "operations/lib/local-markdown-links.mjs"
             ],
             "arguments": []
@@ -1533,7 +1668,7 @@
     ]
   },
   "discovery": {
-    "identity": "sha256:20972ef4d1e3c97c77b9999a74401ed99ef65d4b41edfc048863eeecb47cbae9",
+    "identity": "sha256:47350f82bfb0fca32c8bd73d3d133ea0c3742dd3e5494a39d9def343da6b6d3b",
     "proposal": {
       "format": "repo-standards/scope/v2",
       "declarations": [
@@ -1668,6 +1803,22 @@
           "unresolved": []
         },
         {
+          "id": "typescript-astro-stack",
+          "coverage": "Drafted from manifests and workspace configuration by `discovery/draft-typescript-astro-stack-scope.mjs`: one `package.json` per Project, included when it matches the stack's manifest facts and excluded naming its differences otherwise. A maintained workspace root package is a Project alongside its members; a shared-only root is not. Uncertain root membership stays unresolved. A root package without workspace members is a Project. The repository holds no matching web Project, so the declaration has no scope.",
+          "candidates": [
+            {
+              "path": "package.json",
+              "decision": "exclude",
+              "reason": "`package.json` has no evidence of membership in typescript-astro; assess independently, without assigning a web stack from tool conformity alone.",
+              "evidence": [
+                "package.json"
+              ]
+            }
+          ],
+          "unresolved": [],
+          "noScope": true
+        },
+        {
           "id": "typescript-node-stack",
           "coverage": "Drafted from manifests and workspace configuration by `discovery/draft-typescript-node-stack-scope.mjs`: one `package.json` per Project, included when it matches the stack's manifest facts and excluded naming its differences otherwise. A maintained workspace root package is a Project alongside its members; a shared-only root is not. Uncertain root membership stays unresolved. A root package without workspace members is a Project.",
           "candidates": [
@@ -1687,6 +1838,22 @@
             }
           ],
           "unresolved": []
+        },
+        {
+          "id": "typescript-vite-stack",
+          "coverage": "Drafted from manifests and workspace configuration by `discovery/draft-typescript-vite-stack-scope.mjs`: one `package.json` per Project, included when it matches the stack's manifest facts and excluded naming its differences otherwise. A maintained workspace root package is a Project alongside its members; a shared-only root is not. Uncertain root membership stays unresolved. A root package without workspace members is a Project. The repository holds no matching web Project, so the declaration has no scope.",
+          "candidates": [
+            {
+              "path": "package.json",
+              "decision": "exclude",
+              "reason": "`package.json` has no evidence of membership in typescript-vite; assess independently, without assigning a web stack from tool conformity alone.",
+              "evidence": [
+                "package.json"
+              ]
+            }
+          ],
+          "unresolved": [],
+          "noScope": true
         }
       ]
     },
@@ -1730,12 +1897,12 @@
         },
         "docs/usage/reference.md": {
           "type": "file",
-          "sha256": "e20dd630a9004cfccba1003b3ec87aa528403547d493c47d2eff205d7b5fab4b",
+          "sha256": "1fb96508fab298fc543de5c75db7653b69c011526926a2b474c3cab01e29c198",
           "executable": false
         },
         "package.json": {
           "type": "file",
-          "sha256": "282ccf3753d3c34898812da94460115c5d28e2a06f1102174c0a0563bae6b320",
+          "sha256": "0ed435f4487e398bb86db5464a88cbcf2c82f4822f9100cf4906a563ecfbacf5",
           "executable": false
         }
       }
@@ -1794,6 +1961,14 @@
             ]
           },
           {
+            "path": "docs/agents/project.md",
+            "decision": "exclude",
+            "reason": "Owned by the `project-agent-guidance` declaration.",
+            "evidence": [
+              "docs/agents/project.md"
+            ]
+          },
+          {
             "path": "docs/agents/triage-labels.md",
             "decision": "exclude",
             "reason": "Owned by the `triage-label-configuration` declaration.",
@@ -1847,6 +2022,22 @@
         ]
       },
       {
+        "id": "typescript-astro-stack",
+        "coverage": "Drafted from manifests and workspace configuration by `discovery/draft-typescript-astro-stack-scope.mjs`: one `package.json` per Project, included when it matches the stack's manifest facts and excluded naming its differences otherwise. A maintained workspace root package is a Project alongside its members; a shared-only root is not. Uncertain root membership stays unresolved. A root package without workspace members is a Project. The repository holds no matching web Project, so the declaration has no scope.",
+        "candidates": [
+          {
+            "path": "package.json",
+            "decision": "exclude",
+            "reason": "`package.json` has no evidence of membership in typescript-astro; assess independently, without assigning a web stack from tool conformity alone.",
+            "evidence": [
+              "package.json"
+            ]
+          }
+        ],
+        "unresolved": [],
+        "noScope": true
+      },
+      {
         "id": "typescript-node-stack",
         "coverage": "Drafted from manifests and workspace configuration by `discovery/draft-typescript-node-stack-scope.mjs`: one `package.json` per Project, included when it matches the stack's manifest facts and excluded naming its differences otherwise. A maintained workspace root package is a Project alongside its members; a shared-only root is not. Uncertain root membership stays unresolved. A root package without workspace members is a Project.",
         "candidates": [
@@ -1862,6 +2053,22 @@
           }
         ],
         "unresolved": []
+      },
+      {
+        "id": "typescript-vite-stack",
+        "coverage": "Drafted from manifests and workspace configuration by `discovery/draft-typescript-vite-stack-scope.mjs`: one `package.json` per Project, included when it matches the stack's manifest facts and excluded naming its differences otherwise. A maintained workspace root package is a Project alongside its members; a shared-only root is not. Uncertain root membership stays unresolved. A root package without workspace members is a Project. The repository holds no matching web Project, so the declaration has no scope.",
+        "candidates": [
+          {
+            "path": "package.json",
+            "decision": "exclude",
+            "reason": "`package.json` has no evidence of membership in typescript-vite; assess independently, without assigning a web stack from tool conformity alone.",
+            "evidence": [
+              "package.json"
+            ]
+          }
+        ],
+        "unresolved": [],
+        "noScope": true
       }
     ],
     "declarations": [
@@ -1890,9 +2097,21 @@
         "executable": false
       },
       {
+        "id": "typescript-astro-stack",
+        "source": "discovery/typescript-astro-stack.md",
+        "sha256": "2c41b18bc7757bc2f6b4f26cdebec67f8c9c70b25ac636562a27843d8ba4c615",
+        "executable": false
+      },
+      {
         "id": "typescript-node-stack",
         "source": "discovery/typescript-node-stack.md",
-        "sha256": "0ac8fb30073e6b656d8456e1f0c7cd21a5e17668494402d39ee103270824e3f9",
+        "sha256": "d23ae9513f022862a8be9be8d8ca30ced7ed8febef21a27ab3b3e34cbfeba937",
+        "executable": false
+      },
+      {
+        "id": "typescript-vite-stack",
+        "source": "discovery/typescript-vite-stack.md",
+        "sha256": "d26c9725c371c74235feef40d4cfae4d6e5c5ad4d6da13e69603155cfe06d03b",
         "executable": false
       }
     ],
@@ -1920,12 +2139,12 @@
         },
         ".agents/skills/babysit/platform.mjs": {
           "type": "file",
-          "sha256": "dccb0f3e7c2f89563ed25ca0e4bf1a479af5b65732ad08fbed38304263bc8b47",
+          "sha256": "bd0ad7346873e5bc4de7f33b5b9b1ea682e50606b73a4914b6a6c0941bf5ec2b",
           "executable": false
         },
         ".agents/skills/babysit/pull-request-reviewer.mjs": {
           "type": "file",
-          "sha256": "77fb9197a4365dde57cba91cd4ff4c3c52eb55a275d9eb6b3fa494bac4cc3809",
+          "sha256": "2d9a9c62876ac00ef87ad820c5dbb2fbcd852aa6590273875d445d99fe21eb49",
           "executable": false
         },
         ".agents/skills/babysit/request.mjs": {
@@ -1950,7 +2169,7 @@
         },
         ".agents/skills/babysit/wait.mjs": {
           "type": "file",
-          "sha256": "abb938c0df67cb490a92171718fd1131d48c25427f22f2d3ef0be5cd220c3f1d",
+          "sha256": "1da6442ae15f91da3005032c4a53b0ae207de9d6b4bf97e95b5848d508577851",
           "executable": false
         },
         ".agents/skills/code-review/SKILL.md": {
@@ -2070,7 +2289,7 @@
         },
         ".agents/skills/orchestrate/SKILL.md": {
           "type": "file",
-          "sha256": "3c19d4dabec8537b928b380f2fbd5edce565a2dfa0c761592b1eef30677dc83e",
+          "sha256": "3e2ad88cc78105cb19d12166f22b4c70e3fb151e9bf56ad53d5abd7b0f0f231c",
           "executable": false
         },
         ".agents/skills/orchestrate/agents/openai.yaml": {
@@ -2430,7 +2649,7 @@
         },
         "README.md": {
           "type": "file",
-          "sha256": "62e13d318e2b1085b50f1bf62a0cfe6be58e65391cf4183bee9de6d6d7f80464",
+          "sha256": "20591f240ffe2f5fe841cb20b5e15ae35dad51e05761cfa3037e966e7cee7733",
           "executable": false
         },
         "docs/README.md": {
@@ -2463,6 +2682,11 @@
           "sha256": "afd6852a80185217bd28aa5cbe456bef1e85be25be7bd1fba382d5b8ee428325",
           "executable": false
         },
+        "docs/agents/project.md": {
+          "type": "file",
+          "sha256": "e2ccc4188b02a8b231a53227346eeafeb411198207a76c259d4ece3e1f7a6844",
+          "executable": false
+        },
         "docs/agents/triage-labels.md": {
           "type": "file",
           "sha256": "4f53c9b40ce2651e3611aa090eaedbd6dbc9b71ef8c5f7e65eac0d8263190d0d",
@@ -2490,7 +2714,7 @@
         },
         "docs/usage/reference.md": {
           "type": "file",
-          "sha256": "e20dd630a9004cfccba1003b3ec87aa528403547d493c47d2eff205d7b5fab4b",
+          "sha256": "1fb96508fab298fc543de5c75db7653b69c011526926a2b474c3cab01e29c198",
           "executable": false
         },
         "operations/lib/rendered-markdown.mjs": {
@@ -2500,7 +2724,7 @@
         },
         "package.json": {
           "type": "file",
-          "sha256": "282ccf3753d3c34898812da94460115c5d28e2a06f1102174c0a0563bae6b320",
+          "sha256": "0ed435f4487e398bb86db5464a88cbcf2c82f4822f9100cf4906a563ecfbacf5",
           "executable": false
         },
         "pnpm-lock.yaml": {
@@ -2525,7 +2749,7 @@
         },
         "scripts/validate-issue-contract.mjs": {
           "type": "file",
-          "sha256": "725b1494370348a99dc153f6833541014d5f2c70c80688046cc3219fa11a0a64",
+          "sha256": "f5b14e32000fddc95e27f94fc91f9166ceb02b0d3ae15df26d3a656230868939",
           "executable": false
         },
         "scripts/validate.mjs": {
@@ -2535,7 +2759,7 @@
         },
         "src/connection.ts": {
           "type": "file",
-          "sha256": "058f9c0878d0bc9fac9bacedb15d3d9dda7eebe158d4f382c9ba8ccd91d79157",
+          "sha256": "a61126ca913edbcd6b3d55f2de2d1d8e4008a09aad3d222bada282056abbcb63",
           "executable": false
         },
         "src/detect.ts": {
@@ -2550,7 +2774,7 @@
         },
         "src/github/adapter.ts": {
           "type": "file",
-          "sha256": "534f7148c80fa4ec253817b079c6c8e7304130de7232c9856c18acc624d23f28",
+          "sha256": "46222cd72b8bfc58bb31bd936127afb60d36472b0163491151507bac3c807a6d",
           "executable": false
         },
         "src/github/transport.ts": {
@@ -2560,12 +2784,12 @@
         },
         "src/index.ts": {
           "type": "file",
-          "sha256": "57a599b650c59198a9707cebc9e5b90666675b7f17ea0af23550760f5880e2f6",
+          "sha256": "8e844485d873ba6ee3a00a04e886004dd48654bee194622f09352cff2a69f4b5",
           "executable": false
         },
         "src/ports.ts": {
           "type": "file",
-          "sha256": "543bd73bfd6d90ae795ceaf25e8b96f14335b134f10ead3c4df21cd49f1f73b4",
+          "sha256": "104ff406ae9cf43304ccc641edb02fa674697d950cfa2cd6877631e0cfdac83b",
           "executable": false
         },
         "src/secrets.ts": {
@@ -2580,22 +2804,22 @@
         },
         "test/connection.test.ts": {
           "type": "file",
-          "sha256": "3368ac2a801bbe97408906909b21d4fcfce7746568302554b016d178774a10c5",
+          "sha256": "eb7d41230e10c7540a587024979bd76b31b3d14c3b1f7a4341c427e20f5895ff",
           "executable": false
         },
         "test/contract/harness.ts": {
           "type": "file",
-          "sha256": "e94ddc5a8fc6b779662e1acd5e5901586a33ad80916a1a83b49b68ff6d0d8c4d",
+          "sha256": "e4784696d151476c6d6dd2abb229d74df639b0687b2b26e351055e1e13e9a350",
           "executable": false
         },
         "test/contract/sectioned.test.ts": {
           "type": "file",
-          "sha256": "4ca9e378efd91718dc7757c2ee1bedcef3f124e80c803fac16da36538a8fbd15",
+          "sha256": "73075a7005f73dc8f7554c921dc80b784a4ba4f73ac1b09ba46a0e2f045a23f1",
           "executable": false
         },
         "test/contract/suite.ts": {
           "type": "file",
-          "sha256": "648528ac3965a9f553b043169bbfbf63647f029b1b95b9193722b185688dcadf",
+          "sha256": "69e67be41db8c031bd0f32a43ff0e85313794add179b545092898b8c494c2808",
           "executable": false
         },
         "test/detect.test.ts": {
@@ -2615,7 +2839,12 @@
         },
         "test/fixtures/legacy-types.ts.txt": {
           "type": "file",
-          "sha256": "efa930b63a8194b2003120da3b5e31e81f09eef2a300e2061484ac533cb0aaf5",
+          "sha256": "ca7ee8aa102aeb9af1ab17d4bf407d51ce520e46e9c54826a47ffca9befba8fb",
+          "executable": false
+        },
+        "test/fixtures/link-addition-types.ts.txt": {
+          "type": "file",
+          "sha256": "598cd0154d934b68dd8452b7f503ab5e34411688735a72b6cfe38bcb06e59fc3",
           "executable": false
         },
         "test/fixtures/published-1.0.0.d.ts.txt": {
@@ -2630,7 +2859,7 @@
         },
         "test/github/adapter.test.ts": {
           "type": "file",
-          "sha256": "f7db5a6b35071fcf4da1248c1acc689ba00b61b91a705cdd6222db28883f89d6",
+          "sha256": "709c1a3a80ab87ddfcb426c4e54c009e0b4b3ed2c79e6367948dd94986757d08",
           "executable": false
         },
         "test/github/contract.test.ts": {
@@ -2650,12 +2879,12 @@
         },
         "test/github/fake.ts": {
           "type": "file",
-          "sha256": "c4fac22874deba0ddcdcc37e25066b6b3dca844403bba8e7358203e7a9216de4",
+          "sha256": "653e41f5067adcefee05a7fd1d27ec7c5fdbf0005d84117b8d7ad307cb323faf",
           "executable": false
         },
         "test/github/harness.ts": {
           "type": "file",
-          "sha256": "9642bbeb7f900fe592bebe7e3f1eabaab7c06b30689ca8ada53815e69a5362b7",
+          "sha256": "cb03ff9b144ffaa1ba6d6a2abfeaa98be9f5752baa594998656616b821af68b1",
           "executable": false
         },
         "test/github/labels.test.ts": {
@@ -2665,7 +2894,12 @@
         },
         "test/github/reads.ts": {
           "type": "file",
-          "sha256": "f7478a159a4cb51584c4ba0e2af36e42b2f0b46e73701d4e39e5a058279a5ec3",
+          "sha256": "b2dcdda69d9b6201848ebf5c4f840cffe082dcbbf46696a43a185512a7e547a5",
+          "executable": false
+        },
+        "test/github/sub-issue-links.test.ts": {
+          "type": "file",
+          "sha256": "6aff29a8f911c416503afaeb86da845d16ad355a04700e5e490a2f3fe40c3fb7",
           "executable": false
         },
         "test/github/without-bot-marking.test.ts": {
@@ -2675,7 +2909,7 @@
         },
         "test/package.test.ts": {
           "type": "file",
-          "sha256": "c0db0d26c294d87473c07a3f1221d4f67a518ca8f7b9ff07e8d57217aae7db76",
+          "sha256": "473465ad9288d6dee6238f9c30e16556be9e2d204ff6dec29db4a92fff90bd6b",
           "executable": false
         },
         "test/property/inputs.test.ts": {
@@ -2690,7 +2924,7 @@
         },
         "test/property/responses.test.ts": {
           "type": "file",
-          "sha256": "a20ef710529788ebc673f3ccd6395c8d2c149563a2429abca3ce3ba6482dee7e",
+          "sha256": "1a519a34df12c2bdf02dc8ddf6e112f0d53148fc45bd555b65ebf86de5b96a45",
           "executable": false
         },
         "test/public-smoke.test.ts": {
@@ -2740,7 +2974,7 @@
         },
         "vendor/parse5/README.md": {
           "type": "file",
-          "sha256": "8f285afdb9d5eca93648d2ffbea58ea0cea94485f18c3eec6f5825ef1e0446bf",
+          "sha256": "bb5904a74bace3cfbcf0f7f817f2a3f808a21f4d60c1b1b118e1464d6d096855",
           "executable": false
         },
         "vendor/parse5/parse5.esm.js": {
@@ -3051,6 +3285,7 @@
           "docs/agents/README.md",
           "docs/agents/domain.md",
           "docs/agents/issue-tracker.md",
+          "docs/agents/project.md",
           "docs/agents/triage-labels.md"
         ],
         "docs/development": [
@@ -3108,6 +3343,7 @@
           "test/fixtures/additive-types.ts.txt",
           "test/fixtures/event-types.ts.txt",
           "test/fixtures/legacy-types.ts.txt",
+          "test/fixtures/link-addition-types.ts.txt",
           "test/fixtures/published-1.0.0.d.ts.txt",
           "test/fixtures/published-1.1.0.d.ts.txt"
         ],
@@ -3120,6 +3356,7 @@
           "test/github/harness.ts",
           "test/github/labels.test.ts",
           "test/github/reads.ts",
+          "test/github/sub-issue-links.test.ts",
           "test/github/without-bot-marking.test.ts"
         ],
         "test/property": [

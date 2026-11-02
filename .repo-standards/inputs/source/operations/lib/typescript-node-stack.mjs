@@ -688,12 +688,12 @@ function toolDeclaration(tool, project, root) {
   return null;
 }
 
-function toolDifference(tool, project, root) {
+export function toolDifference(tool, project, root) {
   const shared = project.path !== root.path;
   const where = shared
     ? `${code(project.path)} or its workspace root ${code(root.path)}`
     : code(project.path);
-  const wanted = `Declare ${code(tool.name)} at major ${tool.major} in ${where}`;
+  const wanted = `Declare ${code(tool.name)}${tool.major === undefined ? "" : ` at major ${tool.major}`} in ${where}`;
   const declared = toolDeclaration(tool, project, root);
   if (declared === null)
     return `${wanted}; ${shared ? "neither declares it" : "it is not declared"}.`;
@@ -711,6 +711,12 @@ function toolDifference(tool, project, root) {
     version = resolved;
     declares = `${declares}, which its catalog resolves to ${code(resolved)}`;
   }
+  if (
+    tool.major === undefined &&
+    typeof version === "string" &&
+    version.trim() !== ""
+  )
+    return null;
   const admitted = admittedMajors(version);
   if (admitted !== null && admitsOnly(admitted, [tool.major])) return null;
   const current =

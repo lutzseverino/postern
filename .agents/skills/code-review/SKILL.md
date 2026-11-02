@@ -3,6 +3,8 @@ name: code-review
 description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
 ---
 
+A prompt or brief naming this skill is its invocation.
+
 Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
 
 - **Standards**: does the code conform to this repo's documented coding standards?
@@ -10,7 +12,7 @@ Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
 
 Both axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings.
 
-The issue tracker should have been provided to you. If `docs/agents/issue-tracker.md` is missing, tell the user to run `/setup-matt-pocock-skills`.
+The issue tracker should have been provided to you.
 
 ## Process
 
@@ -26,7 +28,7 @@ Before going further, confirm the fixed point resolves (`git rev-parse <fixed-po
 
 Look for the originating spec, in this order:
 
-1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.), fetched via the workflow in `docs/agents/issue-tracker.md`.
+1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.), fetched via the workflow in `docs/agents/issue-tracker.md`. The spec is the issue's implementation contract; when the tracker doc says which comment or body holds it, review against that and treat the rest as context.
 2. A path the user passed as an argument.
 3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
 4. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
@@ -85,3 +87,17 @@ A change can pass one axis and fail the other:
 - Code that does exactly what the issue asked but breaks the project's conventions → **Spec pass, Standards fail.**
 
 Reporting them separately stops one axis from masking the other.
+
+## Reads
+
+Paths are relative to the repository root.
+
+- `docs/agents/issue-tracker.md`: how to fetch the issues that commit
+  messages reference, and which comment or body holds an issue's
+  implementation contract. When it is missing and no tracker was provided,
+  look for the spec in step 2's other places, without blocking the review.
+- A spec file under `docs/`, `specs/` or `.scratch/`. When it is missing,
+  ask the user where the spec is, as step 2 says.
+- `CODING_STANDARDS.md`, `CONTRIBUTING.md` and anything else in the repository
+  that documents how code should be written. When they are missing, the
+  Standards axis carries only the smell baseline.

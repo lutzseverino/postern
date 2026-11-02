@@ -82,7 +82,7 @@ profiles:
         fixes: []
         kind: file
         target: docs/agents/domain.md
-        exact: vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/domain.md
+        exact: docs/agents/domain.md
       factory-configuration:
         checks: []
         fixes: []
@@ -257,7 +257,7 @@ profiles:
         fixes: []
         kind: file
         target: docs/agents/issue-tracker.md
-        exact: vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/issue-tracker-github.md
+        exact: docs/agents/issue-tracker.md
       marked-license:
         checks: []
         fixes: []
@@ -418,49 +418,49 @@ profiles:
         fixes: []
         kind: skill
         name: code-review
-        source: vendor/mattpocock-skills/skills/engineering/code-review
+        source: .agents/skills/code-review
       skill-codebase-design:
         checks: []
         fixes: []
         kind: skill
         name: codebase-design
-        source: vendor/mattpocock-skills/skills/engineering/codebase-design
+        source: .agents/skills/codebase-design
       skill-diagnosing-bugs:
         checks: []
         fixes: []
         kind: skill
         name: diagnosing-bugs
-        source: vendor/mattpocock-skills/skills/engineering/diagnosing-bugs
+        source: .agents/skills/diagnosing-bugs
       skill-domain-modeling:
         checks: []
         fixes: []
         kind: skill
         name: domain-modeling
-        source: vendor/mattpocock-skills/skills/engineering/domain-modeling
+        source: .agents/skills/domain-modeling
       skill-grill-with-docs:
         checks: []
         fixes: []
         kind: skill
         name: grill-with-docs
-        source: vendor/mattpocock-skills/skills/engineering/grill-with-docs
+        source: .agents/skills/grill-with-docs
       skill-grilling:
         checks: []
         fixes: []
         kind: skill
         name: grilling
-        source: vendor/mattpocock-skills/skills/productivity/grilling
+        source: .agents/skills/grilling
       skill-implement:
         checks: []
         fixes: []
         kind: skill
         name: implement
-        source: vendor/mattpocock-skills/skills/engineering/implement
+        source: .agents/skills/implement
       skill-improve-codebase-architecture:
         checks: []
         fixes: []
         kind: skill
         name: improve-codebase-architecture
-        source: vendor/mattpocock-skills/skills/engineering/improve-codebase-architecture
+        source: .agents/skills/improve-codebase-architecture
       skill-orchestrate:
         checks: []
         fixes: []
@@ -472,37 +472,37 @@ profiles:
         fixes: []
         kind: skill
         name: pr
-        source: vendor/mattpocock-skills/skills/engineering/pr
+        source: .agents/skills/pr
       skill-prototype:
         checks: []
         fixes: []
         kind: skill
         name: prototype
-        source: vendor/mattpocock-skills/skills/engineering/prototype
+        source: .agents/skills/prototype
       skill-research:
         checks: []
         fixes: []
         kind: skill
         name: research
-        source: vendor/mattpocock-skills/skills/engineering/research
+        source: .agents/skills/research
       skill-tdd:
         checks: []
         fixes: []
         kind: skill
         name: tdd
-        source: vendor/mattpocock-skills/skills/engineering/tdd
+        source: .agents/skills/tdd
       skill-to-spec:
         checks: []
         fixes: []
         kind: skill
         name: to-spec
-        source: vendor/mattpocock-skills/skills/engineering/to-spec
+        source: .agents/skills/to-spec
       skill-to-tickets:
         checks: []
         fixes: []
         kind: skill
         name: to-tickets
-        source: vendor/mattpocock-skills/skills/engineering/to-tickets
+        source: .agents/skills/to-tickets
       skill-triage:
         checks: []
         fixes: []
@@ -514,13 +514,13 @@ profiles:
         fixes: []
         kind: skill
         name: wayfinder
-        source: vendor/mattpocock-skills/skills/engineering/wayfinder
+        source: .agents/skills/wayfinder
       skill-writing-for-agents:
         checks: []
         fixes: []
         kind: skill
         name: writing-for-agents
-        source: vendor/mattpocock-skills/skills/productivity/writing-for-agents
+        source: .agents/skills/writing-for-agents
       specification-template:
         checks: []
         fixes: []
@@ -538,7 +538,47 @@ profiles:
         fixes: []
         kind: file
         target: docs/agents/triage-labels.md
-        exact: vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/triage-labels.md
+        exact: docs/agents/triage-labels.md
+      typescript-astro-stack:
+        checks:
+          - id: typescript-astro-stack-manifests
+            run:
+              executable: node
+              script: operations/check-typescript-astro-stack.mjs
+              resources:
+                - operations/lib/typescript-node-stack.mjs
+                - operations/lib/stack-files.mjs
+                - operations/lib/typescript-web-stack.mjs
+                - operations/lib/stack-check.mjs
+                - operations/lib/local-markdown-links.mjs
+              arguments: []
+            prerequisite:
+              version-arguments:
+                - --version
+              version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+            timeout-seconds: 30
+        fixes: []
+        kind: repository
+        guidance: guidance/typescript-astro-stack.md
+        rules: rules/typescript-web-stacks.md
+        discovery: discovery/typescript-astro-stack.md
+        discovery-script:
+          run:
+            executable: node
+            script: discovery/draft-typescript-astro-stack-scope.mjs
+            resources:
+              - operations/lib/typescript-node-stack.mjs
+              - operations/lib/stack-files.mjs
+              - operations/lib/typescript-web-stack.mjs
+              - operations/lib/stack-scope.mjs
+              - operations/lib/local-markdown-links.mjs
+            arguments: []
+          prerequisite:
+            version-arguments:
+              - --version
+            version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          timeout-seconds: 60
+        optional: true
       typescript-node-stack:
         checks:
           - id: typescript-node-stack-manifests
@@ -565,6 +605,49 @@ profiles:
             script: discovery/draft-typescript-node-stack-scope.mjs
             resources:
               - operations/lib/typescript-node-stack.mjs
+              - operations/lib/stack-files.mjs
+              - operations/lib/typescript-web-stack.mjs
+              - operations/lib/stack-scope.mjs
+              - operations/lib/local-markdown-links.mjs
+            arguments: []
+          prerequisite:
+            version-arguments:
+              - --version
+            version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          timeout-seconds: 60
+        optional: true
+      typescript-vite-stack:
+        checks:
+          - id: typescript-vite-stack-manifests
+            run:
+              executable: node
+              script: operations/check-typescript-vite-stack.mjs
+              resources:
+                - operations/lib/typescript-node-stack.mjs
+                - operations/lib/stack-files.mjs
+                - operations/lib/typescript-web-stack.mjs
+                - operations/lib/stack-check.mjs
+                - operations/lib/local-markdown-links.mjs
+              arguments: []
+            prerequisite:
+              version-arguments:
+                - --version
+              version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+            timeout-seconds: 30
+        fixes: []
+        kind: repository
+        guidance: guidance/typescript-vite-stack.md
+        rules: rules/typescript-web-stacks.md
+        discovery: discovery/typescript-vite-stack.md
+        discovery-script:
+          run:
+            executable: node
+            script: discovery/draft-typescript-vite-stack-scope.mjs
+            resources:
+              - operations/lib/typescript-node-stack.mjs
+              - operations/lib/stack-files.mjs
+              - operations/lib/typescript-web-stack.mjs
+              - operations/lib/stack-scope.mjs
               - operations/lib/local-markdown-links.mjs
             arguments: []
           prerequisite:
