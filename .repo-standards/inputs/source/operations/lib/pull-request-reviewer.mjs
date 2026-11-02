@@ -27,6 +27,11 @@ export const parseReviewer = (text) => {
     throw new Error(`${reviewerTarget}: ${error.message}`, { cause: error });
   }
   validateReviewer(reviewer);
+  // Resolve the public schema once for both request and wait enforcement.
+  reviewer.bounds.reviewRequests =
+    reviewer.bounds.reviewRequests === "unbounded"
+      ? Infinity
+      : (reviewer.bounds.reviewRequests ?? 4);
   return reviewer;
 };
 
@@ -77,11 +82,12 @@ const validateReviewer = (reviewer) => {
   }
   if (
     Object.hasOwn(reviewer.bounds, "reviewRequests") &&
+    reviewer.bounds.reviewRequests !== "unbounded" &&
     (!Number.isInteger(reviewer.bounds.reviewRequests) ||
       reviewer.bounds.reviewRequests <= 0)
   )
     throw new Error(
-      "reviewer.bounds.reviewRequests must be a positive integer.",
+      'reviewer.bounds.reviewRequests must be a positive integer or "unbounded".',
     );
   if (Object.hasOwn(reviewer, "finished")) {
     objectFields(

@@ -6,7 +6,7 @@ import { parseReviewer, reviewerTarget } from "./pull-request-reviewer.mjs";
 export class InvalidTrustedReviewConfiguration extends Error {
   constructor(evidence, target, cause) {
     super(
-      `Owner handoff required: invalid trusted ${target}; ${evidence}: ${cause.message}. ` +
+      `Owner handoff required: invalid trusted ${target}; ${evidence}: ${cause.message.replace(/\.$/, "")}. ` +
         `Correct ${target} on the destination default branch through the applicable owner-handoff/merge procedure; ` +
         "keep the PR open and stop babysitting. After the correction lands and continuation is authorized, invoke again to select the current default-branch revision.",
       { cause },
@@ -92,6 +92,7 @@ export async function trustedReviewConfiguration(connection) {
       policy: parseFile(files.policy, policyTarget, parseReviewPolicy),
       reviewer: parseFile(files.reviewer, reviewerTarget, parseReviewer),
       evidence,
+      revision,
     };
   } catch (error) {
     if (error instanceof InvalidTrustedReviewConfiguration) throw error;

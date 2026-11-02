@@ -3,7 +3,7 @@
 // Waits for a pull request's checks and the configured reviewer's review of
 // its head commit, polling through Postern. It prints nothing while waiting and one line when
 // it exits, starting with the head's full SHA, plus one line per failing
-// check, and its exit code names the outcome:
+// check or a copyable outcome template on exit 6. Its exit code names the outcome:
 //
 //   0  checks settled and the reviewer reviewed the head, or none is configured
 //   1  usage or platform error
@@ -44,6 +44,7 @@ import {
   InvalidTrustedReviewConfiguration,
   trustedReviewConfiguration,
 } from "./trusted-review-config.mjs";
+import { reviewOutcomeTemplate } from "./review-outcome.mjs";
 import {
   reviewRequestedAt,
   reviewerState,
@@ -200,6 +201,14 @@ export const report = (outcome, head) => {
   return [
     `${head}: ${line}`,
     ...outcome.failing.map((check) => `${check.name} ${check.link}`),
+    ...(outcome.code === 6
+      ? [
+          "",
+          "Post this comment after replacing both outcome placeholders:",
+          "",
+          ...reviewOutcomeTemplate(head),
+        ]
+      : []),
   ];
 };
 
@@ -273,8 +282,13 @@ const parseArguments = (argv) => {
     const value = argv[(index += 1)];
     if (value === undefined) throw new UsageError(`--${flag} needs a value`);
     options[flag] = flag === "repo" ? value : Number(value);
-    if (flag !== "repo" && !(options[flag] > 0)) {
-      throw new UsageError(`--${flag} must be a positive number of seconds`);
+    if (
+      flag !== "repo" &&
+      (!(options[flag] > 0) || !Number.isFinite(options[flag] * 1000))
+    ) {
+      throw new UsageError(
+        `--${flag} must be a finite positive number of seconds with finite milliseconds`,
+      );
     }
   }
   if (positional.length !== 1 || !/^[1-9]\d*$/.test(positional[0])) {
@@ -283,6 +297,18 @@ const parseArguments = (argv) => {
     );
   }
   return { number: positional[0], ...options };
+};
+
+const pause = async (durationMs) => {
+  const startedAt = Date.now();
+  let remaining = durationMs;
+  while (remaining > 0) {
+    // Node turns delays above its signed 32-bit timer maximum into 1 ms.
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.min(remaining, 2_147_483_647)),
+    );
+    remaining = durationMs - (Date.now() - startedAt);
+  }
 };
 
 const look = async (number, pushTimes, reviewer, policy, connection) => {
@@ -380,12 +406,7 @@ export const main = async (argv = process.argv.slice(2), connection) => {
       return outcome.code;
     }
     const remaining = startedAt + limitMs - Date.now();
-    await new Promise((resolve) =>
-      setTimeout(
-        resolve,
-        Math.max(0, Math.min(options.interval * 1000, remaining)),
-      ),
-    );
+    await pause(Math.max(0, Math.min(options.interval * 1000, remaining)));
   }
 };
 

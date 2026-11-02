@@ -14,7 +14,8 @@ through contextual work; this declaration has no deterministic fix or check.
    `vendor/` and `.github/` are already excluded. For the current profiles,
    the counted files are the issue-contract validator, the common validator
    command, the rendered-Markdown runtime, the babysit skill's `.mjs` files,
-   the triage skill's `ready.mjs`, and the diagnosing-bugs skill's shell
+   the triage skill's `ready.mjs`, the orchestrate skill's `wait.mjs`,
+   and the diagnosing-bugs skill's shell
    template. Derive the inventory anew on each update; this example is not a
    replacement for the resolved selection.
 3. Read any existing `.gitattributes` before editing. Preserve every
@@ -32,6 +33,7 @@ through contextual work; this declaration has no deterministic fix or check.
    scripts/validate.mjs linguist-vendored
    operations/lib/rendered-markdown.mjs linguist-vendored
    .agents/skills/babysit/** linguist-vendored
+   .agents/skills/orchestrate/** linguist-vendored
    .agents/skills/triage/** linguist-vendored
    .agents/skills/diagnosing-bugs/** linguist-vendored
    # END Repo Canon linguist-vendored

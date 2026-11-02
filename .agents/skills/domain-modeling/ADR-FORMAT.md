@@ -26,6 +26,14 @@ Only include these when they add genuine value. Most ADRs won't need them.
 
 Scan `docs/adr/` for the highest existing number and increment by one.
 
+## Index
+
+When the repo indexes its documentation directories with a `README.md`, keep `docs/adr/README.md` as the ADR index, creating it with the directory, and add each new ADR to it in the index's own format: a link titled with the ADR's title and a short description.
+
+## Superseding
+
+Keep every ADR. When a new decision replaces an earlier one, mark the earlier ADR superseded, naming and linking the ADR that supersedes it, and update its index entry to say so; the earlier ADR is never deleted.
+
 ## When to offer an ADR
 
 All three of these must be true:

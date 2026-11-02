@@ -2,28 +2,122 @@
 
 import { setTimeout as wait } from "node:timers/promises";
 import {
+  issueContractResult,
+  isSpecification,
+} from "../../../scripts/validate-issue-contract.mjs";
+import {
   connectionFor,
   executedAsScript,
   requestData,
 } from "../babysit/platform.mjs";
 
 const readiness = new Set(["ready-for-agent", "ready-for-human"]);
-const marker = "<!-- repo-canon:issue-contract-feedback -->";
+
+// Eligibility follows installed rules in the selected destination, independently
+// of the checkout that supplies this command. Pin the default tip before reading.
+async function factoryPolicy(connection) {
+  const repository = connection.repository.path;
+  const [owner, name] = repository.split("/");
+  const query = async (source, variables = {}) => {
+    const response = await requestData(connection, {
+      method: "POST",
+      path: "/graphql",
+      body: { query: source, variables: { owner, name, ...variables } },
+    });
+    if (response?.errors?.length || !response?.data?.repository)
+      throw new Error(
+        `Could not establish factory applicability for ${repository}.`,
+      );
+    return response.data.repository;
+  };
+  const destination =
+    await query(`query TriageReadinessPolicy($owner: String!, $name: String!) {
+    repository(owner: $owner, name: $name) {
+      nameWithOwner
+      defaultBranchRef { name target { __typename oid } }
+    }
+  }`);
+  const branch = destination.defaultBranchRef;
+  const revision = branch?.target?.oid;
+  if (
+    destination.nameWithOwner?.toLowerCase() !== repository.toLowerCase() ||
+    typeof branch?.name !== "string" ||
+    !branch.name ||
+    branch.target?.__typename !== "Commit" ||
+    !/^[0-9a-f]{40}$/i.test(revision ?? "")
+  )
+    throw new Error(
+      `Could not establish factory applicability for ${repository}: missing default-branch commit.`,
+    );
+  const evidence = `${repository} default branch ${branch.name}@${revision}`;
+  const files = await query(
+    `query TriageFactoryRules($owner: String!, $name: String!, $revision: GitObjectID!, $rules: String!) {
+    repository(owner: $owner, name: $name) {
+      commit: object(oid: $revision) { __typename oid }
+      rules: object(expression: $rules) { __typename }
+    }
+  }`,
+    {
+      revision,
+      rules: `${revision}:.repo-standards/rules/factory-workflow.md`,
+    },
+  );
+  if (
+    files.commit?.__typename !== "Commit" ||
+    files.commit.oid !== revision ||
+    !(files.rules === null || files.rules?.__typename === "Blob")
+  )
+    throw new Error(
+      `Could not establish factory applicability at ${evidence}.`,
+    );
+  return { factory: files.rules !== null, evidence };
+}
+
+async function actingAccount(connection) {
+  // /user excludes installation tokens. Resolve the authenticated login through
+  // GraphQL, then retain REST's precise account type using the same credential.
+  const identity = await requestData(connection, {
+    method: "POST",
+    path: "/graphql",
+    body: {
+      query:
+        "query TriageActingAccount { viewer { __typename login databaseId } }",
+    },
+  });
+  const viewer = identity?.data?.viewer;
+  if (
+    identity?.errors?.length ||
+    !["User", "Bot"].includes(viewer?.__typename) ||
+    typeof viewer.login !== "string" ||
+    !viewer.login.trim() ||
+    !Number.isInteger(viewer.databaseId)
+  )
+    throw new Error("Could not identify the readiness acting account.");
+  // GraphQL omits the "[bot]" suffix that REST logins and events carry.
+  const login =
+    viewer.__typename === "Bot" && !viewer.login.endsWith("[bot]")
+      ? `${viewer.login}[bot]`
+      : viewer.login;
+  const actor = await requestData(connection, {
+    path: `/users/${encodeURIComponent(login)}`,
+  });
+  // The matching account ID keeps a same-named person from standing in for it.
+  if (
+    !["User", "Bot", "App"].includes(actor?.type) ||
+    actor.login !== login ||
+    actor.id !== viewer.databaseId
+  )
+    throw new Error("Could not identify the readiness acting account.");
+  return actor;
+}
 
 async function snapshot(connection, number) {
   const tracker = connection.issueTracker;
   const issue = await tracker.issue(number);
   const comments = await tracker.comments(number);
   const events = await tracker.labelChanges(number);
-  const feedback = comments.findLast(
-    (comment) =>
-      comment.author?.login === "github-actions[bot]" &&
-      comment.body.includes(marker),
-  );
-  const encoded = /<!-- repo-canon:issue-contract-state (.+) -->/.exec(
-    feedback?.body ?? "",
-  );
-  const state = encoded ? JSON.parse(encoded[1]) : null;
+  // The validator's own reader interprets its published result.
+  const { comment: feedback, state } = issueContractResult(comments);
   const latest = events.findLast(
     (event) =>
       readiness.has(event.label) &&
@@ -53,10 +147,18 @@ function parentNeedsReapply({ issue, events }, label) {
 }
 
 function checkContract(current, revision) {
-  if (current.feedback?.body.includes("## Issue contract needs attention"))
+  if (current.state?.status === "needs-attention")
     throw new Error(`Incomplete contract.\n${current.feedback.body}`);
   if (!current.state)
-    throw new Error("The validator's contract revision notice is missing.");
+    throw new Error(
+      current.feedback
+        ? "The validator's contract result has an unknown format; update this command."
+        : "The validator's contract revision notice is missing.",
+    );
+  if (!["awaiting-review", "approved"].includes(current.state.status))
+    throw new Error(
+      "The feedback does not report a complete contract awaiting review.",
+    );
   if (current.state.revision !== revision)
     throw new Error(
       "The reviewed revision differs from the current revision; review the current notice again.",
@@ -112,25 +214,35 @@ export async function main(
   const { number, label, revision, companions, repository } =
     argumentsFor(argv);
   connection ??= connectionFor(repository);
-  // The neutral account port loses the distinction between App and User.
-  const actor = await requestData(connection, { path: "/user" });
-  if (actor?.type !== "User" || !actor.login || actor.login.endsWith("[bot]"))
+  const actor = await actingAccount(connection);
+  const policy = await factoryPolicy(connection);
+  if (
+    policy.factory &&
+    (actor.type !== "User" || actor.login.endsWith("[bot]"))
+  )
     throw new Error(
-      "Readiness requires a person acting account; bot and App accounts cannot start factory work.",
+      `Readiness at ${policy.evidence} requires a person acting account; bot and App accounts cannot start factory work. ` +
+        "Stop at acceptance: report the reviewed brief, revision, suggested labels and blockers to an authorized person. No factory work was started.",
     );
   let before;
   for (;;) {
     before = await snapshot(connection, number);
-    const models = companions.filter((name) => name.startsWith("model:"));
     if (
-      models.length > 1 ||
-      before.issue.labels.some(
-        (name) => name.startsWith("model:") && !models.includes(name),
-      )
-    )
-      throw new Error(
-        "A different model: label already exists, or multiple model: labels were given.",
+      policy.factory &&
+      label === "ready-for-agent" &&
+      !before.issue.subIssues.length &&
+      !isSpecification(before.issue)
+    ) {
+      const models = new Set(
+        [...before.issue.labels, ...companions].filter((name) =>
+          name.startsWith("model:"),
+        ),
       );
+      if (models.size !== 1)
+        throw new Error(
+          "Factory agent readiness requires exactly one model: label in the resulting issue state; choose one and remove conflicting labels before retrying.",
+        );
+    }
     checkContract(before, revision);
     if (before.issue.state !== "open")
       throw new Error("Readiness requires an open issue.");
@@ -140,15 +252,8 @@ export async function main(
     }
     const staleParent = parentNeedsReapply(before, label);
     if (
-      !(
-        before.state.status === "awaiting-review" &&
-        before.feedback.body.includes("## Issue contract awaiting review")
-      ) &&
-      !(
-        staleParent &&
-        before.state.status === "approved" &&
-        before.feedback.body.includes("## Issue contract readiness recorded")
-      )
+      before.state.status !== "awaiting-review" &&
+      !(staleParent && before.state.status === "approved")
     )
       throw new Error(
         "The feedback does not report a complete contract awaiting review.",
@@ -176,6 +281,18 @@ export async function main(
       continue;
     }
     break;
+  }
+  const chosenModels = companions.filter((name) => name.startsWith("model:"));
+  if (policy.factory && chosenModels.length) {
+    const existing = await connection.issueTracker.labels();
+    for (const name of chosenModels) {
+      if (!existing.some((entry) => entry.name === name))
+        await connection.issueTracker.createLabel({
+          name,
+          color: "5319e7",
+          description: `Factory model: ${name.slice("model:".length)}`,
+        });
+    }
   }
   await connection.issueTracker.addLabels(number, [...companions, label]);
   for (;;) {

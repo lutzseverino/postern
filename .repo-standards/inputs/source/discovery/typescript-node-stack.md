@@ -49,3 +49,15 @@ rules, such as a Project that runs another test runner; exclude it with that
 difference otherwise. The maintainer's request to adopt or update is consent
 to the drafted and reviewed scope. Ask them to confirm only when `adopt` asks
 its `confirmation` question.
+
+## Web exclusions
+
+Exclude Sites, Apps and shared web packages with named reasons. Name the
+intended `typescript-astro` or `typescript-vite` stack when established;
+otherwise retain unresolved/no-stack classification. A Vite-built Site never
+falls back to Node. Shared web means only web consumers; a package also used
+by a non-web Project remains a Node candidate, assessed independently. Only
+in-stack consumers choose a shared package's web stack, with Astro winning
+when both apply. Assess maintained roots independently of their members and
+keep Node, Astro and Vite scopes disjoint. Follow the
+[shared web rules](../rules/typescript-web-stacks.md) for the web boundary.

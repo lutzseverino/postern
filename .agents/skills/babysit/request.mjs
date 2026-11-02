@@ -6,6 +6,7 @@
 // Exit 0 means the request rule was applied (which may require no request);
 // exit 1 is an invocation or platform error; exit 7 requires an owner handoff
 // to correct invalid trusted review configuration on the default branch.
+// Exit 8 lists own-head file links: correct the PR body and rerun.
 import {
   connectionFor,
   executedAsScript,
@@ -20,6 +21,7 @@ import {
   trustedReviewConfiguration,
 } from "./trusted-review-config.mjs";
 import { reviewRequestedAt, reviewRequestCount } from "./reviewer.mjs";
+import { checkBodyLinks, HeadBranchLinks } from "./body-links.mjs";
 
 export const main = async (argv = process.argv.slice(2), connection) => {
   try {
@@ -40,6 +42,7 @@ export const main = async (argv = process.argv.slice(2), connection) => {
     const { policy, reviewer, evidence } =
       await trustedReviewConfiguration(connection);
     const pull = await connection.pullRequests.pullRequest(Number(number));
+    await checkBodyLinks(pull, connection);
     const author = pull.author?.login;
     const result = (phrase) => {
       process.stdout.write(`${pull.headCommit}: ${phrase}; ${evidence}\n`);
@@ -77,7 +80,11 @@ export const main = async (argv = process.argv.slice(2), connection) => {
     return result("review requested");
   } catch (error) {
     process.stderr.write(`request.mjs: ${error.message}\n`);
-    return error instanceof InvalidTrustedReviewConfiguration ? 7 : 1;
+    return error instanceof InvalidTrustedReviewConfiguration
+      ? 7
+      : error instanceof HeadBranchLinks
+        ? 8
+        : 1;
   }
 };
 

@@ -1,13 +1,13 @@
 # Agent configuration
 
 This directory holds the skill setup files the installed skills read as their
-per-repository configuration, installed unchanged from the upstream setup seeds.
+per-repository configuration, Repo Canon's own files taken from the upstream
+setup seeds.
 
 - [Issue tracker](issue-tracker.md): GitHub issue operations, pull requests as
   a triage surface, and Wayfinding operations.
-- [Triage labels](triage-labels.md): the label strings for the five canonical
-  triage roles. For role meanings, follow the installed
-  `github-repository-configuration` rules and the contribution guide.
+- [Triage labels](triage-labels.md): the label strings and meanings for the
+  five canonical triage roles.
 - [Domain docs](domain.md): reading the glossary and ADRs, the single- and
   multi-context layouts, and flagging ADR conflicts.
 

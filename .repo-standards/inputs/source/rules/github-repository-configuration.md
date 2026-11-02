@@ -28,16 +28,17 @@ descriptions:
 | `wayfinder:task`      | `bfd4f2` | Task in a planning map                                                     |
 
 `docs/agents/triage-labels.md` maps canonical roles to tracker label strings;
-use the configured string for each role. Role meanings in these rules and the
-contribution guide take precedence over its upstream Meaning column, including
-the conflicting `needs-info` and `ready-for-human` entries.
+use the configured string for each role.
 
 For `needs-info`, follow the contribution guide's Triage section for question
-routing and its inference test. Agent work follows the agent path; where
-factory workflow rules are installed, follow them for factory pickup exclusions.
+routing and its inference test. Agent work, including work awaiting the owner's
+review, follows the contribution guide's Triage and Readiness sections for
+`ready-for-agent`. Where factory workflow rules are installed, follow their
+State labels section for factory pickup exclusions.
 
-These rules name no `factory:` label: the factory workflow rules govern who
-creates and manages the labels named by the repository's factory configuration.
+The repository owns `ready-for-agent`, provisioned by canonical-label setup.
+These rules name no `factory:` label. Where factory workflow rules are installed,
+follow them for ownership of factory state labels and skip and model labels.
 
 ## Merge settings
 
@@ -52,10 +53,73 @@ requirement is unavailable, not optional, and applies once GitHub offers
 either. GitHub runs the PR metadata validation workflow only from the default
 branch, so the check is required once the workflow is on the default branch.
 
+## Required-check freshness
+
+Every adopter requires GitHub's “Require branches to be up to date before
+merging” setting on its default branch wherever required-check enforcement is
+available: `strict: true` in classic protection, or
+`strict_required_status_checks_policy: true` in an active applicable ruleset
+with at least one required check. Checks must pass against the current default
+branch. Extra validation after concurrent merges is expected.
+
+Before unattended merging, confirm this platform enforcement through current
+GitHub policy reads. A local ancestry check alone cannot protect against a
+base advance between inspection and the merge request. Bypassable enforcement
+alone cannot provide that final guard: babysit confirms either a strict
+ruleset whose matching detail explicitly reports `current_user_can_bypass: "never"`
+for the same credential that performs the merge, or strict classic
+checks enforced for admins. The ruleset evidence concerns the merging credential:
+a hidden bypass list or a list containing other actors does not disqualify it,
+and an empty list alone does not qualify it. Other or missing caller-bypass
+values cannot confirm that ruleset's enforcement.
+Setup preserves existing bypass configuration; resolve insufficient enforcement
+with the owner rather than changing bypass policy during delivery.
+
+Unavailable, unreadable or unconfirmed freshness stops unattended merging until
+the repository is fixed. Adoption's plan limits, missing workflow and deferred
+remote setup grant no merge exception. Use the contribution guide's owner
+handoff; no best-effort merge or alternate credential is permitted.
+
+A stale PR returns to branch update and validation. Preserve its work, rebase
+or replay only its changes onto the refreshed default branch, and repeat
+required checks and applicable internal and external review on the replacement
+head. Checks from the old head never qualify the replacement. GitHub remains
+the final guard if the base advances again; bound recovery as babysit directs.
+
+## Designated owner review
+
+Owner review is required when either the authoritative implementation contract
+or the worker's handoff says so. Resolve the authoritative implementation
+contract under the contribution guide's Implementation contracts section.
+Read both sources; an omission in one does not cancel a designation in the
+other. Carry that designation and its source into the PR handoff.
+Record the designation and its source in a PR comment, including when no worker
+handoff is required.
+
+Before merging a designated PR, the merging agent verifies the owner's
+explicit approval of the current head. Record the approval's source and head
+SHA in a PR comment. Any head change requires renewed owner approval; approval
+of an earlier head does not authorize the new one. Passing checks, a configured
+external review, its absence or timeout, and an app-author review-policy skip
+never substitute for owner approval. When approval is missing, follow the
+contribution guide's owner-question handoff and leave the PR unmerged.
+
+Read these PR comments when verifying designation and current-head approval,
+including after a handoff or resumed delivery. For adoption PRs, keep both
+records in comments and preserve the body under the contribution guide's
+adoption-record contract.
+
+This gate applies in both profiles and does not assign merge ownership.
+In the standard profile, the otherwise authorized merging agent, ordinarily
+the implementing agent, enforces it. It requires no factory label, pickup or
+recovery mechanism. Where factory workflow rules are installed, follow them
+for merge ownership and approval-pause continuation. Without a designation,
+ordinary applicable merge conditions hold.
+
 ## Preserved settings
 
-The GitHub configuration changes only the labels, merge settings, and required
-check these rules name. Unrelated labels, rules, checks, and repository
+The GitHub configuration changes only the labels, merge settings, required check,
+and freshness these rules name. Unrelated labels, rules, checks, and repository
 settings stay as the repository has them.
 
 ## Installed workflow runners
@@ -103,7 +167,8 @@ cancel and rerun a job already queued on unavailable labels.
 
 ## Automated standards updates
 
-Both profiles install `.github/workflows/standards-update.yml`. Its daily
+The standard and factory profiles install
+`.github/workflows/standards-update.yml`. Its daily
 schedule and manual `workflow_dispatch` run the job only when
 `REPO_CANON_UPDATES` is `true`; installing the file opts nobody in. The job
 reads `vars.REPO_CANON_RUNS_ON`, checks out the default branch, and serializes
@@ -140,12 +205,13 @@ wanting that input writes a repository-owned caller workflow.
 
 ## Trusted review configuration
 
-For each `babysit` request or wait invocation, resolve the destination
+For each `babysit` request, wait or merge invocation, resolve the destination
 repository's default branch to one immutable full commit SHA. Read both
 optional repository-owned files, `.github/factory-review-policy.json` and
 `.github/pull-request-reviewer.json`, from that same commit before applying
-policy or requesting review. Report the destination repository, default branch
-and selected SHA with the command's outcome. A wait keeps the snapshot across
+policy or requesting review. Request and wait report the destination repository,
+default branch and selected SHA with their outcome; merge includes them in its
+missing-outcome diagnostic. A wait keeps the snapshot across
 all polls and head changes; each new invocation resolves the current default
 tip again, including after fixes, rebases, retries and resumed runs.
 
@@ -171,7 +237,7 @@ The correction must land on the destination default branch through the
 applicable owner-handoff and merge procedure. A correcting PR's proposed
 configuration cannot govern its own delivery before it lands; this repair
 grants no new merge exception. After the correction lands and continuation is
-authorized, a fresh request or wait invocation resolves the current default
+authorized, a fresh invocation resolves the current default
 branch and uses the corrected configuration. Invocation errors, permission
 refusals, platform failures and verified optional-file absence retain their
 existing handling.
@@ -200,8 +266,9 @@ fields are invalid, at every level.
 - `unavailable`: array of nonempty reply texts; an empty array is valid.
 - `bounds.responseMinutes` and `bounds.reviewMinutes`: positive finite numbers
   measured from the latest request.
-- `bounds.reviewRequests`: optional positive integer; the total request bound
-  defined under [review requests](#review-requests).
+- `bounds.reviewRequests`: optional positive integer or the exact string
+  `"unbounded"`; omission defaults to **4**. The total request bound is defined
+  under [review requests](#review-requests).
 
 A review of the pull request's head is complete when either holds:
 
@@ -243,12 +310,29 @@ For example, with placeholder values:
 }
 ```
 
+## Internal Standards and Spec reviews
+
+When an applicable workflow calls for internal review, use the installed
+`code-review` workflow: Standards checks the change against the repository's
+documented standards; Spec checks it against its originating implementation
+contract, including the workflow's handling of a missing specification.
+Review the current head and record the actual outcomes of both axes. These
+reviews are distinct from the configured external reviewer.
+
+Policy-skipped pull requests require both reviews before merge. Nonmatching
+and absent-policy pull requests retain their existing applicable internal-review
+workflow and optionality in both profiles; this definition adds no blanket
+review requirement. A policy skip supplies neither internal nor external approval.
+
 ## Factory app-author review policy
 
 The optional repository-owned `.github/factory-review-policy.json` exempts its
 declared app author from agent-issued external review requests and external
-reviewer response/review waits. Repo Canon installs no policy declaration or
-default exemption. The factory host remains independent of repository reviewer
+reviewer response/review waits. Repo Canon ships no policy declaration or
+default exemption. Deliberate repository configuration is a separate post-run
+commit outside the adoption commit and adoption PR, using the app identity
+named by that repository; adoption never writes or changes the policy file.
+The factory host remains independent of repository reviewer
 configuration; the installed `babysit` request and wait commands apply it
 from the [trusted review configuration](#trusted-review-configuration).
 
@@ -269,24 +353,28 @@ A plain human login `<slug>` remains distinct from that app.
 A different or missing PR author is not exempt. Invalid declarations
 fail explicitly and never authorize a skip.
 
-For a policy-skipped pull request, complete internal Standards and Spec reviews
-before merge. Standards checks the change against the repository's documented
-standards; Spec checks it against its originating implementation contract. The
-installed `code-review` workflow provides both axes, including its handling of
-a missing specification. These internal reviews are distinct from the configured
-external reviewer. A policy skip supplies neither internal nor external approval.
-For nonmatching and absent-policy pull requests, keep the existing applicable
-internal-review workflow.
-
 Apply this policy before the review request rules and reviewer wait
 classification, on every head, including fixes, rebases, retries and resumed
 runs. For a matching author, issue no external review request and impose no
 external response/review wait, regardless of opening-request settings or
 request bounds. Classify this outcome as a policy skip, separately from
-external approval, reviewer unavailability or a timeout. At merge, record the
-actual internal Standards and Spec review outcomes and state: "No external
-reviewer runs on app-authored PRs." Follow the contribution guide's comment
-rules for that outcome comment.
+external approval, reviewer unavailability or a timeout. Complete the shared
+[internal reviews](#internal-standards-and-spec-reviews) and post their actual
+outcomes in one PR comment before merge. Exit `6` from wait prints a copyable
+template with `Head: <full current SHA>`, `Standards: <actual outcome>` and
+`Spec: <actual outcome>` lines and the exact sentence "No external reviewer
+runs on app-authored PRs." Replace both outcome placeholders and follow the
+contribution guide's comment rules. Use plain text lines for these fields;
+quoted or fenced examples and unfilled placeholders are not completed evidence.
+
+At every invocation, merge independently checks the platform PR author and the
+trusted destination policy, including without a prior wait. A caller's wait
+result or PR-branch policy never authorizes a skip. For a matching author, it
+requires one complete comment with the current full SHA, both populated outcome
+fields and the exact sentence. Missing, incomplete or stale evidence returns
+merge exit `5` without a merge write: post the completed current-head outcome,
+then rerun. That retry is distinct from owner handoff (`3`), head changed (`2`)
+and stale base (`4`); every other merge condition still applies.
 
 Required checks and their waits, internal Standards and Spec reviews, merge
 authorization, and handling of findings that actually arrive remain enforced.
@@ -296,6 +384,19 @@ the owner for a missing policy. A nonmatching author also keeps that behavior.
 Without a reviewer configuration, checks-only behavior remains supported.
 
 ## Review requests
+
+Before requesting review or accepting a reviewer-policy skip, check PR-body
+file links into the PR's own repository at its head branch, including encoded
+and slash-containing refs. Report offending links for the author to replace
+with commit-SHA links, then rerun the check before proceeding. Preserve the
+body; external links and other branches, including asset branches, are outside
+this check. This applies with or without a configured reviewer.
+
+Adoption PRs exempt only the complete, byte-preserved tool-generated summary
+prefix verified by rebuilding the head's pre-commit state; appended sections
+remain subject to the check even when they repeat generated headings. Missing,
+failed or mismatching evidence grants no exemption: explain why and check the
+whole body. The `babysit` request command supplies this verification method.
 
 Apply the [app-author policy](#factory-app-author-review-policy) first; the
 request rules below govern authors it does not exempt.
@@ -317,10 +418,13 @@ changes only tests, documentation or wording, or only fixes a failing check
 gets none.
 
 The optional `bounds.reviewRequests` limits the total review requests a pull
-request gets. Count the opening when `request.onOpen` is true and every comment
-whose whole trimmed body equals `request.comment`, whoever posted it. Once that
-count reaches the bound, no agent requests another review. Without the field
-there is no count bound.
+request gets, defaulting to **4** when omitted from a reviewer file. An explicit
+positive integer overrides that default; the exact JSON string `"unbounded"`
+deliberately removes the count bound. Count the opening when `request.onOpen`
+is true and every comment whose whole trimmed body equals `request.comment`,
+whoever posted it. Once that
+count reaches the bound, no agent requests another review. Without a reviewer
+file there is no reviewer, request or reviewer wait; the default creates none.
 
 The bound creates no reason to decline a real finding and no grouped follow-up
 issue. After the bound is reached, fix every finding the contribution guide
@@ -381,15 +485,24 @@ leaves readiness to the owner. The run that wrote the brief never applies its
 readiness. Readiness it applies is bound to that revision like any other, so
 an edit to the brief removes it until the new revision is reviewed.
 
+Outside repositories governed by factory workflow rules, these roles authorize
+an orchestrating agent whose account is a person, bot or App alike. It applies
+readiness through triage's bundled `ready.mjs` and requires the validator's
+approval of that same account's event for the reviewed revision; its account's
+eligibility never authorizes manual labels that bypass this command or the
+validator. Where factory workflow rules are installed, their person-only
+eligibility also applies. The command establishes that boundary from the
+selected destination's installed `.repo-standards/rules/factory-workflow.md` at
+its default-branch commit, independently of the local checkout. A failed
+identity or applicability read authorizes no readiness writes.
+
 ## Native blockers
 
-Repo Canon's native GitHub relationship rules take precedence over the
-fallback instructions in the upstream tracker guide installed at
-`docs/agents/issue-tracker.md`. Parent/sub-issue links and blocker/dependency
-links must use GitHub's native relationships. Task lists and `Part of`,
-`Parent`, or `Blocked by` body references do not establish those links, even
-when a native link cannot be created or the feature is unavailable. Required
-named sections retain their content requirements.
+Parent/sub-issue links and blocker/dependency links must use GitHub's native
+relationships. Task lists and `Part of`, `Parent`, or `Blocked by` body
+references do not establish those links, even when a native link cannot be
+created or the feature is unavailable. Required named sections retain their
+content requirements.
 
 GitHub's native issue dependencies are the canonical blocking relationship.
 When adding a native blocker, pass the blocking issue's numeric database ID as

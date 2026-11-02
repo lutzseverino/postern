@@ -6,6 +6,10 @@ The brief states **what the agent should do**, which stretches to both surfaces:
 
 ## Principles
 
+### Available inputs
+
+A brief's required implementation material must be in the repository, the issue and its comments, or public URLs. A host-only path cannot be the sole required source. Before readiness, check host material for secrets and post the non-secret material on the issue, quoted or attached, then cite it from the brief. Independent acceptance review verifies input availability along with the brief's other requirements.
+
 ### Durability over precision
 
 The issue may sit in `ready-for-agent` for days or weeks. The codebase will change in the meantime. Write the brief so it stays useful even as files are renamed, moved, or refactored.
@@ -46,7 +50,7 @@ The implementing agent can't ask the owner anything, so a brief settles every qu
 - **Bad:** "Open question: should admins be exempt?"
 - **Good:** "Retry for 30 minutes after the first failure, then mark the Parcel failed", with the owner's decision linked from the triage notes
 
-When the owner has reserved review before merge, state that designation as contract behavior and retain its dated decision source in the triage notes for the worker's PR handoff. Use the recorded reservation, not a routing label, as its source. Follow applicable installed rules for routing and delivery.
+When the owner has reserved review before merge, state that designation as contract behavior and retain its dated decision source in the triage notes for the worker's PR handoff. Use the recorded reservation, not a routing label, as its source. Follow the `github-repository-configuration` rules' Designated owner review gate in both profiles; applicable installed rules retain merge ownership and continuation.
 
 Implementation choices that don't change what users or operators see stay with the agent; leave them out.
 

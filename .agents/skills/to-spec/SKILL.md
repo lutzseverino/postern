@@ -4,9 +4,11 @@ description: "Turn the current conversation into a spec and publish it to the pr
 disable-model-invocation: true
 ---
 
+A prompt or brief naming this skill is its invocation.
+
 This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user; just synthesize what you already know.
 
-The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
+The issue tracker and triage label vocabulary should have been provided to you.
 
 ## Process
 
@@ -16,7 +18,7 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 Check with the user that these seams match their expectations.
 
-3. Write the spec using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
+3. Write the spec using the template below, then publish it to the project issue tracker, awaiting review: it needs no further triage, but its readiness is a separate review by someone other than you who holds a role the repository authorizes for readiness, after any revision notice the tracker posts, with the companion labels its rules require. When the spec will be broken into tickets, its readiness follows their publication.
 
 <spec-template>
 
@@ -73,3 +75,19 @@ A description of the things that are out of scope for this spec.
 Any further notes about the feature.
 
 </spec-template>
+
+## Reads
+
+Paths are relative to the repository root.
+
+- `docs/agents/issue-tracker.md` and `docs/agents/triage-labels.md`: the
+  issue tracker and its triage label vocabulary. When the tracker config is
+  missing and no tracker was provided, ask the user where to publish the
+  spec; when the label config is missing, use the canonical role names as
+  the label strings.
+- `GLOSSARY.md` and the ADRs in `docs/adr/`: the domain vocabulary and
+  decisions to respect. When either is missing, use the codebase's own words.
+- The installed rules, such as the `github-repository-configuration` rules,
+  which the `repository-standards` skill looks up: the companion labels
+  readiness needs. When they are missing, readiness carries no companion
+  labels.
