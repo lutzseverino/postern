@@ -15,6 +15,10 @@ This command is _informed_ by the project's domain model and built on a shared d
 - Call the Skill tool with "codebase-design" for the architecture vocabulary (**module**, **interface**, **depth**, **seam**, **adapter**, **leverage**, **locality**) and its principles (the deletion test, "the interface is the test surface", "one adapter = hypothetical seam, two = real"). Use these terms exactly in every suggestion, and don't drift into "component," "service," "API," or "boundary."
 - The domain language in `GLOSSARY.md` gives names to good seams; ADRs in `docs/adr/` record decisions this command should not re-litigate.
 
+## Orchestrated launch
+
+When launched by the orchestrating agent, explore, write the candidates in Markdown to the designated launch report and stop before the HTML report and grilling loop.
+
 ## Process
 
 ### 1. Explore
@@ -22,6 +26,10 @@ This command is _informed_ by the project's domain model and built on a shared d
 **Scope before you scan: YAGNI.** Deepening a module pays off by making future changes to it easier, so put extra weight on the parts of the codebase that have recently changed. Decide *where* to look before you look:
 
 - If the user named a direction (a module, a subsystem, a pain point), take it, and skip the inference below.
+  **Ownership** is a named direction: use `codebase-design`'s **Ownership check**
+  section to explore misplaced values, configuration kinds and surprising
+  layout. Pass that section to the exploring sub-agent; it supplies the
+  judgments and recording routes rather than a second rule set here.
 - Otherwise, walk back a good stretch of the commit history (`git log --oneline`) to find the codebase's hot spots, the files and areas that keep coming up, and let those paths pull your attention first. If the changes are scattered with no clear hot spot, widen the net.
 
 Read the project's domain glossary (`GLOSSARY.md`) and any ADRs in the area you're touching first.
@@ -81,3 +89,6 @@ Paths are relative to the repository root.
   module needs a new term, as step 3 says.
 - The ADRs in `docs/adr/`: decisions not to re-litigate. When it is missing,
   no recorded decision constrains the candidates.
+
+- The `codebase-design` skill: shared design vocabulary and the Ownership check
+  direction. When it is missing, report the dependency before exploring.

@@ -5,22 +5,35 @@ or directories. Adoption installs its rules for the whole repository.
 
 ## Host compatibility
 
-Before adopting this factory profile, the serving host must run Scriptorium
-v3.0.0 or later. Older hosts refuse configuration version 2 and pause the
-repository. Verify the serving host's release before delivering the adoption.
+The shipped `.scriptorium/config.json` is configuration version 3. Only
+Scriptorium v4 accepts it, and no released host does yet: Scriptorium v3
+refuses it and pauses the repository. Deliver this adoption only once the
+serving host's release accepts it, updating the repository and its host
+together.
 
-The shipped `.factory/config.json` is version 2. It names `skill` as
-`implement` and `arguments` as `#{issue}`, replacing the version-1 `prompt`;
-each provider renders the skill invocation in its own syntax. Its
-`contractResult.marker` is `repo-canon:issue-contract-state` and
-`contractResult.author` is `github-actions[bot]`, the trusted author of the
-issue-contract workflow's posted result. It also names Repo Canon's labels,
-including `labels.releaseHold`, and the `model:` label prefix. There is no
-factory configuration compatibility layer.
+Version 3 replaces version 2's single `skill` and `arguments` with
+`runKinds`, which turns on `triage`, `implement` and `review` and maps each to
+the skill of the same name. Each kind's `arguments` names its work: `#{issue}`
+for triage and implement, and `#{pullRequest}` for review. Review sets `differentProvider`; execution choices live outside exact
+mechanics. Host configuration supplies capabilities, credentials and per-kind
+defaults, including implement retry. The optional repository-owned
+`.github/factory-model-policy.json` supplies preferences and explicit fallback
+under the factory-workflow rules; the issue label selects initial implement
+only unless another stage explicitly selects its reuse. `labels`
+names every label the factory reads or writes by role, in the `state:`,
+`gate:`, `factory:` and `priority:` families, with no role for answers a run
+waits on. `contractResult` stays the issue-contract workflow's result, with
+`marker` `repo-canon:issue-contract-state` and `author`
+`github-actions[bot]`. `triageResult` names the marker and account of the
+factory's triage result, which the issue-contract validator reads to approve
+readiness the triage run applies. There is no factory configuration
+compatibility layer.
 
 The `babysit` merge check reads only labels from the destination default
-branch's configuration. It accepts versions 1 and 2, so an adopter still on
-version 1 can deliver this update while retaining its release-hold check.
+branch's configuration. It accepts versions 1, 2 and 3, so an adopter still on
+version 2 can deliver this update while retaining its hold checks. The factory
+profile installs the `factory` skill for ongoing operations, including pause
+and resume through the repository hold.
 
 ## App-author policy opt-in
 
@@ -58,9 +71,10 @@ adoption output. Adoption neither creates nor edits the policy file or
 ## Workflow reconciliation
 
 When updating from a release that kept factory policy in `CONTRIBUTING.md`,
-review the installed `factory-workflow` rules as the new home of parent
-readiness, model selection, state labels, owner handoff and recovery, stop
-notes, and the factory consequence of leaving an issue open after merge.
+review the installed `factory-workflow` rules as the new home of run kinds
+and their handoffs, gates, parent readiness, model selection, state labels,
+questions and stops, and the factory consequence of leaving an issue open
+after merge.
 The exact contribution guide is replaced by adoption; preserve useful
 repository-specific instructions through `project-agent-guidance` rather than
 copying factory policy back into it.
@@ -72,3 +86,19 @@ absence and the installed rules. If an unresolved workflow conflict prevents
 conformance, assess it as `blocked` and explain the conflict. Confirm scope
 validity after fixes and again after contextual work: it stays empty because
 the declaration governs work, not project content.
+
+## Repository model policy configuration
+
+The read-only `factory-model-policy` check validates optional policy structure
+using retained resources without network or host access. Absence retains host
+defaults. Adoption never installs policy values or declares the policy file as
+owned content. Preserve existing bytes on adoption, update, removal and
+re-adoption; invalid data fails validation rather than being repaired.
+
+A maintainer may deliberately configure or change the policy in a separate
+post-adoption commit, outside the adoption PR, using the authoritative
+Repository model policy contract in the factory-workflow rules. Never seed it
+from source examples, fixtures, another repository or generated output. No
+policy values are chosen for this source itself. Scriptorium v4 resolves the
+contract within host capabilities; deploying it and proving real runs are
+separate from this source change.

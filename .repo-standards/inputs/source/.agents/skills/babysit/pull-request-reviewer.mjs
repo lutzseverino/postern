@@ -1,8 +1,6 @@
 // Reads and validates the optional pull request reviewer file against the
-// schema the `github-repository-configuration` rules state. The reviewer check
-// runs this module from operations/lib, and babysit's directory carries a
-// byte-identical copy so its scripts run where only the skill is installed; a
-// repository conformance test keeps the two copies identical.
+// schema the `github-repository-configuration` rules state. Babysit and the
+// reviewer check share this module, retained at its source-relative path.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 

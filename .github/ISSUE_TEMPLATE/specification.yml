@@ -1,6 +1,6 @@
 name: Specification
 description: Define the intended behavior and boundaries of larger work.
-labels: [needs-triage]
+labels: [state:triage]
 body:
   - type: textarea
     id: problem

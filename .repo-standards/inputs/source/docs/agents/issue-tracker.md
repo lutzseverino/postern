@@ -5,10 +5,10 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 ## Conventions
 
 - **Create an issue**: write the body in the sections of the matching issue form under `.github/ISSUE_TEMPLATE/`, as the contribution guide directs, then `gh issue create --title "..." --body-file -` with the body on a heredoc.
-- **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels. When the issue carries Agent Brief comments, the latest one is its implementation contract; the body and the rest of the discussion are context.
+- **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels. Read the validator’s selected source/revision. After explicit body-mode activation the body Agent Brief is authoritative, except for the exact unchanged eligible legacy comment recorded at cutoff. In prepared legacy mode only, the latest Agent Brief comment is the contract. A migration or later body revision needs its own notice and acceptance; a newer comment never supersedes a body contract.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
-- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`. Readiness labels are the exception: apply `ready-for-agent` or `ready-for-human` only through the triage skill's readiness command.
+- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`. Readiness is the exception: apply `state:ready` only through the triage skill's readiness command.
 - **Close**: `gh issue close <number> --comment "..."`
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.

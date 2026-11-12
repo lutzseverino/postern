@@ -1,22 +1,30 @@
 #!/usr/bin/env node
 
 // Usage: node merge.mjs <number> <head SHA>, from the repository root.
-// Exit codes: 0 merged, 1 usage or platform error, 2 head changed; wait again,
+// Exit codes: 0 merged, 1 usage or platform error, 2 head changed or validation not successful; wait again,
 // 3 not merged; needs the owner, 4 stale base; update and validate,
 // 5 missing review outcome; post the completed record and rerun,
-// 9 release hold; leave open and resume after the hold ends.
+// 6 unresolved configured-reviewer threads; resolve and rerun,
+// 9 repository or release hold; leave open and resume after the hold ends.
 import {
   connectionFor,
   executedAsScript,
   pages,
   requestData,
+  pinnedFiles,
+  checkRollup,
+  workflowRuns,
+  unresolvedReviewerThreads,
 } from "./platform.mjs";
 import {
   InvalidTrustedReviewConfiguration,
   trustedReviewConfiguration,
 } from "./trusted-review-config.mjs";
 import { skipsExternalReview } from "./review-policy.mjs";
-import { completeReviewOutcome } from "./review-outcome.mjs";
+import { completeReview, reviewsSection } from "./review-outcome.mjs";
+
+import { decide } from "./wait.mjs";
+import { validationCheckStates } from "./required-checks.mjs";
 
 function needsOwner(message) {
   console.error(message);
@@ -42,14 +50,41 @@ function staleBase() {
   process.exitCode = 4;
 }
 
+function planLimited(error) {
+  return (
+    error.status === 403 &&
+    /Upgrade to GitHub .+ or make this repository public/i.test(
+      error.platformMessage ?? "",
+    )
+  );
+}
+
 // Active branch rules include inherited rulesets. Read the ruleset details too:
 // the merging credential must be unable to bypass the final platform guard.
-async function enforcedFreshness(connection, branch) {
+async function enforcedFreshness(connection, branch, privateRepository) {
   const path = `/repos/${connection.repository.path}`;
-  const rulePages = await pages(
-    connection,
-    `${path}/rules/branches/${encodeURIComponent(branch)}?per_page=100`,
-  );
+  let rulePages;
+  try {
+    rulePages = await pages(
+      connection,
+      `${path}/rules/branches/${encodeURIComponent(branch)}?per_page=100`,
+    );
+  } catch (error) {
+    if (!privateRepository || !planLimited(error)) throw error;
+    // A branch-rule refusal alone does not establish both capabilities.
+    for (const endpoint of [
+      `${path}/branches/${encodeURIComponent(branch)}/protection`,
+      `${path}/rulesets?per_page=100`,
+    ]) {
+      try {
+        await requestData(connection, { path: endpoint });
+        return false;
+      } catch (capabilityError) {
+        if (!planLimited(capabilityError)) throw capabilityError;
+      }
+    }
+    return "plan-limited";
+  }
   if (!rulePages.every(Array.isArray))
     throw new Error("Could not read required-check freshness rules.");
   for (const rule of rulePages.flat()) {
@@ -110,81 +145,84 @@ async function baseIsStale(connection, branch, head) {
   return comparison.behind_by > 0;
 }
 
+// Seam (deferred): Scriptorium configuration reads; consumers: 6; extraction proposed in https://github.com/lutzseverino/repo-canon/issues/967.
 // This last preflight shares the review snapshot, never the proposed PR tree.
-async function releaseHolds(connection, revision, number) {
-  const [owner, name] = connection.repository.path.split("/");
-  const response = await requestData(connection, {
-    method: "POST",
-    path: "/graphql",
-    body: {
-      query: `query BabysitReleaseHold($owner: String!, $name: String!, $revision: GitObjectID!, $factory: String!) {
-        repository(owner: $owner, name: $name) {
-          commit: object(oid: $revision) { __typename oid }
-          factory: object(expression: $factory) { __typename ... on Blob { text isTruncated } }
-        }
-      }`,
-      variables: {
-        owner,
-        name,
-        revision,
-        factory: `${revision}:.factory/config.json`,
-      },
+async function mergeHolds(connection, revision, number) {
+  const { files } = await pinnedFiles(
+    connection,
+    {
+      factory: ".scriptorium/config.json",
     },
-  });
-  const files = response?.data?.repository;
-  if (
-    response?.errors?.length ||
-    files?.commit?.__typename !== "Commit" ||
-    files.commit.oid !== revision
-  )
-    throw new Error("Could not read the pinned factory configuration commit.");
-  const blob = files.factory;
-  if (blob === null) return [];
-  if (
-    blob?.__typename !== "Blob" ||
-    blob.isTruncated !== false ||
-    typeof blob.text !== "string"
-  )
-    throw new Error("Could not read complete .factory/config.json.");
-  const config = JSON.parse(blob.text);
+    { revision, evidence: `${connection.repository.path}@${revision}` },
+  );
+  if (files.factory === null) return [];
+  const config = JSON.parse(files.factory);
   if (
     !config ||
     Array.isArray(config) ||
-    ![1, 2].includes(config.version) ||
+    ![1, 2, 3].includes(config.version) ||
     (config.labels !== undefined &&
       (!config.labels ||
         typeof config.labels !== "object" ||
         Array.isArray(config.labels)))
   )
     throw new Error(
-      "Invalid .factory/config.json: expected version 1 or 2 and a labels object when present.",
+      "Invalid .scriptorium/config.json: expected version 1, 2 or 3 and a labels object when present.",
     );
-  const label = config.labels?.releaseHold;
-  if (label === undefined) return [];
-  if (typeof label !== "string" || !label.trim() || label !== label.trim())
-    throw new Error(
-      "Invalid .factory/config.json labels.releaseHold: expected a nonempty, trimmed label.",
+  const holds = new Map();
+  for (const key of ["hold", "releaseHold"]) {
+    const label = config.labels?.[key];
+    if (label === undefined) continue;
+    if (typeof label !== "string" || !label.trim() || label !== label.trim())
+      throw new Error(
+        `Invalid .scriptorium/config.json labels.${key}: expected a nonempty, trimmed label.`,
+      );
+    const issuePages = await pages(
+      connection,
+      `/repos/${connection.repository.path}/issues?state=open&labels=${encodeURIComponent(label)}&per_page=100`,
     );
-  const issuePages = await pages(
-    connection,
-    `/repos/${connection.repository.path}/issues?state=open&labels=${encodeURIComponent(label)}&per_page=100`,
-  );
-  if (!issuePages.every(Array.isArray))
-    throw new Error("Could not read release-hold pull requests.");
-  const issues = issuePages.flat();
-  if (
-    issues.some(
-      (issue) =>
-        !Number.isSafeInteger(issue?.number) ||
-        issue.number <= 0 ||
-        !["open", "closed"].includes(issue.state),
+    if (!issuePages.every(Array.isArray))
+      throw new Error("Could not read merge-hold issues and pull requests.");
+    const issues = issuePages.flat();
+    if (
+      issues.some(
+        (issue) =>
+          !Number.isSafeInteger(issue?.number) ||
+          issue.number <= 0 ||
+          !["open", "closed"].includes(issue.state),
+      )
     )
-  )
-    throw new Error("Could not read a release-hold pull request.");
-  return issues.filter(
-    (issue) =>
-      issue.pull_request && issue.state === "open" && issue.number !== number,
-  );
+      throw new Error("Could not read a merge-hold issue or pull request.");
+    for (const issue of issues) {
+      if (
+        (key === "hold" || issue.pull_request) &&
+        issue.state === "open" &&
+        issue.number !== number
+      )
+        holds.set(issue.number, issue);
+    }
+  }
+  return [...holds.values()];
+}
+
+async function held(connection, revision, number) {
+  try {
+    const holds = await mergeHolds(connection, revision, number);
+    if (holds.length) {
+      console.error(
+        `Repository or release merge hold: ${holds.map((pull) => `#${pull.number}`).join(", ")}. Leave this PR open and resume after the hold ends.`,
+      );
+      process.exitCode = 9;
+      return true;
+    }
+  } catch (error) {
+    if (["forbidden", "unauthenticated"].includes(error.reason)) throw error;
+    needsOwner(
+      `Could not confirm merge holds at ${revision}: ${error.message}`,
+    );
+    return true;
+  }
+  return false;
 }
 
 export async function main(argv = process.argv.slice(2), connection) {
@@ -201,24 +239,24 @@ export async function main(argv = process.argv.slice(2), connection) {
   if (pullRequest.headCommit !== head) return retry();
   let configuration;
   try {
-    configuration = await trustedReviewConfiguration(connection);
+    configuration = await trustedReviewConfiguration(connection, {
+      requiredChecks: true,
+    });
   } catch (error) {
     if (error instanceof InvalidTrustedReviewConfiguration)
       return needsOwner(error.message);
     throw error;
   }
   if (skipsExternalReview(configuration.policy, pullRequest.author?.login)) {
-    const comments = await pages(
-      connection,
-      `/repos/${connection.repository.path}/issues/${number}/comments?per_page=100`,
-    );
+    const reviews = await connection.pullRequests.reviews(Number(number));
     if (
-      !comments
-        .flat()
-        .some((comment) => completeReviewOutcome(comment.body, head))
+      !reviews.some(
+        (review) =>
+          review.state !== "PENDING" && completeReview(review.body, head),
+      )
     ) {
       console.error(
-        `Post a complete current-head review outcome comment for ${head}, then rerun merge.mjs; ${configuration.evidence}.`,
+        `Post a complete review of ${head} as ${reviewsSection} describes, then rerun merge.mjs; ${configuration.evidence}.`,
       );
       process.exitCode = 5;
       return;
@@ -230,6 +268,7 @@ export async function main(argv = process.argv.slice(2), connection) {
     );
   }
   let branch;
+  let freshness;
   try {
     const repository = await requestData(connection, {
       path: `/repos/${connection.repository.path}`,
@@ -243,7 +282,12 @@ export async function main(argv = process.argv.slice(2), connection) {
       return needsOwner(
         "Could not confirm the PR targets the current default branch; needs the owner.",
       );
-    if (!(await enforcedFreshness(connection, branch)))
+    freshness = await enforcedFreshness(
+      connection,
+      branch,
+      repository.private === true,
+    );
+    if (!freshness)
       return needsOwner(
         "Required-check freshness is unconfirmed or bypassable; unattended merging stops until GitHub enforcement is fixed by the owner.",
       );
@@ -251,24 +295,95 @@ export async function main(argv = process.argv.slice(2), connection) {
   } catch (error) {
     return unreadableFreshness(error);
   }
+  if (await held(connection, configuration.revision, Number(number))) return;
   try {
-    const holds = await releaseHolds(
-      connection,
-      configuration.revision,
-      Number(number),
+    if (freshness === "plan-limited") {
+      const workflowPath = ".github/workflows/pr-metadata.yml";
+      const workflow = await requestData(connection, {
+        path: `/repos/${connection.repository.path}/contents/${workflowPath}?ref=${encodeURIComponent(branch)}`,
+      });
+      if (workflow?.type !== "file" || workflow.path !== workflowPath)
+        return needsOwner(
+          "Could not confirm the default-branch PR metadata workflow; needs the owner.",
+        );
+    }
+    const rollup = await checkRollup(connection, head);
+    const runs = workflowRuns(
+      await pages(
+        connection,
+        `/repos/${connection.repository.path}/actions/runs?head_sha=${head}&per_page=100`,
+      ),
     );
-    if (holds.length) {
+    const checks = validationCheckStates(
+      rollup,
+      configuration.requiredChecks,
+      runs,
+    );
+    const required = checks.filter((check) =>
+      configuration.requiredChecks.includes(check.name),
+    );
+    const now = Date.now();
+    const validation = decide({
+      checks,
+      runs,
+      head,
+      now,
+      startedAt: now,
+      limitMs: 0,
+      comments: [],
+      requestedAt: now,
+      pushedAt: now,
+      reviewer: null,
+      policy: null,
+      author: pullRequest.author?.login,
+    });
+    if (validation.code !== 0) {
       console.error(
-        `Release merge hold: ${holds.map((pull) => `#${pull.number}`).join(", ")}. Leave this PR open and resume after the hold ends.`,
+        `Current-head validation has not succeeded for ${head}; required checks: ${
+          required
+            .filter((check) => check.state !== "pass")
+            .map((check) => `${check.name} (${check.state})`)
+            .join(", ") || "observed checks/workflow attempts"
+        }; ${configuration.evidence}.`,
       );
-      process.exitCode = 9;
+      process.exitCode = 2;
+      return;
+    }
+    const threads = await unresolvedReviewerThreads(
+      connection,
+      Number(number),
+      configuration.reviewer,
+    );
+    if (threads.length) {
+      console.error(
+        `Unresolved configured-reviewer threads: ${threads.join(", ")}; ${configuration.evidence}. Resolve the threads and rerun merge.mjs.`,
+      );
+      process.exitCode = 6;
       return;
     }
   } catch (error) {
     if (["forbidden", "unauthenticated"].includes(error.reason)) throw error;
     return needsOwner(
-      `Could not confirm the release hold at ${configuration.revision}: ${error.message}`,
+      `Could not establish required-check or reviewer-thread evidence for ${head}; required names: ${configuration.requiredChecks.join(", ")}; ${configuration.evidence}: ${error.message}`,
     );
+  }
+  if (await held(connection, configuration.revision, Number(number))) return;
+  // All slow gates precede this final head, live destination and ancestry read.
+  try {
+    const finalPull = await connection.pullRequests.pullRequest(Number(number));
+    if (finalPull.headCommit !== head) return retry();
+    const finalRepository = await requestData(connection, {
+      path: `/repos/${connection.repository.path}`,
+    });
+    if (
+      finalRepository?.default_branch !== branch ||
+      finalPull.baseBranch !== branch ||
+      (freshness === "plan-limited" && finalRepository.private !== true)
+    )
+      return needsOwner("The PR destination changed; needs the owner.");
+    if (await baseIsStale(connection, branch, head)) return staleBase();
+  } catch (error) {
+    return unreadableFreshness(error);
   }
   let mergedCommit;
   try {

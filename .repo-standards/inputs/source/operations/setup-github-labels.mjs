@@ -10,35 +10,107 @@ import {
 } from "./lib/github-operation.mjs";
 
 const operationName = "GitHub label setup";
+// Each label may name the labels it replaces: `formerly` holds a former name
+// with the values Repo Canon or GitHub gave it. A repository lacking the label
+// but carrying a former name gets that label renamed in place, so its issues
+// keep it. A label still at a former name's values was never chosen by the
+// repository, so the fix updates it without confirmation.
+// https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/managing-labels#about-default-labels
 const canonicalLabels = [
   {
-    name: "needs-triage",
+    name: "state:triage",
     color: "fbca04",
-    description: "Requires review or renewed review",
+    description: "Waits on triage to review it, or review it again",
+    formerly: [
+      {
+        name: "needs-triage",
+        color: "fbca04",
+        description: "Requires review or renewed review",
+      },
+    ],
   },
   {
-    name: "needs-info",
+    name: "state:reporter",
     color: "d4c5f9",
-    description:
-      "Missing information; the orchestrating agent answers or routes it",
+    description: "Waits on its outside reporter for a fact only they hold",
   },
   {
-    name: "ready-for-agent",
-    color: "0e8a16",
-    description: "Reviewed and sufficiently specified for agent implementation",
+    name: "state:grill",
+    color: "d876e3",
+    description: "Waits on a grilling session for the owner's intent",
   },
   {
-    name: "ready-for-human",
+    name: "state:owner",
     color: "1d76db",
-    description:
-      "Reviewed; needs the owner's accounts, credentials or a reserved taste call",
+    description: "Waits on the owner's answer or work only the owner can do",
+    formerly: [
+      {
+        name: "ready-for-human",
+        color: "1d76db",
+        description:
+          "Reviewed; needs the owner's accounts, credentials or a reserved taste call",
+      },
+    ],
   },
-  { name: "wontfix", color: "ffffff", description: "Will not be actioned" },
-  { name: "bug", color: "d73a4a", description: "Something isn't working" },
   {
-    name: "enhancement",
+    name: "state:ready",
+    color: "0e8a16",
+    description: "Reviewed; waits on an agent to implement it",
+    formerly: [
+      {
+        name: "ready-for-agent",
+        color: "0e8a16",
+        description:
+          "Reviewed and sufficiently specified for agent implementation",
+      },
+    ],
+  },
+  {
+    name: "type:bug",
+    color: "d73a4a",
+    description: "Something isn't working",
+    formerly: [
+      { name: "bug", color: "d73a4a", description: "Something isn't working" },
+    ],
+  },
+  {
+    name: "type:enhancement",
     color: "a2eeef",
     description: "New feature or request",
+    formerly: [
+      {
+        name: "enhancement",
+        color: "a2eeef",
+        description: "New feature or request",
+      },
+    ],
+  },
+  {
+    name: "priority:high",
+    color: "d93f0b",
+    description: "Picked up before normal and low priority work",
+  },
+  {
+    name: "priority:normal",
+    color: "bfdadc",
+    description: "Picked up in the usual order; no priority label means this",
+  },
+  {
+    name: "priority:low",
+    color: "c2e0c6",
+    description: "Picked up after high and normal priority work",
+  },
+  {
+    name: "wontfix",
+    color: "ffffff",
+    description: "Will not be actioned",
+    formerly: [
+      {
+        name: "wontfix",
+        color: "ffffff",
+        description: "This will not be worked on",
+      },
+    ],
   },
   {
     name: "wayfinder:map",
@@ -67,22 +139,70 @@ const canonicalLabels = [
   },
 ];
 
-// GitHub's documented default labels that the canonical table also names. A
-// label still at both stock values was never chosen by the repository, so the
-// fix updates it without confirmation. The other default labels, and any
-// custom default of an owner or organization, are not canonical names.
-// https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/managing-labels#about-default-labels
-const stockLabels = [
-  { name: "bug", color: "d73a4a", description: "Something isn't working" },
+// The factory profile's owner gates and factory labels. The factory creates
+// running, failed and paused with its own values when they are missing; the
+// repository never chose those.
+const factoryLabels = [
   {
-    name: "enhancement",
-    color: "a2eeef",
-    description: "New feature or request",
+    name: "gate:owner-review",
+    color: "e99695",
+    description: "Waits on the owner's review before its pull request merges",
   },
   {
-    name: "wontfix",
-    color: "ffffff",
-    description: "This will not be worked on",
+    name: "gate:major-release",
+    color: "e99695",
+    description: "Waits on the owner's go-ahead for a major release",
+  },
+  {
+    name: "factory:running",
+    color: "0052cc",
+    description: "Waits on the factory run that holds it",
+    formerly: [
+      {
+        name: "factory:running",
+        color: "0052cc",
+        description: "Factory state: running",
+      },
+    ],
+  },
+  {
+    name: "factory:paused",
+    color: "c5def5",
+    description: "Waits on the factory to resume the run it paused",
+    formerly: [
+      {
+        name: "factory:paused",
+        color: "c5def5",
+        description: "Factory state: paused",
+      },
+    ],
+  },
+  {
+    name: "factory:failed",
+    color: "b60205",
+    description: "Waits on a person to deal with the failed run",
+    formerly: [
+      {
+        name: "factory:failed",
+        color: "b60205",
+        description: "Factory state: failed",
+      },
+    ],
+  },
+  {
+    name: "factory:skip",
+    color: "c5def5",
+    description: "Ready agent work the factory must not pick up",
+  },
+  {
+    name: "factory:release-hold",
+    color: "c5def5",
+    description: "Hold other merges while a release PR is open",
+  },
+  {
+    name: "factory:hold",
+    color: "c5def5",
+    description: "Pause factory pickups and other merges in this repository",
   },
 ];
 
@@ -112,16 +232,33 @@ function sameLabel(actual, expected) {
   );
 }
 
-function isStockLabel(actual) {
-  return stockLabels.some((stock) => sameLabel(actual, stock));
+function isUnchosen(actual, desired) {
+  return (desired.formerly ?? []).some((former) => sameLabel(actual, former));
 }
 
-function describeEffects(created, updated) {
+// The repository's label for a canonical one: the label itself, matched
+// case-insensitively, or else the first former name the repository carries.
+function existingLabel(existing, desired) {
+  for (const name of [
+    desired.name,
+    ...(desired.formerly ?? []).map((former) => former.name),
+  ]) {
+    const actual = existing.get(name.toLowerCase());
+    if (actual) return actual;
+  }
+  return null;
+}
+
+function describeEffects(created, updated, renamed) {
   const effects = [];
-  if (created.length === 1) effects.push(`created ${created[0]}`);
-  else if (created.length > 1) effects.push(`created ${created.length} labels`);
-  if (updated.length === 1) effects.push(`updated ${updated[0]}`);
-  else if (updated.length > 1) effects.push(`updated ${updated.length} labels`);
+  for (const [verb, names] of [
+    ["created", created],
+    ["updated", updated],
+    ["renamed", renamed],
+  ]) {
+    if (names.length === 1) effects.push(`${verb} ${names[0]}`);
+    else if (names.length > 1) effects.push(`${verb} ${names.length} labels`);
+  }
   return effects.join(" and ");
 }
 
@@ -156,19 +293,7 @@ async function setupLabels(request) {
   const inferred = { identity: prepared.identity };
   const labels =
     request.profile === "factory"
-      ? [
-          ...canonicalLabels,
-          {
-            name: "factory:skip",
-            color: "c5def5",
-            description: "Ready agent work the factory must not pick up",
-          },
-          {
-            name: "factory:release-hold",
-            color: "c5def5",
-            description: "Hold other merges while a release PR is open",
-          },
-        ]
+      ? [...canonicalLabels, ...factoryLabels]
       : canonicalLabels;
 
   const before = await readLabels(inferred.identity, prepared.access);
@@ -184,7 +309,7 @@ async function setupLabels(request) {
   );
   /** @type {{ kind: string, actual?: any, desired: any }[]} */
   const actions = labels.flatMap((desired) => {
-    const actual = existing.get(desired.name.toLowerCase());
+    const actual = existingLabel(existing, desired);
     if (!actual) return [{ kind: "create", desired }];
     return sameLabel(actual, desired)
       ? []
@@ -192,7 +317,7 @@ async function setupLabels(request) {
   });
 
   const changes = actions.flatMap((action) =>
-    action.kind === "update" && !isStockLabel(action.actual)
+    action.kind === "update" && !isUnchosen(action.actual, action.desired)
       ? describeSettingChanges(
           {
             ...action.actual,
@@ -208,6 +333,7 @@ async function setupLabels(request) {
 
   const created = [];
   const updated = [];
+  const renamed = [];
   for (let index = 0; index < actions.length; index += 1) {
     const action = actions[index];
     const mutation = await mutateLabel(
@@ -216,7 +342,7 @@ async function setupLabels(request) {
       prepared.access,
     );
     if (!mutation.ok) {
-      const effects = describeEffects(created, updated);
+      const effects = describeEffects(created, updated, renamed);
       const effectMessage = effects
         ? ` Confirmed partial effects: ${effects}.`
         : " No changes were confirmed.";
@@ -227,11 +353,16 @@ async function setupLabels(request) {
       );
       return;
     }
-    (action.kind === "create" ? created : updated).push(action.desired.name);
+    if (action.kind === "create") created.push(action.desired.name);
+    else if (
+      action.actual.name.toLowerCase() === action.desired.name.toLowerCase()
+    )
+      updated.push(action.desired.name);
+    else renamed.push(`${action.actual.name} to ${action.desired.name}`);
   }
 
   const after = await readLabels(inferred.identity, prepared.access);
-  const effects = describeEffects(created, updated);
+  const effects = describeEffects(created, updated, renamed);
   if (after.error) {
     const effectMessage = effects ? ` Applied changes: ${effects}.` : "";
     result(

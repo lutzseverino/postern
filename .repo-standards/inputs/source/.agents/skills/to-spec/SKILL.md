@@ -16,9 +16,26 @@ The issue tracker and triage label vocabulary should have been provided to you.
 
 2. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
 
-Check with the user that these seams match their expectations.
+Reuse recorded test-seam decisions and plan approval with their dates and
+quoted words. Gather missing code facts and record seam evidence for review.
+Before proposing an unanswered decision, read and apply the contribution
+guide's Triage inference test, inferred-list and owner-question rules.
 
-3. Write the spec using the template below, then publish it to the project issue tracker, awaiting review: it needs no further triage, but its readiness is a separate review by someone other than you who holds a role the repository authorizes for readiness, after any revision notice the tracker posts, with the companion labels its rules require. When the spec will be broken into tickets, its readiness follows their publication.
+3. Write the spec using the template below. Copy every relied-on owner decision
+with its date and quoted words into the issue-facing contract; private records
+are not required inputs. Publish one specification issue in the repository
+containing most of the work, reading `.repo-standards/rules/comments.md#disclaimers`
+first on a hosted tracker. Cross-repository tickets remain children of that one
+specification. Use the guide's direct-body-contract publication route. Return
+the exact published contract and factual/test-seam evidence to the orchestrating
+agent for its split decision and acceptance under the guide's Triage and
+Readiness sections and the installed parent-readiness rules.
+
+Return the published specification's link and exact revision to the caller,
+which starts or resumes its ticket-publication step. For an amendment under
+the guide's Triage rules, consume the amendment grill's decisions, revise the
+specification and return its link and revision for the caller's delta-ticket
+step and the guide's acceptance process.
 
 <spec-template>
 
@@ -85,9 +102,18 @@ Paths are relative to the repository root.
   missing and no tracker was provided, ask the user where to publish the
   spec; when the label config is missing, use the canonical role names as
   the label strings.
+- `.repo-standards/rules/comments.md`: the installed comment rules, whose
+  section the posting steps name. When it is missing, post issue bodies and
+  comments as the steps describe.
 - `GLOSSARY.md` and the ADRs in `docs/adr/`: the domain vocabulary and
   decisions to respect. When either is missing, use the codebase's own words.
 - The installed rules, such as the `github-repository-configuration` rules,
   which the `repository-standards` skill looks up: the companion labels
   readiness needs. When they are missing, readiness carries no companion
   labels.
+- `CONTRIBUTING.md`: Triage inference, publication, amendments and readiness.
+  If missing, use `grilling`'s missing-guide fallback, independent exact-revision
+  review and the tracker rules provided; route unresolved owner choices to the
+  user without repeating recorded answers.
+- The `grilling` skill: the inference fallback, only when the contribution
+  guide is missing. If also missing, report it and stop for the missing policy.

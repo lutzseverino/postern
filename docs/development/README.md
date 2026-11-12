@@ -72,7 +72,7 @@ When changing the factory toolchain image or its workflow, validate the image
 with Docker:
 
 ```sh
-docker build - < .factory/Dockerfile
+docker build - < .scriptorium/Dockerfile
 ```
 
 The factory adds Git, GitHub CLI, and its agent layer to that toolchain image.

@@ -472,8 +472,15 @@ async function setupMergeSettingsOnly(
   );
 }
 
-function unavailableRequirement(identity) {
-  const offered = `matches what GitHub offers this repository: squash-only integration, PR-title subjects, and PR-body messages. Requiring \`${checkName}\` is unavailable because GitHub offers neither branch protection nor rulesets for this private repository on its current plan. Upgrade the plan or make the repository public; the next adoption or update then requires the check. Strict freshness is unconfirmed; unattended merging stops until GitHub enforcement is confirmed.`;
+function workflowBootstrap(defaultBranch) {
+  return `The default branch \`${defaultBranch}\` does not carry the PR metadata validation workflow yet, so GitHub cannot report the check. Merge this adoption through the owner; after confirmed delivery, run the next adoption or update from updated default. Missing workflow evidence grants no freshness exception; unattended merging stops.`;
+}
+
+function unavailableRequirement(identity, defaultBranch, workflowPresent) {
+  const delivery = workflowPresent
+    ? "On this proven private-plan limitation, babysit verifies current-head validation and default-branch freshness immediately before merging; a concurrent base advance after that check can still merge, an accepted residual race."
+    : workflowBootstrap(defaultBranch);
+  const offered = `matches what GitHub offers this repository: squash-only integration, PR-title subjects, and PR-body messages. Requiring \`${checkName}\` is unavailable because GitHub offers neither branch protection nor rulesets for this private repository on its current plan. Upgrade the plan or make the repository public; the next adoption or update then requires the check. ${delivery} Strict GitHub enforcement remains required wherever available.`;
   return {
     unchanged: `GitHub PR integration for ${identity} ${offered}`,
     changed: `GitHub PR integration ${offered}`,
@@ -514,28 +521,18 @@ async function setupIntegration(request) {
     prepared.access,
   );
   const rulesetsBefore = await readRulesets(inferred.identity, prepared.access);
-  if (
+  const planLimited =
     repository.private === true &&
     branchBefore.planLimited &&
-    rulesetsBefore.planLimited
-  ) {
-    await setupMergeSettingsOnly(
-      inferred.identity,
-      repository,
-      request,
-      unavailableRequirement(inferred.identity),
-      prepared.access,
-    );
-    return;
-  }
-  if (branchBefore.error) {
+    rulesetsBefore.planLimited;
+  if (branchBefore.error && !planLimited) {
     result(
       "blocked",
       `${operationName} could not inspect required checks on ${repository.default_branch} (${branchBefore.error}).`,
     );
     return;
   }
-  if (rulesetsBefore.error) {
+  if (rulesetsBefore.error && !planLimited) {
     result(
       "blocked",
       `${operationName} could not inspect repository rulesets for ${inferred.identity} (${rulesetsBefore.error}).`,
@@ -551,6 +548,20 @@ async function setupIntegration(request) {
     result(
       "blocked",
       `${operationName} could not read ${workflowPath} on ${repository.default_branch} (${workflow.error}).`,
+    );
+    return;
+  }
+  if (planLimited) {
+    await setupMergeSettingsOnly(
+      inferred.identity,
+      repository,
+      request,
+      unavailableRequirement(
+        inferred.identity,
+        repository.default_branch,
+        workflow.value,
+      ),
+      prepared.access,
     );
     return;
   }
