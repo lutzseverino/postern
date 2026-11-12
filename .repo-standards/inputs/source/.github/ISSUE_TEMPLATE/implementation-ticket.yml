@@ -1,6 +1,6 @@
 name: Implementation ticket
 description: Define a bounded change with observable acceptance criteria.
-labels: [needs-triage]
+labels: [state:triage]
 body:
   - type: input
     id: parent

@@ -14,6 +14,7 @@ import {
   conversationComments,
   pushTime,
   requestData,
+  readyForReviewTime,
 } from "./platform.mjs";
 import { skipsExternalReview } from "./review-policy.mjs";
 import {
@@ -60,7 +61,13 @@ export const main = async (argv = process.argv.slice(2), connection) => {
       Date.parse(pull.createdAt),
       comments,
       reviewer,
-      { policy, author },
+      {
+        policy,
+        author,
+        readyAt: reviewer.request.onOpen
+          ? await readyForReviewTime(connection, number)
+          : null,
+      },
     );
     if (requestedAt !== null) {
       if (

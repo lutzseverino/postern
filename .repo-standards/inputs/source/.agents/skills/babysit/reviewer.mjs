@@ -8,25 +8,38 @@ const requestComments = (comments, reviewer) =>
 export const reviewRequestCount = (comments, reviewer) =>
   Number(reviewer.request.onOpen) + requestComments(comments, reviewer).length;
 
-/** @param {{ policy?: { version: number, author: string }, author?: string }} [context] */
+/** @param {{ policy?: { version: number, author: string }, author?: string, readyAt?: number }} [context] */
 export const reviewRequestedAt = (
   openedAt,
   comments,
   reviewer,
   context = {},
 ) => {
-  const { policy, author } = context;
+  const { policy, author, readyAt } = context;
   if (skipsExternalReview(policy, author) || !reviewer) return null;
   const requests = requestComments(comments, reviewer).map((comment) =>
     Date.parse(comment.createdAt),
   );
-  if (reviewer.request.onOpen) requests.push(openedAt);
+  if (reviewer.request.onOpen) {
+    requests.push(openedAt);
+    if (readyAt != null) requests.push(readyAt);
+  }
   return requests.length ? Math.max(...requests) : null;
 };
 
 export const reviewerState = (
   reviewer,
-  { head, requestedAt, pushedAt, comments, reviews = [], now, policy, author },
+  {
+    head,
+    requestedAt,
+    evidenceRequestedAt = requestedAt,
+    pushedAt,
+    comments,
+    reviews = [],
+    now,
+    policy,
+    author,
+  },
 ) => {
   if (skipsExternalReview(policy, author)) return "skipped";
   if (!reviewer) return undefined;
@@ -46,7 +59,7 @@ export const reviewerState = (
   const replies = comments.filter(
     (comment) => comment.login === reviewer.account,
   );
-  if (reviewer.finished && requestedAt !== null) {
+  if (reviewer.finished && evidenceRequestedAt !== null) {
     const linePattern = new RegExp(reviewer.finished.line, "u");
     const finished = replies
       .filter((comment) =>
@@ -58,7 +71,7 @@ export const reviewerState = (
           return (
             groups?.sha &&
             head.startsWith(groups.sha) &&
-            Date.parse(groups.at) >= requestedAt
+            Date.parse(groups.at) >= evidenceRequestedAt
           );
         }),
       );
@@ -74,7 +87,7 @@ export const reviewerState = (
   if (
     replies.some(
       (comment) =>
-        Date.parse(comment.createdAt) >= requestedAt &&
+        Date.parse(comment.createdAt) >= evidenceRequestedAt &&
         reviewer.unavailable.some((reply) => comment.body.includes(reply)),
     )
   )

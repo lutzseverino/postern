@@ -1,9 +1,10 @@
 # Installed rules
 
-These rules come from https://github.com/lutzseverino/repo-canon v0.22.0, profile factory.
-Repository Standards installs and verifies them; adopt again to change them.
+These rules come from https://github.com/lutzseverino/repo-canon v0.27.0, profile factory.
+Repo Standards installs and verifies them; adopt again to change them.
 Run `repo-standards rules <path>` to print the rules that cover a path.
 
+- [`comments`](comments.md) covers the whole repository.
 - [`documentation`](documentation.md) covers:
   - `docs/README.md`
   - `docs/adr/0001-facts-only-ports-with-platform-adapters.md`
@@ -14,7 +15,9 @@ Run `repo-standards rules <path>` to print the rules that cover a path.
   - `docs/usage/README.md`
   - `docs/usage/reference.md`
 - [`factory-sandbox-image`](factory-sandbox-image.md) covers:
+  - `.scriptorium/Dockerfile`
   - `.factory/Dockerfile`
+  - `.factory/config.json`
 - [`factory-workflow`](factory-workflow.md) covers the whole repository.
 - [`git-attributes`](git-attributes.md) covers:
   - `.gitattributes`

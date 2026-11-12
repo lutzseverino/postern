@@ -1,9 +1,10 @@
 cli:
   package: "@lutzseverino/repo-standards"
-  version: 10.0.0
+  version: 11.0.1
 standards:
   repository: https://github.com/lutzseverino/repo-canon
-  version: v0.22.0
-  commit: 0a14e49a4f9fd9bfd313933c484215f4d8e083a8
+  version: v0.27.0
+  commit: eb5a5d74c2bb695bfdeefba12d962a47f29f7f7e
 profile: factory
 platform: github
+checks: github

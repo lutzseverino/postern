@@ -1,6 +1,8 @@
 name: Issue contracts
 
 on:
+  repository_dispatch:
+    types: [repo-canon-issue-contract]
   issues:
     types: [opened, edited, reopened, closed, labeled, unlabeled]
   issue_comment:
@@ -9,7 +11,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: issue-contract-${{ github.event.issue.number }}
+  group: issue-contract-${{ github.event.issue.number || github.event.client_payload.issue }}
   cancel-in-progress: false
 
 jobs:
@@ -18,7 +20,7 @@ jobs:
     if: github.event.issue.pull_request == null
     runs-on: ${{ vars.REPO_CANON_RUNS_ON && fromJSON(vars.REPO_CANON_RUNS_ON) || 'ubuntu-latest' }}
     permissions:
-      contents: read
+      contents: write
       issues: write
     steps:
       - name: Check out trusted workflow code

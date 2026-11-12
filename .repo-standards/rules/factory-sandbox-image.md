@@ -1,6 +1,6 @@
 # Factory toolchain image rules
 
-`.factory/Dockerfile` holds only the repository's toolchain and delivery
+`.scriptorium/Dockerfile` holds only the repository's toolchain and delivery
 runtime. It provides the runtimes, compilers, package managers, and command-line
 tools that the development guide's Setup and validation section requires, at
 the versions it names, plus the Node.js runtime the installed `babysit` scripts
@@ -25,6 +25,6 @@ provides either supported major needs nothing extra.
 The factory builds the image without a build context, so install with `RUN`
 from package sources, not `COPY` or `ADD` from the repository. Leave the
 project's own dependencies, such as `npm ci`, to the run, which installs them in
-its worktree as the development guide says. The factory's
-[sandbox image contract](https://github.com/lutzseverino/scriptorium/blob/scriptorium-v2.0.0/docs/usage/sandbox-image.md)
-governs the image.
+its worktree as the development guide says. The Scriptorium schema linked by
+`$schema` in `.scriptorium/config.json` points to the matching configuration
+and sandbox-image documentation; that sandbox image contract governs the image.

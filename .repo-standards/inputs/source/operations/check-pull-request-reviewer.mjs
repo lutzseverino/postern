@@ -1,5 +1,8 @@
 import { readFileSync } from "node:fs";
-import { readReviewer, reviewerTarget } from "./lib/pull-request-reviewer.mjs";
+import {
+  readReviewer,
+  reviewerTarget,
+} from "../.agents/skills/babysit/pull-request-reviewer.mjs";
 
 try {
   const request = JSON.parse(readFileSync(0, "utf8"));

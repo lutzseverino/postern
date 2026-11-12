@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { readReviewPolicy } from "./lib/review-policy.mjs";
+import { readReviewPolicy } from "../.agents/skills/babysit/review-policy.mjs";
 
 const target = ".github/factory-review-policy.json";
 

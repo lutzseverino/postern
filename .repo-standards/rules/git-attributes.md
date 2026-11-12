@@ -6,7 +6,8 @@ covers exact file declarations and files inside installed skill directories,
 including the triage skill's installed `.agents/skills/triage/ready.mjs`
 readiness helper and the orchestrate skill's installed
 `.agents/skills/orchestrate/wait.mjs` event wait. Reassess the installed
-inventory when updating to a selection that adds runtime code. Paths
+inventory when updating to a selection that adds, retires or relocates runtime
+code. Paths
 Linguist's default vendor list already excludes,
 including `vendor/` and `.github/`, need no entry.
 

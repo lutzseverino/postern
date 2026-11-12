@@ -1,0 +1,46 @@
+{
+  "$schema": "https://raw.githubusercontent.com/lutzseverino/scriptorium/scriptorium-v4.1.0/schemas/factory-configuration.schema.json",
+  "version": 3,
+  "labels": {
+    "triage": "state:triage",
+    "reporter": "state:reporter",
+    "grill": "state:grill",
+    "owner": "state:owner",
+    "ready": "state:ready",
+    "ownerReview": "gate:owner-review",
+    "majorRelease": "gate:major-release",
+    "running": "factory:running",
+    "paused": "factory:paused",
+    "failed": "factory:failed",
+    "skip": "factory:skip",
+    "hold": "factory:hold",
+    "releaseHold": "factory:release-hold",
+    "priorityHigh": "priority:high",
+    "priorityNormal": "priority:normal",
+    "priorityLow": "priority:low"
+  },
+  "modelLabelPrefix": "model:",
+  "runKinds": {
+    "triage": {
+      "skill": "triage",
+      "arguments": "#{issue}"
+    },
+    "implement": {
+      "skill": "implement",
+      "arguments": "#{issue}"
+    },
+    "review": {
+      "skill": "review",
+      "arguments": "#{pullRequest}",
+      "differentProvider": true
+    }
+  },
+  "contractResult": {
+    "marker": "repo-canon:issue-contract-state",
+    "author": "github-actions[bot]"
+  },
+  "triageResult": {
+    "marker": "scriptorium:run",
+    "author": "lz-scriptorium[bot]"
+  }
+}

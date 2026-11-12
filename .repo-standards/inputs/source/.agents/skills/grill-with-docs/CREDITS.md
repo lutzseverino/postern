@@ -1,8 +1,6 @@
 # Credits
 
-This skill is Repo Canon's own, taken from the `grill-with-docs` skill in [Matt Pocock's skills](https://github.com/mattpocock/skills). Its upstream base is tag `v1.3.1`, commit `24fe0ef7737efae15c87225755e9f6f5965e4888`, at [`skills/engineering/grill-with-docs`](https://github.com/mattpocock/skills/tree/24fe0ef7737efae15c87225755e9f6f5965e4888/skills/engineering/grill-with-docs). That material is used under its MIT License, whose notice follows at the end of this file; adoption also installs it beside the skills.
-
-The skill differs from its upstream base: `SKILL.md` states that a prompt or brief naming the skill is its invocation.
+This skill is Repo Canon's own, taken from the `grill-with-docs` skill in [Matt Pocock's skills](https://github.com/mattpocock/skills). Its upstream base is tag `v1.3.1`, commit `24fe0ef7737efae15c87225755e9f6f5965e4888`, at [`skills/engineering/grill-with-docs`](https://github.com/mattpocock/skills/tree/24fe0ef7737efae15c87225755e9f6f5965e4888/skills/engineering/grill-with-docs). That material is used under its MIT License, whose notice follows at the end of this file; adoption also installs it beside the skills. The skill differs from its upstream base: `SKILL.md` states that a prompt or brief naming the skill is its invocation. It composes grilling and domain-modeling with to-spec then to-tickets, publishing one cross-repository specification and proposed direct tickets for independent exact-revision review. It reuses dated decisions, applies the contribution guide’s inference boundary, reports native-link failures, and handles amendment grills through specification revisions and delta tickets, with Reads fallbacks. It invokes codebase-design and applies its single Ownership check to proposed designs during the interview.
 
 ## License notices
 

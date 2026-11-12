@@ -1,6 +1,6 @@
 name: Feature request
 description: Explain a problem and the outcome you want.
-labels: [enhancement, needs-triage]
+labels: [type:enhancement, state:triage]
 body:
   - type: textarea
     id: problem

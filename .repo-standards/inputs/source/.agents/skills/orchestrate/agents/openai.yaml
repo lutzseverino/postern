@@ -1,5 +1,0 @@
-interface:
-  display_name: "Orchestrate"
-  short_description: "Run an approved plan across tickets"
-policy:
-  allow_implicit_invocation: false

@@ -12,9 +12,8 @@ export function connectionFor(repository) {
   let remote = repository ?? process.env.GH_REPO ?? defaultRemote();
   if (!remote.includes(":")) {
     // CLI selectors accept [HOST/]OWNER/REPO; retain an explicit host.
-    const selector = /^(?:([a-z0-9.-]+)\/)?([a-z0-9_.-]+)\/([a-z0-9_.-]+)$/i.exec(
-      remote,
-    );
+    const selector =
+      /^(?:([a-z0-9.-]+)\/)?([a-z0-9_.-]+)\/([a-z0-9_.-]+)$/i.exec(remote);
     if (!selector)
       throw new PlatformError(
         "unsupported",
@@ -107,6 +106,92 @@ export async function requestData(connection, request) {
   return (await connection.access.request(request)).data;
 }
 
+// Paths are named by the caller. An existing snapshot keeps later reads at the
+// same immutable revision, including the merge guard's final configuration read.
+export async function pinnedFiles(connection, paths, snapshot) {
+  const repository = connection.repository.path;
+  const [owner, name] = repository.split("/");
+  const query = async (source, variables = {}) => {
+    const response = await requestData(connection, {
+      method: "POST",
+      path: "/graphql",
+      body: { query: source, variables: { owner, name, ...variables } },
+    });
+    if (response?.errors?.length || !response?.data?.repository)
+      throw new Error(`Could not read pinned files for ${repository}.`);
+    return response.data.repository;
+  };
+  if (!snapshot) {
+    const destination =
+      await query(`query PinnedFilesRevision($owner: String!, $name: String!) {
+      repository(owner: $owner, name: $name) {
+        nameWithOwner
+        defaultBranchRef { name target { __typename oid } }
+      }
+    }`);
+    const branch = destination.defaultBranchRef;
+    const revision = branch?.target?.oid;
+    if (
+      destination.nameWithOwner?.toLowerCase() !== repository.toLowerCase() ||
+      typeof branch?.name !== "string" ||
+      !branch.name ||
+      branch.target?.__typename !== "Commit" ||
+      !/^[0-9a-f]{40}$/i.test(revision ?? "")
+    )
+      throw new Error(
+        `Could not resolve the default-branch commit for ${repository}.`,
+      );
+    snapshot = {
+      revision,
+      evidence: `${repository} default branch ${branch.name}@${revision}`,
+    };
+  }
+  const { revision, evidence } = snapshot;
+  try {
+    const entries = Object.entries(paths);
+    const result = await query(
+      `query PinnedFiles($owner: String!, $name: String!, $revision: GitObjectID!${entries.map(([key]) => `, $${key}: String!`).join("")}) {
+        repository(owner: $owner, name: $name) {
+          commit: object(oid: $revision) { __typename oid }
+          ${entries.map(([key]) => `${key}: object(expression: $${key}) { __typename ... on Blob { text isTruncated } }`).join("\n")}
+        }
+      }`,
+      {
+        revision,
+        ...Object.fromEntries(
+          entries.map(([key, path]) => [key, `${revision}:${path}`]),
+        ),
+      },
+    );
+    if (
+      result.commit?.__typename !== "Commit" ||
+      result.commit.oid !== revision
+    )
+      throw new Error("Could not read the pinned commit.");
+    const files = Object.fromEntries(
+      entries.map(([key, path]) => {
+        const blob = result[key];
+        // Only explicit null in a successful response proves optional absence.
+        if (blob === null) return [key, null];
+        if (
+          blob?.__typename !== "Blob" ||
+          blob.isTruncated !== false ||
+          typeof blob.text !== "string"
+        )
+          throw new Error(`Could not read complete ${path}.`);
+        return [key, blob.text];
+      }),
+    );
+    return { revision, files, evidence };
+  } catch (error) {
+    if (error instanceof PlatformError) {
+      error.message = `${evidence}: ${error.message}`;
+      throw error;
+    }
+    throw new Error(`${evidence}: ${error.message}`, { cause: error });
+  }
+}
+
 export async function pages(connection, path) {
   return (await connection.access.requestPages({ path })).map(
     (page) => page.data,
@@ -127,7 +212,7 @@ export async function checkRollup(connection, head) {
       body: {
         query: `query BabysitChecks($owner: String!, $name: String!, $head: String!, $after: String) {
           repository(owner: $owner, name: $name) { object(expression: $head) { ... on Commit { statusCheckRollup { contexts(first: 100, after: $after) {
-            nodes { __typename ... on CheckRun { name status conclusion detailsUrl startedAt checkSuite { workflowRun { workflow { name } } } } ... on StatusContext { context state targetUrl } }
+            nodes { __typename ... on CheckRun { name status conclusion detailsUrl startedAt checkSuite { workflowRun { workflow { name } } } } ... on StatusContext { context state targetUrl createdAt } }
             pageInfo { hasNextPage endCursor }
           } } } } }
         }`,
@@ -241,6 +326,15 @@ export function workflowRuns(pages) {
       runs.push(run);
     }
   }
+  const total = pages[0]?.total_count;
+  if (
+    total !== undefined &&
+    (!Number.isSafeInteger(total) ||
+      total < 0 ||
+      total !== runs.length ||
+      pages.some((page) => page.total_count !== total))
+  )
+    unreadable("complete workflow runs");
   return runs;
 }
 
@@ -301,6 +395,25 @@ export function conversationComments(pages) {
   return comments;
 }
 
+// Read the complete transition history each time; a resumed wait uses the same
+// platform time, and returning to draft does not erase an earlier ready event.
+export async function readyForReviewTime(connection, number) {
+  let latest = null;
+  for (const page of await pages(
+    connection,
+    `/repos/${connection.repository.path}/issues/${number}/timeline?per_page=100`,
+  )) {
+    if (!Array.isArray(page)) unreadable("ready-for-review history");
+    for (const event of page) {
+      if (event?.event !== "ready_for_review") continue;
+      const time = Date.parse(event.created_at);
+      if (!Number.isFinite(time)) unreadable("a ready-for-review time");
+      latest = latest === null ? time : Math.max(latest, time);
+    }
+  }
+  return latest;
+}
+
 // Whether GitHub recorded the push of the pull request's head, with its time
 // for the reviewer: the recorded time, else the committer date, never before
 // opening.
@@ -325,3 +438,72 @@ export const pushTime = async (pull, connection) => {
     pushRecorded: Boolean(recorded),
   };
 };
+
+// Thread resolution is a platform fact, independent of replies or review state.
+// The first comment identifies the opener; query all threads, including outdated.
+export async function unresolvedReviewerThreads(connection, number, reviewer) {
+  if (!reviewer) return [];
+  const [owner, name] = connection.repository.path.split("/");
+  const unresolved = [];
+  const cursors = new Set();
+  let after = null;
+  for (;;) {
+    const result = await requestData(connection, {
+      method: "POST",
+      path: "/graphql",
+      body: {
+        query: `query BabysitReviewThreads($owner: String!, $name: String!, $number: Int!, $after: String) {
+          repository(owner: $owner, name: $name) { pullRequest(number: $number) {
+            reviewThreads(first: 100, after: $after) {
+              nodes { id isResolved comments(first: 1) { nodes { author { __typename login } } } }
+              pageInfo { hasNextPage endCursor }
+            }
+          } }
+        }`,
+        variables: { owner, name, number, after },
+      },
+    });
+    const page = result?.data?.repository?.pullRequest?.reviewThreads;
+    if (
+      result?.errors?.length ||
+      !Array.isArray(page?.nodes) ||
+      typeof page.pageInfo?.hasNextPage !== "boolean"
+    )
+      throw new Error("Could not read complete configured-reviewer threads.");
+    for (const thread of page.nodes) {
+      const comments = thread?.comments?.nodes;
+      if (
+        typeof thread?.id !== "string" ||
+        !thread.id ||
+        typeof thread.isResolved !== "boolean" ||
+        !Array.isArray(comments) ||
+        comments.length !== 1 ||
+        typeof comments[0]?.author?.__typename !== "string" ||
+        !comments[0].author.__typename ||
+        typeof comments[0]?.author?.login !== "string" ||
+        !comments[0].author.login
+      )
+        throw new Error(
+          "Could not read a configured-reviewer thread opener or resolution.",
+        );
+      const author = comments[0].author;
+      // GraphQL omits the bot suffix that REST and reviewer declarations use,
+      // matching Postern's GraphQL account interpretation.
+      const login =
+        author.__typename === "Bot" && !author.login.endsWith("[bot]")
+          ? `${author.login}[bot]`
+          : author.login;
+      if (
+        login.toLowerCase() === reviewer.account.toLowerCase() &&
+        !thread.isResolved
+      )
+        unresolved.push(thread.id);
+    }
+    if (!page.pageInfo.hasNextPage) return unresolved;
+    const cursor = page.pageInfo.endCursor;
+    if (typeof cursor !== "string" || !cursor || cursors.has(cursor))
+      throw new Error("Could not read complete configured-reviewer threads.");
+    cursors.add(cursor);
+    after = cursor;
+  }
+}

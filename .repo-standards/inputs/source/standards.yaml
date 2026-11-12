@@ -21,6 +21,12 @@ defaults:
       target: .github/ISSUE_TEMPLATE/bug-report.yml
       exact: .github/ISSUE_TEMPLATE/bug-report.yml
 
+    comments:
+      kind: repository
+      rules: rules/comments.md
+      guidance: guidance/comments.md
+      discovery: discovery/comments.md
+
     contribution-guidance:
       kind: file
       target: CONTRIBUTING.md
@@ -88,12 +94,23 @@ defaults:
       rules: rules/github-repository-configuration.md
       discovery: discovery/github-repository-configuration.md
       checks:
+        - id: required-checks
+          run:
+            executable: node
+            script: operations/check-required-checks.mjs
+            resources:
+              - .agents/skills/babysit/required-checks.mjs
+            arguments: []
+          prerequisite:
+            version-arguments: ["--version"]
+            version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+          timeout-seconds: 30
         - id: pull-request-reviewer
           run:
             executable: node
             script: operations/check-pull-request-reviewer.mjs
             resources:
-              - operations/lib/pull-request-reviewer.mjs
+              - .agents/skills/babysit/pull-request-reviewer.mjs
             arguments: []
           prerequisite:
             version-arguments: ["--version"]
@@ -104,7 +121,7 @@ defaults:
             executable: node
             script: operations/check-factory-review-policy.mjs
             resources:
-              - operations/lib/review-policy.mjs
+              - .agents/skills/babysit/review-policy.mjs
             arguments: []
           prerequisite:
             version-arguments: ["--version"]
@@ -189,8 +206,8 @@ defaults:
 
     validator-command:
       kind: file
-      target: scripts/validate.mjs
-      exact: scripts/validate.mjs
+      target: vendor/repo-canon/validate.mjs
+      exact: vendor/repo-canon/validate.mjs
 
     github-validator-trigger:
       kind: file
@@ -214,8 +231,23 @@ defaults:
 
     issue-contract-validator:
       kind: file
-      target: scripts/validate-issue-contract.mjs
-      exact: scripts/validate-issue-contract.mjs
+      target: vendor/repo-canon/validate-issue-contract.mjs
+      exact: vendor/repo-canon/validate-issue-contract.mjs
+
+    issue-contract-sources:
+      kind: file
+      target: scripts/issue-contract-sources.mjs
+      exact: scripts/issue-contract-sources.mjs
+
+    issue-contract-store:
+      kind: file
+      target: scripts/issue-contract-store.mjs
+      exact: scripts/issue-contract-store.mjs
+
+    issue-contract-cutoff:
+      kind: file
+      target: scripts/issue-contract-cutoff.mjs
+      exact: scripts/issue-contract-cutoff.mjs
 
     issue-contract-workflow:
       kind: file
@@ -392,11 +424,6 @@ defaults:
       name: improve-codebase-architecture
       source: .agents/skills/improve-codebase-architecture
 
-    skill-orchestrate:
-      kind: skill
-      name: orchestrate
-      source: .agents/skills/orchestrate
-
     skill-pr:
       kind: skill
       name: pr
@@ -411,6 +438,11 @@ defaults:
       kind: skill
       name: research
       source: .agents/skills/research
+
+    skill-review:
+      kind: skill
+      name: review
+      source: .agents/skills/review
 
     skill-tdd:
       kind: skill
@@ -571,10 +603,15 @@ profiles:
   factory:
     description: The standard profile plus the factory's repository files and workflow rules, for a repository a factory serves
     declarations:
+      skill-factory:
+        kind: skill
+        name: factory
+        source: .agents/skills/factory
+
       factory-configuration:
         kind: file
-        target: .factory/config.json
-        exact: .factory/config.json
+        target: .scriptorium/config.json
+        exact: .scriptorium/config.json
 
       factory-workflow:
         kind: repository
@@ -582,9 +619,25 @@ profiles:
         guidance: guidance/factory-workflow.md
         discovery: discovery/factory-workflow.md
 
+        checks:
+          - id: factory-model-policy
+            run:
+              executable: node
+              script: operations/check-factory-model-policy.mjs
+              resources:
+                - operations/lib/factory-model-policy.mjs
+              arguments: []
+            prerequisite:
+              version-arguments: ["--version"]
+              version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
+            timeout-seconds: 30
+
       factory-sandbox-image:
-        kind: file
-        target: .factory/Dockerfile
+        kind: repository
+        targets:
+          paths:
+            [.scriptorium/Dockerfile, .factory/Dockerfile, .factory/config.json]
+          directories: []
         rules: rules/factory-sandbox-image.md
         guidance: guidance/factory-sandbox-image.md
 
@@ -596,9 +649,22 @@ profiles:
   workbench:
     description: Only the workflow skills, with the files they need to run and their license notices, for the orchestrating agent's workbench
     declarations:
+      skill-create-repository:
+        kind: skill
+        name: create-repository
+        source: .agents/skills/create-repository
+      skill-create-adopted-repo:
+        kind: skill
+        name: create-adopted-repo
+        source: .agents/skills/create-adopted-repo
+      skill-orchestrate:
+        kind: skill
+        name: orchestrate
+        source: .agents/skills/orchestrate
       agent-configuration-index: { exclude: true }
       agent-guidance: { exclude: true }
       bug-report-template: { exclude: true }
+      comments: { exclude: true }
       contribution-guidance: { exclude: true }
       documentation: { exclude: true }
       domain-configuration: { exclude: true }
@@ -608,6 +674,7 @@ profiles:
       github-validator-trigger: { exclude: true }
       implementation-ticket-template: { exclude: true }
       issue-contract-workflow: { exclude: true }
+      issue-contract-cutoff: { exclude: true }
       issue-tracker-configuration: { exclude: true }
       pr-metadata-validator: { exclude: true }
       pr-metadata-workflow: { exclude: true }

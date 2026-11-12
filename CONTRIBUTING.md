@@ -20,97 +20,113 @@ and trailing periods; aim for roughly 72 characters without a hard limit.
 
 A directly authored specification or implementation ticket carries its
 implementation contract in its issue body and needs no intake triage, Agent
-Brief, or category label. A triaged request's contract is its latest Agent
-Brief comment; the intake body and discussion remain context.
+Brief, or category label. A triaged request uses the validator's body Agent Brief after explicit
+activation. Preparation retains latest-comment contracts; cutoff preserves exact unchanged
+inventoried comments until revision into the body. Preserve one verbatim `Original request` at the body's end.
+See [the protocol](docs/development/issue-contract-v2.md).
 
 Before implementing, read the whole issue, its discussion, its parent
 specification, and its blockers, and clarify contradictions. Start a ticket
 only after its blockers are closed.
 
-Every ticket merges into its base branch on its own, with its checks passing.
+Every ticket's change merges into its base branch on its own, with its checks
+passing. An issue closes when its own acceptance criteria hold. After
+readiness, nobody edits an implementation contract to record progress: progress
+lives in linked pull requests, sub-issue states and comments.
+
+Work that must be shown on a live system splits into a source ticket, which
+closes when its pull request merges, and a live-acceptance ticket, blocked by
+the source ticket, which closes only on its recorded live acceptance.
 
 ## Triage
 
 Triage routes an intake request by where its uncertainty lies, not by its
 category label. A request is code-bound when its expected result is clear and
 code, logs, or a reproduction can answer the rest. It is intent-bound when an
-open question needs the owner's intent, a policy, or a trade-off they choose,
-as when its brief would otherwise leave an owner question, offer options, or
+open question needs the owner's intent, a policy, a trade-off they choose, or
+their taste in copy, UI or look, as when its brief would otherwise leave an owner question, offer options, or
 set a value nobody chose, including for a bug. Missing evidence or access never
 licenses inventing policy.
 
 The orchestrating agent runs triage and starts a research run, a separate
 agent, for each request. For a code-bound request, the research run verifies
 the claim and posts the Agent Brief. For an intent-bound request, it first
-gathers the facts from the code.
+gathers the facts from the code. Where a factory runs triage itself, the
+factory workflow rules' Triage run section sets that run's limits.
 
-Under the inference test, the orchestrating agent may answer an intent question
-itself only when all three hold: it can cite the answer's source, the owner's
-approved goal for the work, a recorded owner decision or wish, or the owner's
+Under the inference test, whoever answers for the maintainer may settle a
+question that would otherwise go to the owner only when all three hold: it can
+cite the answer's source, the owner's approved goal for the work, a recorded
+owner decision or wish, or the owner's
 quoted words, each with its date; the choice is reversible within that work, so
 no value or policy outlives it, and it adds no public name and no breaking
 change; and it changes neither the goal nor the scope. A default, limit,
 timeout, or fallback that persists in the product is never inferred. The brief
 states each inferred answer as behavior, and its triage notes list it with its
-citation under **Inferred intent**. The orchestrating agent lists every
-inferred answer in its next report to the owner, so the owner can veto it. A
-veto is an owner decision, and the brief is revised from it.
+citation under **Inferred intent**. A veto is an owner decision, and the brief
+is revised from it.
 
-Questions it cannot infer go to a separate grilling session with the owner. The
-grill records the owner's decisions and drafts the Agent Briefs in a proposed
-ticket split; it files no issue and applies no readiness. The orchestrating
-agent decides the split: it may merge, split, or drop a draft, or set it aside
-for later work. It files the issues with the grill's briefs, and each issue's
-triage notes record the owner decisions its brief relies on, each with its date
-and where the owner gave it. A recorded decision is not asked again. The
-orchestrating agent never writes a brief it accepts: when its split changes a
-draft substantially, the grill rewrites that brief, and a research run writes
-one only when it needs code facts the grill did not gather.
+Owner ideas take conversation and a grill unless the owner approves a shorter
+path for that idea; filed requests take triage. Grills reuse answers and ask
+only about one-way doors or unchosen values. List other answers passing the
+inference test under **Inferred, listed for the owner**, with dated sources
+and veto. Grill answers and plan approval remain gates.
 
-A grilling session changing a repository's glossary or ADRs works on its own
-branch in a checkout it owns (a worktree or fresh clone), never in a shared
-checkout on the default branch. Each repository whose domain documents change
-gets one pull request through its normal review and merge. The grill's decision
-record and draft briefs stay in the workbench, committed directly to its default
-branch.
+The grill writer invokes `to-spec`, then `to-tickets`, publishing direct body
+contracts for independent review, without intake triage, redundant Agent
+Briefs or category labels. One specification lives in the repository
+containing most work; tickets in their responsible repositories are its native
+sub-issues with blockers. Copy relied-on decisions, dates and quotes into
+every contract. A failed native edge stops progression: report the exact
+missing relationship and platform failure.
 
-The orchestrating agent, never the agent that wrote the brief, then reviews its
-evidence, scope, acceptance criteria, dependencies, and open questions. Passing
-the structure check never makes a brief hold. A brief that leaves owner intent
-open, or disguises it as an implementation choice, an option list, or a
-fallback value, does not hold: questions the inference test cannot settle go to
-the owner, and an unanswered required question blocks acceptance. Any other gap
-goes back to the brief's writer for correction. The orchestrating agent accepts
-a brief that holds by applying readiness to its revision, records its blockers,
-and tells the owner with links. When the revision notice never arrives, or its
-credentials cannot apply readiness, it leaves readiness to the owner and tells
-them under the [comment rules](#comments) instead.
+The orchestrating agent decides the final split, merging, splitting, dropping
+or setting aside drafts, and never accepts its own contract. Substantial split
+changes return to the writer; missing code facts go to independent research.
+Review checks evidence, scope, granularity, dependencies, acceptance criteria,
+test seams and open questions without an owner quiz or settled-seam
+confirmation. Reject unresolved or disguised owner intent; correct settled
+questions. Structure and publication grant no readiness. Apply Readiness to
+each exact contract, parent readiness after tickets under installed later-link
+rules, and closed blockers before implementation. Without notice or authority,
+leave readiness to the owner, reporting links under comment rules.
 
-Every question reaches the orchestrating agent first. `needs-info` means
-information is missing: the orchestrating agent answers what it can from code,
-logs, or a reproduction, or under the inference test, and a question for an
-outside reporter still goes to the reporter. A question only the owner can
-answer goes into its decision inbox with its recommendation; the decision inbox
-is the one channel for questions to the owner. When the owner runs triage
-themselves, they are the orchestrating agent.
+Changes to a plan's goal, Done means or row scope require an amendment grill,
+possibly one round: revise the specification, then run `to-tickets` on the
+delta, updating affected contracts and native links. Edited accepted contracts
+lose readiness; require new notice, independent review and renewed readiness.
+Findings, follow-ups passing the inference test and reorderings already
+permitted by blockers need no amendment. Progress never edits ready contracts.
+
+Grills edit domain documents on their own branch and checkout, never a shared
+default-branch checkout. Open one draft PR per repository with domain changes,
+delivered by separate `review`, run by the orchestrating agent unless a
+factory reviews it. Return contracts for acceptance. Authoritative contracts
+stay in repository issues.
+
+A fact only an outside reporter holds goes to the reporter, with the issue in
+`state:reporter`. A question only the owner can answer goes to the owner with
+its recommendation, with the issue in `state:owner`, or in `state:grill` when
+a grill must settle the owner's intent.
 
 ## Readiness
 
-Applying `ready-for-agent` or `ready-for-human` is the review action, and the
-`github-repository-configuration` rules name the roles it needs. After
-revising a contract or posting an Agent Brief, wait for the issue-contract
-workflow's revision notice before applying readiness. Editing a contract removes its readiness. The
-workflow keeps one workflow state label on an issue: authorized readiness or a
-newly applied state replaces the previous one, and an issue left with none gets
-`needs-triage` on every run, even if it has never carried a state. This applies
+Applying `state:ready` is the review action, and the
+`github-repository-configuration` rules name the roles it needs, the factory
+triage run's exception to them, and the labels. After revising a contract or
+posting an Agent Brief, wait for the issue-contract workflow's revision notice
+before applying readiness. Editing a contract removes its readiness. The workflow keeps one workflow state label on
+an issue, a `state:` label or the closing `wontfix` in its place: authorized
+readiness or a newly applied state replaces the previous one, and an issue left with none gets
+`state:triage` on every run, even if it has never carried a state. This applies
 to open intake requests, specifications, tickets, and unrecognized issues;
 Wayfinder maps and children stay outside workflow states. The validator's own
-`needs-triage` is a fallback and never supersedes authorized readiness bound to
+`state:triage` is a fallback and never supersedes authorized readiness bound to
 the current revision, even when applied after its review. A person's later
-workflow state still supersedes readiness. A closed issue loses `needs-triage`,
-`needs-info`, `ready-for-agent`, `ready-for-human` and every `factory:*` label,
-preserving `wontfix`, category, `model:*`, unrelated labels and feedback.
-Reopening restores no removed labels; normal validation applies.
+workflow state still supersedes readiness. A closed issue loses every
+`state:`, `gate:` and `factory:` label, preserving `wontfix`, `type:`,
+`priority:`, `model:`, unrelated labels and feedback. Reopening restores no
+removed labels; normal validation applies.
 A specification or ticket can be ready while its blockers are open.
 
 ## Development setup
@@ -131,9 +147,13 @@ work it is responsible for. Fix defects inside the change's responsibility in
 the change. An adoption run's own contextual work in the adopting repository
 is not a finding.
 
+A factory run cites its filing run in each finding it files, and never opens a
+separate unticketed pull request: out-of-scope work, however small, is a
+finding.
+
 Before filing, check for an open issue that already reports the finding and
 link it instead of creating a duplicate. Otherwise, open one issue per finding
-through the target repository's issue forms, labelled `needs-triage`. File it
+through the target repository's issue forms, labelled `state:triage`. File it
 in the repository responsible for the affected material or tooling. Each issue
 cites the run's pull request or issue and distinguishes what the run observed
 from what it only read in code. Leave the issues to triage.
@@ -179,45 +199,30 @@ merge pull requests, and apply labels as the installed
 [GitHub repository configuration rules](rules/github-repository-configuration.md)
 and, where applicable, [factory workflow rules](rules/factory-workflow.md) allow;
 the [readiness](#readiness), [credential](#credentials), and [merge](#merging)
-gates still apply.
+gates still apply. What it posts on issues and pull requests follows the
+[comment rules](rules/comments.md), as for any account.
 
-The disclaimer below starts every agent-written comment and every agent-filed
-issue body (using the triage variant during triage), while the attribution ban
-forbids crediting an agent, model or tool in commits and pull request titles and
-bodies and never applies to comments.
-
-Start with the disclaimer line, `>` included, followed by a blank line:
-
-```markdown
-> _This was generated by AI._
-```
-
-During triage, use the [triage skill](.agents/skills/triage/SKILL.md)'s variant:
-
-<!-- prettier-ignore -->
-```markdown
-> *This was generated by AI during triage.*
-```
-
-Pull request titles and bodies are exempt from the disclaimer; review request
-comments follow the [GitHub rules](rules/github-repository-configuration.md#review-request-comments)
-instead.
-
-Under the attribution ban, omit every `Co-authored-by:` trailer, for any
-co-author, including people and bots; any "Generated with …" or "Generated by …"
-attribution line; and agent session links.
-The merging account already records who did the work.
+The attribution ban forbids crediting an agent, model or tool in commits and
+pull request titles and bodies, and never applies to comments. Under it, omit
+every `Co-authored-by:` trailer, for any co-author, including people and bots;
+any "Generated with …" or "Generated by …" attribution line; and agent session
+links. The merging account already records who did the work.
 
 ## Pull requests
+
+Use `implement`, then separate `review` through merge; factories without review
+use `babysit` instead. Address review hand-backs on the same draft PR.
 
 Keep each pull request focused. Describe the problem and resulting change,
 report the checks you ran and their outcomes, and link the relevant issue.
 A pull request that finishes its issue links it with a closing reference, such
 as `Closes #123`, so merging it closes the issue. A pull request that does only
 part of an issue's work links it without a closing reference, such as
-`Part of #123`. A closing reference closes the issue only when the pull request
-merges into the default branch; with another base branch, whoever merges closes
-the issue after the merge. If the work finished the issue, close it.
+`Part of #123`. A source pull request links its live-acceptance ticket this
+way, because a merge never closes one. A closing reference closes the issue
+only when the pull request merges into the default branch; with another base
+branch, whoever merges closes the issue after the merge. If the work finished
+the issue, close it.
 
 A Direct change is work without a ticket, requested by the maintainer in a
 thread or making a minor correction, such as a typo, broken link, or formatting
@@ -243,6 +248,31 @@ such as a temporary Git worktree. Run a check that reads a diff, such as
 For an ordinary pull request, write the body with the `pr` skill. For an
 adoption pull request, use the adoption record as described below.
 
+### Worker handoff
+
+Before worker handoff, every required check must pass on the latest pushed PR
+head. Required names come from the pinned trusted default-branch
+`.github/required-checks.json` under the `github-repository-configuration`
+rules. Every configured location runs the same required command:
+
+- `github`: use required hosted check results on that head.
+- `runner`: use required commit statuses from the repository's named runner.
+- `self-reported`: run and report the required local command on that head.
+
+A head change invalidates earlier evidence. Pending, missing, failing,
+unavailable or unrun required results cannot qualify. Unavailable Actions cannot
+substitute a local pass for configured runner results. Fix and revalidate, or
+follow existing blocked/failure delivery rules, naming checks and reasons.
+Add no timeout, fallback or bypass.
+
+Record the full head SHA, trusted declaration revision, location, required command,
+names and outcomes. Draft-to-separate-review and no-review handoffs both retain
+review/merge ownership and gates.
+
+Self-reported success requires the independent review run, another agent and
+sandbox, to rerun the same command on the current head before merging. The
+worker report cannot replace that rerun or clear designated owner review.
+
 ### Adoption pull requests
 
 An adoption pull request holds only one completed Repository Standards adoption or
@@ -266,7 +296,7 @@ Post one check-outcomes comment with the repository's own
 validation outcomes, confirmation of the recorded ready-to-commit verdict, and findings
 links or unfiled findings under the
 [findings rule](#findings).
-Write the check-outcomes comment under the [comment rules](#comments).
+Write the check-outcomes comment under the [comment rules](rules/comments.md).
 
 The Repository Standards update action uses `chore!:` titles and includes
 Impact and Migration sections for major advances and breaking `0.x` minor
@@ -290,8 +320,9 @@ head alongside the conditions below.
 
 Merge a pull request once every required check passes on its latest head and
 every review thread is answered with its fix or a reasoned decline under the
-[comment rules](#comments). Checks must include the current default branch
-under GitHub's up-to-date-branch enforcement; unconfirmed enforcement stops unattended merging. The
+[comment rules](rules/comments.md). Checks must include the current default branch
+under GitHub enforcement wherever available; proven private-plan limitations
+require immediate merging-agent verification with the accepted concurrent-base race. The
 `github-repository-configuration` rules define freshness, passing checks and
 reviewer policy.
 Squash-merge pull requests into their base branch, passing the subject
@@ -306,7 +337,7 @@ it is outside the change's ticket or scope; when it guards a rule another layer
 owns, such as by duplicating that layer's validation; or when it guards against
 the owner misconfiguring files only the owner writes, or a component corrupting
 state it owns itself, which lie outside the threat model. Answer a decline with
-its reason in its review thread under the [comment rules](#comments). Record real findings declined because they
+its reason in its review thread under the [comment rules](rules/comments.md). Record real findings declined because they
 are outside the change's ticket or scope, or because another layer owns the
 rule they guard, under the [findings rule](#findings). Do not file findings
 declined because they do not hold or lie outside the threat model.
@@ -322,28 +353,20 @@ call is refused for permission, the refusal stands: the agent stops and asks
 the owner, as for any answer only the owner can give, and never retries under
 another identity.
 
-## Comments
+## Owner questions
 
-When an agent needs an answer only the owner can give, post the question as one
-issue comment under these rules, and stop without a pull request if none is open,
-or leaving the open pull request unmerged and linked from the question. Work
-without an issue asks on its pull request instead. This owner handoff ends the
-agent's babysitting of the pull request. The agent neither closes the pull
-request nor waits for the answer. Subsequent continuation follows applicable
-installed rules. The orchestrating agent reads the question
-first: when it can answer under the [triage](#triage) inference test, it
-answers on the issue; otherwise it puts the question in its decision inbox.
+When an agent needs an answer only the owner can give, it posts the question as
+the [comment rules](rules/comments.md#owner-questions) say, and stops without a
+pull request if none is open, or leaving the open pull request unmerged and
+linked from the question. This owner handoff ends the agent's babysitting of
+the pull request. The agent neither closes the pull request nor waits for the
+answer. Subsequent continuation follows applicable installed rules.
 
 If the answer changes the implementation contract, have a separate writer edit
 it; await its validator notice, independent review and renewed readiness before
 continuation.
 
-An agent comments on an issue or pull request to record a decision, an outcome,
-or a question that needs an answer, never to narrate progress. Consolidate
-everything the agent has to say on one occasion into one comment.
+## Comments
 
-For disclaimers and attribution, follow
-[Agents on the maintainer's account](#agents-on-the-maintainers-account).
-
-Comments, issue and pull request titles, and their bodies never contain secret,
-token, or credential values. Write `<REDACTED>` in their place.
+Every rule about what agents post on issues and pull requests, on any account,
+lives in the installed [comment rules](rules/comments.md).

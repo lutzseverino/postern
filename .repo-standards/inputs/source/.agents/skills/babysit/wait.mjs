@@ -15,9 +15,8 @@
 //   6  checks settled; external review skipped by app-author policy
 //   7  invalid trusted review configuration; owner handoff, keep the PR open
 //
-// Checks settled means checks passed or no check arrived within 5 minutes
-// of a push GitHub recorded and no workflow run for the head is unfinished
-// or counted as failed.
+// Checks settled means every declared required name has positive success and
+// no observed check or workflow attempt remains unfinished or failed.
 // A workflow whose latest run failed with no check from that run or attempt
 // counts as a failed check.
 //
@@ -38,13 +37,15 @@ import {
   reviewComments,
   pushTime,
   conversationComments,
+  readyForReviewTime,
 } from "./platform.mjs";
 
 import {
   InvalidTrustedReviewConfiguration,
   trustedReviewConfiguration,
 } from "./trusted-review-config.mjs";
-import { reviewOutcomeTemplate } from "./review-outcome.mjs";
+import { reviewsSection, reviewTemplate } from "./review-outcome.mjs";
+import { skipsExternalReview } from "./review-policy.mjs";
 import {
   reviewRequestedAt,
   reviewerState,
@@ -52,7 +53,12 @@ import {
 } from "./reviewer.mjs";
 export { reviewRequestedAt } from "./reviewer.mjs";
 
-const checksBoundMs = 5 * 60_000;
+import {
+  validationCheckStates,
+  failedConclusions,
+} from "./required-checks.mjs";
+export { checkStates } from "./required-checks.mjs";
+
 const settledCodes = {
   skipped: 6,
   reviewed: 0,
@@ -77,12 +83,11 @@ const workflowRunLink = (link) =>
 // A check settles that workflow's latest run only if it started at or after
 // the run's latest attempt. A workflow whose latest run failed with no check
 // from that run or attempt joins the failed checks under its name and run link;
-// `requestedAt` is the latest review request; `pushedAt` is the head's push
-// time or its committer-date fallback, and `pushRecorded` says whether GitHub
-// recorded that push. The checks stay pending while the head has none and
-// its push is unrecorded or less than 5 minutes old, or while any check or run
-// is unfinished: a new head's checks and a queued rerun can be missing from
-// the rollup while their runs are already listed. A failed check ends the wait
+// `requestedAt` is the effective review request time; `evidenceRequestedAt`
+// retains the opening/explicit-request cutoff for completion and unavailability.
+// `pushedAt` is the head's push
+// time or its committer-date fallback, used for reviewer timing. An empty
+// check set remains pending regardless of push age. Failed checks end the wait
 // immediately. It
 // returns `code: null` while the outcome is unsettled and the invocation limit
 // is not reached.
@@ -94,8 +99,8 @@ export const decide = ({
   checks,
   runs = [],
   requestedAt,
+  evidenceRequestedAt = requestedAt,
   pushedAt,
-  pushRecorded,
   comments,
   reviews = [],
   now,
@@ -107,6 +112,7 @@ export const decide = ({
     author,
     head,
     requestedAt,
+    evidenceRequestedAt,
     pushedAt,
     comments,
     reviews,
@@ -157,20 +163,17 @@ export const decide = ({
     ...failingRuns,
   ];
   const checksPending =
-    (checks.length === 0 &&
-      failingRuns.length === 0 &&
-      (!pushRecorded || now - pushedAt < checksBoundMs)) ||
+    (checks.length === 0 && failingRuns.length === 0) ||
     checks.some((check) => check.state === "pending") ||
     runs.some((run) => run.status !== "completed");
   if (failing.length > 0) {
     return { code: 2, ...review, failing };
   }
-  const noChecks = checks.length === 0 && { noChecks: true };
   if (!checksPending && !state) {
-    return { code: 0, failing, ...noChecks };
+    return { code: 0, failing };
   }
   if (!checksPending && state in settledCodes) {
-    return { code: settledCodes[state], ...review, failing, ...noChecks };
+    return { code: settledCodes[state], ...review, failing };
   }
   if (now - startedAt >= limitMs) {
     return { code: 5, ...review, failing, checksPending };
@@ -191,11 +194,7 @@ export const report = (outcome, head) => {
     const waiting = `still waiting on ${pending.join(" and ")}; run again`;
     line = count === 0 ? waiting : `${failed}, ${waiting}`;
   } else {
-    const checks = outcome.noChecks
-      ? "no checks within 5 minutes of the push"
-      : count === 0
-        ? "checks passed"
-        : failed;
+    const checks = count === 0 ? "checks passed" : failed;
     line = [checks, outcome.reviewerPhrase].filter(Boolean).join(", ");
   }
   return [
@@ -204,68 +203,12 @@ export const report = (outcome, head) => {
     ...(outcome.code === 6
       ? [
           "",
-          "Post this comment after replacing both outcome placeholders:",
+          `Post this pull request review, as ${reviewsSection} describes, after replacing every placeholder:`,
           "",
-          ...reviewOutcomeTemplate(head),
+          ...reviewTemplate(head),
         ]
       : []),
   ];
-};
-
-const failedConclusions = new Set([
-  "ACTION_REQUIRED",
-  "CANCELLED",
-  "FAILURE",
-  "STALE",
-  "STARTUP_FAILURE",
-  "TIMED_OUT",
-  "ERROR",
-]);
-
-// Turns GitHub's status check rollup, read through Access, into check states. Any unfinished
-// run keeps its check pending; otherwise the latest-started run wins.
-export const checkStates = (rollup) => {
-  const latest = new Map();
-  for (const item of rollup ?? []) {
-    const isRun = item.__typename === "CheckRun";
-    const name = isRun ? item.name : item.context;
-    const key = `${item.workflowName ?? ""}/${name}`;
-    const known = latest.get(key);
-    const result = isRun
-      ? item.status === "COMPLETED"
-        ? item.conclusion
-        : "PENDING"
-      : item.state;
-    const pending = ["PENDING", "EXPECTED"].includes(result);
-    if (known) {
-      const knownPending = known.check.state === "pending";
-      if (knownPending && !pending) continue;
-      if (
-        knownPending === pending &&
-        (known.startedAt ?? "") > (item.startedAt ?? "")
-      )
-        continue;
-    }
-    latest.set(key, {
-      startedAt: item.startedAt,
-      check: {
-        name,
-        state: pending
-          ? "pending"
-          : failedConclusions.has(result)
-            ? "fail"
-            : "pass",
-        link: isRun ? item.detailsUrl : item.targetUrl,
-        ...(isRun
-          ? {
-              workflowName: item.workflowName,
-              checkRunStartedAt: item.startedAt,
-            }
-          : {}),
-      },
-    });
-  }
-  return [...latest.values()].map((entry) => entry.check);
 };
 
 class UsageError extends Error {}
@@ -311,14 +254,21 @@ const pause = async (durationMs) => {
   }
 };
 
-const look = async (number, pushTimes, reviewer, policy, connection) => {
+const look = async (
+  number,
+  pushTimes,
+  reviewer,
+  policy,
+  requiredChecks,
+  connection,
+) => {
   const path = `/repos/${connection.repository.path}`;
   if (reviewer && !connection.pullRequests.capabilities.reviewCommits)
     throw new Error(
       "Review commits are unavailable; cannot establish latest-head review.",
     );
   const pull = await connection.pullRequests.pullRequest(Number(number));
-  const [rollup, comments, reviews, reviewCommentPages, runs, push] =
+  const [rollup, comments, reviews, reviewCommentPages, runs, push, readyAt] =
     await Promise.all([
       checkRollup(connection, pull.headCommit),
       reviewer
@@ -333,6 +283,10 @@ const look = async (number, pushTimes, reviewer, policy, connection) => {
         `${path}/actions/runs?head_sha=${pull.headCommit}&per_page=100`,
       ),
       pushTimes.get(pull.headCommit) ?? pushTime(pull, connection),
+      reviewer?.request.onOpen &&
+      !skipsExternalReview(policy, pull.author?.login)
+        ? readyForReviewTime(connection, number)
+        : null,
     ]);
   const commentsByReview = new Map();
   for (const comment of reviewComments(reviewCommentPages)) {
@@ -344,7 +298,7 @@ const look = async (number, pushTimes, reviewer, policy, connection) => {
   if (push.pushRecorded) pushTimes.set(pull.headCommit, push);
   return {
     head: pull.headCommit,
-    checks: checkStates(rollup),
+    checks: validationCheckStates(rollup, requiredChecks, workflowRuns(runs)),
     runs: workflowRuns(runs),
     reviewer,
     policy,
@@ -356,11 +310,19 @@ const look = async (number, pushTimes, reviewer, policy, connection) => {
       body: review.body,
       comments: commentsByReview.get(review.id) ?? [],
     })),
-    requestedAt: reviewRequestedAt(
+    // Ready adjusts bounds and head freshness, while the original request
+    // cutoff keeps already-recognized completion and unavailability valid.
+    evidenceRequestedAt: reviewRequestedAt(
       Date.parse(pull.createdAt),
       neutralComments,
       reviewer,
       { policy, author: pull.author?.login },
+    ),
+    requestedAt: reviewRequestedAt(
+      Date.parse(pull.createdAt),
+      neutralComments,
+      reviewer,
+      { policy, author: pull.author?.login, readyAt },
     ),
     ...push,
     comments: neutralComments,
@@ -373,11 +335,12 @@ export const main = async (argv = process.argv.slice(2), connection) => {
   let reviewer;
   let policy;
   let evidence;
+  let requiredChecks;
   try {
     options = parseArguments(argv);
     connection ??= connectionFor(options.repo);
-    ({ reviewer, policy, evidence } =
-      await trustedReviewConfiguration(connection));
+    ({ reviewer, policy, evidence, requiredChecks } =
+      await trustedReviewConfiguration(connection, { requiredChecks: true }));
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     return error instanceof InvalidTrustedReviewConfiguration ? 7 : 1;
@@ -392,10 +355,13 @@ export const main = async (argv = process.argv.slice(2), connection) => {
         pushTimes,
         reviewer,
         policy,
+        requiredChecks,
         connection,
       );
     } catch (error) {
-      process.stderr.write(`wait.mjs: ${error.message}\n`);
+      process.stderr.write(
+        `wait.mjs: ${error.message}; required checks: ${requiredChecks.join(", ")}; ${evidence}\n`,
+      );
       return 1;
     }
     const outcome = decide({ ...state, now: Date.now(), startedAt, limitMs });
