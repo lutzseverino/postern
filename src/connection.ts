@@ -48,8 +48,9 @@ export interface ConnectOptions {
   /** The `fetch` implementation requests go through. Defaults to the global `fetch`. */
   fetch?: typeof globalThis.fetch;
   /**
-   * How long one request may take before it fails with `unavailable`: a whole
-   * number of milliseconds from 1 to 2147483647. Defaults to 30 seconds.
+   * How long one request may take, its retries included, before it fails
+   * with `unavailable`: a whole number of milliseconds from 1 to 2147483647.
+   * Defaults to 30 seconds.
    */
   timeoutMs?: number;
 }

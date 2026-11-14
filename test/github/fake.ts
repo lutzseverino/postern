@@ -72,6 +72,8 @@ export interface FakeRequest {
   url: URL;
   headers: Headers;
   body: unknown;
+  /** `Date.now()` when the request was sent. */
+  at: number;
 }
 
 const origin = "https://api.github.com";
@@ -102,6 +104,7 @@ export class GitHubFake {
   /** The largest page the fake serves, whatever size a request asks for. */
   maxPageSize = 100;
   readonly #injected: Injected[] = [];
+  #repeated: { response: Injected; request?: string } | null = null;
   readonly #malformations: (Malformed | null)[] = [];
   readonly #numbers = new Map<string, number>();
   // Past the 32-bit range, as GitHub's newer IDs are.
@@ -128,6 +131,11 @@ export class GitHubFake {
     this.#injected.push(response);
   }
 
+  /** Answers the next request, and every repeat of that same request, with this response. */
+  injectRepeated(response: Injected): void {
+    this.#repeated = { response };
+  }
+
   /** Answers the next request, or the one after `skip` others, with its own response, changed this way. */
   malformNext(change: Malformed, skip = 0): void {
     for (let skipped = 0; skipped < skip; skipped++)
@@ -144,8 +152,8 @@ export class GitHubFake {
     const method = (init.method ?? "GET").toUpperCase();
     const body =
       typeof init.body === "string" ? JSON.parse(init.body) : undefined;
-    this.requests.push({ method, url, headers, body });
-    const injected = this.#injected.shift();
+    this.requests.push({ method, url, headers, body, at: Date.now() });
+    const injected = this.#injected.shift() ?? this.#repeat(method, url, body);
     if (injected)
       return this.#injectedResponse(injected, init.signal ?? undefined);
     if (url.origin !== origin)
@@ -170,6 +178,15 @@ export class GitHubFake {
       headers: { ...Object.fromEntries(response.headers), ...change.headers },
     });
   };
+
+  #repeat(method: string, url: URL, body: unknown): Injected | undefined {
+    if (!this.#repeated) return undefined;
+    const request = JSON.stringify([method, url.href, body]);
+    this.#repeated.request ??= request;
+    if (this.#repeated.request === request) return this.#repeated.response;
+    this.#repeated = null;
+    return undefined;
+  }
 
   async #injectedResponse(
     injected: Injected,
