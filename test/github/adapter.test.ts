@@ -800,6 +800,27 @@ describe("GitHub retries", () => {
     assert.deepEqual(times(fake), [0, 1000]);
   });
 
+  it("start the request's timeout once its first credential is supplied", async () => {
+    const fake = new GitHubFake(path);
+    fake.tokens.set(token, { login: "octocat", type: "User" });
+    let supplied = 0;
+    const credential = () =>
+      supplied++ === 0
+        ? new Promise<string>((resolve) => setTimeout(resolve, 1500, token))
+        : token;
+    const connection = connect(`git@github.com:${path}.git`, {
+      credential,
+      fetch: fake.fetch,
+      timeoutMs: 2500,
+    });
+    fake.injectRepeated(unavailable);
+    await assert.rejects(
+      withoutWaits(() => connection.releaseSource.releases()),
+      failure("unavailable"),
+    );
+    assert.deepEqual(times(fake), [1500, 2500]);
+  });
+
   it("retry a typed GraphQL read", async () => {
     const { platform, fake } = startGitHub();
     const number = platform.addIssue();

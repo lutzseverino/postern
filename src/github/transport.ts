@@ -170,7 +170,8 @@ export class GitHubTransport {
 
   // A read that fails `unavailable` is sent again after each of the retry
   // delays, while the wait still ends within the request's timeout, which
-  // every attempt and wait share. Any other request is sent once.
+  // every attempt and wait share from the first credential on. Any other
+  // request is sent once.
   async #attempts(
     target: string | URL,
     options: RestOptions,
@@ -179,10 +180,12 @@ export class GitHubTransport {
       typeof target === "string" ? apiUrl(target, options.query) : target;
     const method = (options.method ?? "GET").toUpperCase();
     const delays = readOnly(method, url, options.body) ? retryDelays : [];
-    const deadline = Date.now() + this.#context.timeoutMs;
+    let deadline: number | undefined;
     for (let attempt = 0; ; attempt++) {
+      const token = await this.#context.credentials.token();
+      deadline ??= Date.now() + this.#context.timeoutMs;
       try {
-        return await this.#exchange(url, method, options, deadline);
+        return await this.#exchange(url, method, options, token, deadline);
       } catch (error) {
         const delay = delays[attempt];
         if (
@@ -200,9 +203,9 @@ export class GitHubTransport {
     url: URL,
     method: string,
     options: RestOptions,
+    token: string | null,
     deadline: number,
   ): Promise<RawResponse> {
-    const token = await this.#context.credentials.token();
     const headers: Record<string, string> = {
       accept: "application/vnd.github+json",
       "user-agent": userAgent,
@@ -292,6 +295,7 @@ export class GitHubTransport {
 }
 
 // The waits before the second and the third attempt at a read.
+// Seam (deferred): retry delays; consumers: 1; extract at 3.
 const retryDelays = [1000, 2000];
 
 // Whether a request only reads, so that sending it again changes nothing: a
