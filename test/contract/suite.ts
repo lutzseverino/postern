@@ -18,6 +18,7 @@ import type {
   ContractPlatform,
   Malformation,
 } from "./harness.ts";
+import { withoutWaits } from "../timers.ts";
 
 const mona: Account = { login: "mona", bot: false };
 const robot: Account = { login: "helper[bot]", bot: true };
@@ -1583,15 +1584,19 @@ export function runAdapterContract(
             const platform = harness.start();
             platform.addIssue();
             platform.failNext({ reason, retryAt: "2030-01-01T00:00:00.000Z" });
-            await assert.rejects(operation(platform.connect()), (error) => {
-              isReason(reason)(error);
-              if (reason === "rateLimited")
-                assert.equal(
-                  (error as PlatformError).retryAt,
-                  "2030-01-01T00:00:00.000Z",
-                );
-              return true;
-            });
+            const connection = platform.connect();
+            await assert.rejects(
+              withoutWaits(() => operation(connection)),
+              (error) => {
+                isReason(reason)(error);
+                if (reason === "rateLimited")
+                  assert.equal(
+                    (error as PlatformError).retryAt,
+                    "2030-01-01T00:00:00.000Z",
+                  );
+                return true;
+              },
+            );
           });
         }
       }
@@ -1968,8 +1973,9 @@ export function runAdapterContract(
             reason,
             echo: `token ${platform.token} refused`,
           });
+          const connection = platform.connect();
           await assert.rejects(
-            platform.connect().releaseSource.releases(),
+            withoutWaits(() => connection.releaseSource.releases()),
             (error) => {
               isReason(reason)(error);
               const seen =

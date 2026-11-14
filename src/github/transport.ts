@@ -161,19 +161,47 @@ export class GitHubTransport {
     options: RestOptions,
   ): Promise<RawResponse> {
     try {
-      return await this.#exchange(target, options);
+      return await this.#attempts(target, options);
     } catch (error) {
       if (error instanceof PlatformError) settled.add(error);
       throw error;
     }
   }
 
-  async #exchange(
+  // A read that fails `unavailable` is sent again after each of the retry
+  // delays, while the wait still ends within the request's timeout, which
+  // every attempt and wait share. Any other request is sent once.
+  async #attempts(
     target: string | URL,
     options: RestOptions,
   ): Promise<RawResponse> {
     const url =
       typeof target === "string" ? apiUrl(target, options.query) : target;
+    const method = (options.method ?? "GET").toUpperCase();
+    const delays = readOnly(method, url, options.body) ? retryDelays : [];
+    const deadline = Date.now() + this.#context.timeoutMs;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.#exchange(url, method, options, deadline);
+      } catch (error) {
+        const delay = delays[attempt];
+        if (
+          delay === undefined ||
+          !(error instanceof PlatformError && error.reason === "unavailable") ||
+          Date.now() + delay >= deadline
+        )
+          throw error;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  async #exchange(
+    url: URL,
+    method: string,
+    options: RestOptions,
+    deadline: number,
+  ): Promise<RawResponse> {
     const token = await this.#context.credentials.token();
     const headers: Record<string, string> = {
       accept: "application/vnd.github+json",
@@ -189,7 +217,6 @@ export class GitHubTransport {
       if (key !== "authorization") headers[key] = value;
     }
     if (token) headers.authorization = `Bearer ${token}`;
-    const method = (options.method ?? "GET").toUpperCase();
     const request = `${method} ${url.pathname}`;
     // A failure to reach GitHub, or to receive the whole answer, is
     // `unavailable`, with the status once GitHub has stated one.
@@ -211,7 +238,7 @@ export class GitHubTransport {
         ...(options.body === undefined
           ? {}
           : { body: JSON.stringify(options.body) }),
-        signal: AbortSignal.timeout(this.#context.timeoutMs),
+        signal: AbortSignal.timeout(Math.max(0, deadline - Date.now())),
       });
     } catch (error) {
       throw unreachable(error);
@@ -262,6 +289,66 @@ export class GitHubTransport {
       throw invalid(`GitHub returned unreadable JSON for ${request}.`, status);
     return { url, status, headers: responseHeaders, data };
   }
+}
+
+// The waits before the second and the third attempt at a read.
+const retryDelays = [1000, 2000];
+
+// Whether a request only reads, so that sending it again changes nothing: a
+// REST GET or HEAD, or a GraphQL document of queries alone.
+function readOnly(method: string, url: URL, body: unknown): boolean {
+  if (method === "GET" || method === "HEAD") return true;
+  if (method !== "POST" || url.pathname !== "/graphql") return false;
+  const query = (body as { query?: unknown } | null | undefined)?.query;
+  return typeof query === "string" && queriesOnly(query);
+}
+
+// The lexical tokens of a GraphQL document a read-only check tells apart:
+// what it ignores, then strings, whose text may hold any punctuation, and
+// names. Anything else is read one character at a time.
+const graphqlIgnored = /(?:[\s,\uFEFF]+|#[^\n\r]*)/y;
+const graphqlToken =
+  /"""(?:\\"""|(?!""")[\s\S])*"""|"(?:[^"\\\n\r]|\\.)*"|[_A-Za-z][_0-9A-Za-z]*/y;
+const graphqlClosers = new Map([
+  ["{", "}"],
+  ["(", ")"],
+  ["[", "]"],
+]);
+
+// Whether a GraphQL document is queries and their fragments alone: each of
+// its definitions opens with `query`, `fragment` or a bare selection set, so
+// none is a mutation or subscription. A document that cannot be read this
+// way is not taken to be read-only.
+function queriesOnly(document: string): boolean {
+  const closers: string[] = [];
+  let definitions = 0;
+  let between = true;
+  let at = 0;
+  while (at < document.length) {
+    graphqlIgnored.lastIndex = at;
+    if (graphqlIgnored.test(document)) {
+      at = graphqlIgnored.lastIndex;
+      continue;
+    }
+    graphqlToken.lastIndex = at;
+    const token = graphqlToken.exec(document)?.[0] ?? document[at]!;
+    at += token.length;
+    // A string that does not end where it should.
+    if (token === '"') return false;
+    if (closers.length === 0 && between) {
+      if (token !== "query" && token !== "fragment" && token !== "{")
+        return false;
+      between = false;
+      definitions++;
+    }
+    const closer = graphqlClosers.get(token);
+    if (closer !== undefined) closers.push(closer);
+    else if (token === "}" || token === ")" || token === "]") {
+      if (closers.pop() !== token) return false;
+      if (closers.length === 0 && token === "}") between = true;
+    }
+  }
+  return definitions > 0 && closers.length === 0 && between;
 }
 
 // Failures tied to their own request: raised before it had a response, or

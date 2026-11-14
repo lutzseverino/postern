@@ -21,12 +21,12 @@ names the host `github.com` and a path of exactly an owner and a name. An
 identity on a host no adapter serves fails with `unsupported`, and one with
 any other path fails with `rejected`. Its options are:
 
-| Option                 | Meaning                                                                                                                       |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `credential`           | A non-empty token, or a function returning one (or a promise of one). Called each time a request needs a token.               |
-| `relationshipSections` | `{ parent, blockedBy }`: non-empty body section names for platforms without native links. No default.                         |
-| `fetch`                | A `fetch`-compatible function. Defaults to the global `fetch`.                                                                |
-| `timeoutMs`            | The time one request may take before it fails with `unavailable`: whole milliseconds from 1 to 2147483647. Defaults to 30000. |
+| Option                 | Meaning                                                                                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `credential`           | A non-empty token, or a function returning one (or a promise of one). Called each time a request needs a token.                                      |
+| `relationshipSections` | `{ parent, blockedBy }`: non-empty body section names for platforms without native links. No default.                                                |
+| `fetch`                | A `fetch`-compatible function. Defaults to the global `fetch`.                                                                                       |
+| `timeoutMs`            | The time one request may take, its retries included, before it fails with `unavailable`: whole milliseconds from 1 to 2147483647. Defaults to 30000. |
 
 `connect()` returns `ConnectionWithLinkAdditions`, with an
 `IssueTrackerWithLinkAdditions` and an `AccessWithPages`. The connection and
@@ -444,6 +444,17 @@ The GitHub adapter serves `github.com` repositories and offers every flag.
   `x-ratelimit-reset` time when `x-ratelimit-remaining` is `0`. Otherwise,
   as for a secondary rate limit with quota left, `retryAt` is unset, and
   GitHub advises waiting at least a minute before retrying.
+- A read that fails `unavailable`, from a rejected `fetch`, a timeout or a
+  status above, is sent again at most twice, after 1 s and then 2 s, while
+  the wait ends within `timeoutMs`. The attempts and waits share that
+  timeout, so an attempt that times out leaves no time for another. Each page
+  of a list is its own request. A read is a REST `GET` or `HEAD`, or a
+  GraphQL document whose every definition is a query or a fragment: every
+  typed GraphQL read, and an `access.request` `POST` to `/graphql` whose
+  `query` reads that way. Any other request, a mutation, a subscription and
+  a document Postern cannot read included, is sent once. A rate limit is not
+  retried. A read still unavailable after its last attempt fails with that
+  attempt's error.
 
 - `closeIssue` reads the number's issue object before closing it, because
   GitHub's Issues API would close a pull request; GitHub offers no issue write

@@ -480,7 +480,9 @@ export function startGitHub(open: Opener = connect): {
       return merge ? { title: merge.title, body: merge.message } : null;
     },
     failNext(failure) {
-      fake.inject(githubFailure(failure));
+      if (failure.reason === "unavailable")
+        fake.injectRepeated(githubFailure(failure));
+      else fake.inject(githubFailure(failure));
     },
     malformNext(malformation) {
       // A success status GitHub's API does not use, so the error shows it came from this response.

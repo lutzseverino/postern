@@ -18,6 +18,7 @@ import type { Injected } from "./fake.ts";
 import { startGitHub } from "./harness.ts";
 import { head, mona, reads } from "./reads.ts";
 import type { Read } from "./reads.ts";
+import { withoutWaits } from "../timers.ts";
 
 const path = "octo/hello";
 const token = "ghp_adapterToken0123456789";
@@ -156,14 +157,16 @@ describe("GitHub response mapping", () => {
       "invalidResponse",
     ],
   ];
+  // A read that stays unavailable gets all three attempts; any other failure gets one.
   for (const [name, response, reason, check] of cases) {
     it(`maps ${name} to ${reason}`, async () => {
       const { fake, connection } = setup();
-      fake.inject(response);
+      fake.injectRepeated(response);
       await assert.rejects(
-        connection.releaseSource.releases(),
+        withoutWaits(() => connection.releaseSource.releases()),
         failure(reason, check),
       );
+      assert.equal(fake.requests.length, reason === "unavailable" ? 3 : 1);
     });
   }
 
@@ -203,14 +206,16 @@ describe("GitHub response mapping", () => {
   for (const [status, reason] of statuses) {
     it(`maps the status ${status} to ${reason}`, async () => {
       const { fake, connection } = setup();
-      fake.inject({ status, body: '{"message":"Something"}' });
+      fake.injectRepeated({ status, body: '{"message":"Something"}' });
       await assert.rejects(
-        connection.releaseSource.releases(),
+        withoutWaits(() => connection.releaseSource.releases()),
         failure(reason, (error) => assert.equal(error.status, status)),
       );
+      assert.equal(fake.requests.length, reason === "unavailable" ? 3 : 1);
     });
   }
 
+  // The timeout spends the whole budget, which leaves none for another attempt.
   it("maps a timeout to unavailable", async () => {
     const { fake, connection } = setup({ timeoutMs: 20 });
     fake.inject({ hang: true });
@@ -218,6 +223,7 @@ describe("GitHub response mapping", () => {
       connection.releaseSource.releases(),
       failure("unavailable", (error) => assert.match(error.message, /20 ms/)),
     );
+    assert.equal(fake.requests.length, 1);
   });
 
   it("reports the HTTP status on the error", async () => {
@@ -333,14 +339,17 @@ describe("GitHub response mapping", () => {
       {},
       { get: boom, getPrototypeOf: boom, has: boom, ownKeys: boom },
     );
+    let attempts = 0;
     const fetch = async () => {
+      attempts++;
       throw unreadable;
     };
     const connection = connect(`https://github.com/${path}`, { fetch });
     await assert.rejects(
-      connection.releaseSource.releases(),
+      withoutWaits(() => connection.releaseSource.releases()),
       failure("unavailable"),
     );
+    assert.equal(attempts, 3);
   });
 
   it("reports the HTTP status on a GraphQL page without its nodes or its cursor", async () => {
@@ -687,6 +696,266 @@ describe("GitHub rate limits", () => {
       body: graphql({ message: "Field 'nope' doesn't exist on type 'Issue'" }),
     });
     await assert.rejects(connection.issueTracker.issue(1), failure("rejected"));
+  });
+});
+
+describe("GitHub retries", () => {
+  const unavailable: Injected = {
+    status: 503,
+    body: '{"message":"Service Unavailable"}',
+  };
+  const times = (fake: GitHubFake) =>
+    fake.requests.map((request) => request.at);
+
+  it("retry a read once it fails unavailable, after 1 s, and return what the retry reads", async () => {
+    const { fake, connection } = setup();
+    fake.inject(unavailable);
+    assert.deepEqual(
+      await withoutWaits(() => connection.releaseSource.releases()),
+      [],
+    );
+    assert.deepEqual(times(fake), [0, 1000]);
+  });
+
+  it("retry a read twice, after 1 s and then 2 s, and fail unavailable when it stays so", async () => {
+    const { fake, connection } = setup();
+    fake.injectRepeated(unavailable);
+    await assert.rejects(
+      withoutWaits(() => connection.releaseSource.releases()),
+      failure("unavailable", (error) => assert.equal(error.status, 503)),
+    );
+    assert.deepEqual(times(fake), [0, 1000, 3000]);
+  });
+
+  it("retry a read whose fetch rejects", async () => {
+    const { fake, connection } = setup();
+    fake.inject({ network: true });
+    assert.deepEqual(
+      await withoutWaits(() => connection.releaseSource.releases()),
+      [],
+    );
+    assert.equal(fake.requests.length, 2);
+  });
+
+  it("retry a read whose fetch reports a timeout while the request's timeout lasts", async () => {
+    const fake = new GitHubFake(path);
+    let attempts = 0;
+    const fetch: typeof globalThis.fetch = async (input, init) => {
+      if (++attempts === 1)
+        throw new DOMException("The operation timed out.", "TimeoutError");
+      return fake.fetch(input as string | URL, init);
+    };
+    const connection = connect(`https://github.com/${path}`, { fetch });
+    assert.deepEqual(
+      await withoutWaits(() => connection.releaseSource.releases()),
+      [],
+    );
+    assert.equal(attempts, 2);
+  });
+
+  it("retry each page of a list on its own", async () => {
+    const { fake, connection } = setup();
+    fake.inject(unavailable);
+    fake.inject({
+      status: 200,
+      headers: {
+        link: `<https://api.github.com/repos/${path}/labels?page=2>; rel="next"`,
+      },
+      body: "[]",
+    });
+    fake.inject(unavailable);
+    assert.deepEqual(
+      await withoutWaits(() => connection.issueTracker.labels()),
+      [],
+    );
+    assert.deepEqual(times(fake), [0, 1000, 1000, 2000]);
+  });
+
+  it("wait for no retry that would end past the request's timeout", async () => {
+    for (const [timeoutMs, attempts] of [
+      [1000, [0]],
+      [2500, [0, 1000]],
+      [3001, [0, 1000, 3000]],
+    ] as const) {
+      const { fake, connection } = setup({ timeoutMs });
+      fake.injectRepeated(unavailable);
+      await assert.rejects(
+        withoutWaits(() => connection.releaseSource.releases()),
+        failure("unavailable"),
+      );
+      assert.deepEqual(times(fake), attempts, `timeoutMs ${timeoutMs}`);
+    }
+  });
+
+  it("give a retry only what remains of the request's timeout", async () => {
+    const { fake, connection } = setup({ timeoutMs: 1050 });
+    fake.inject(unavailable);
+    fake.inject({ hang: true });
+    await assert.rejects(
+      withoutWaits(() => connection.releaseSource.releases()),
+      failure("unavailable", (error) =>
+        assert.match(error.message, /did not answer/),
+      ),
+    );
+    assert.deepEqual(times(fake), [0, 1000]);
+  });
+
+  it("retry a typed GraphQL read", async () => {
+    const { platform, fake } = startGitHub();
+    const number = platform.addIssue();
+    fake.inject(unavailable);
+    const issue = await withoutWaits(() =>
+      platform.connect().issueTracker.issue(number),
+    );
+    assert.equal(issue.number, number);
+    assert.deepEqual(
+      fake.requests.map(({ method, url }) => `${method} ${url.pathname}`),
+      ["POST /graphql", "POST /graphql"],
+    );
+  });
+
+  // Each document is a query, its fragments, or both, however its strings
+  // and comments read.
+  const queries = [
+    "query { viewer { login } }",
+    "{ viewer { login } }",
+    'query Viewer($n: Int = 1) @cached(key: "}") { viewer { ...Login } }\nfragment Login on User { login }',
+    '# mutation { a }\n{ a(text: "mutation { b }", list: [1, 2]) }',
+    '{ a(text: """ \\""" mutation { b } """) }',
+    "{ a } { b }",
+  ];
+  for (const query of queries) {
+    it(`retry an access query: ${JSON.stringify(query)}`, async () => {
+      const { fake, connection } = setup();
+      fake.inject(unavailable);
+      fake.inject({ status: 200, body: '{"data":{"viewer":{"login":"a"}}}' });
+      const response = await withoutWaits(() =>
+        connection.access.request({
+          path: "/graphql",
+          method: "POST",
+          body: { query, variables: { n: 2 } },
+        }),
+      );
+      assert.deepEqual(response.data, { data: { viewer: { login: "a" } } });
+      assert.equal(fake.requests.length, 2);
+    });
+  }
+
+  // Each body holds a write, or is not read as queries alone.
+  const notQueries: [string, unknown][] = [
+    ["a mutation", { query: "mutation { addComment { id } }" }],
+    ["a subscription", { query: "subscription { a }" }],
+    ["a query with a mutation", { query: "query { a } mutation { b }" }],
+    [
+      "a fragment with a mutation",
+      { query: "fragment F on T { a } mutation { b }" },
+    ],
+    ["an anonymous query and a mutation", { query: "{ a } mutation { b }" }],
+    ["a name starting with query", { query: "queryish { a }" }],
+    ["an unclosed selection", { query: "query { a" }],
+    ["an extra closing brace", { query: "{ a } }" }],
+    ["mismatched brackets", { query: "{ a(b: [1) ] }" }],
+    ["an unterminated string", { query: '{ a(text: "b) }' }],
+    ["an unterminated block string", { query: '{ a(text: """b) }' }],
+    ["an empty document", { query: "" }],
+    ["only a comment", { query: "# query { a }" }],
+    ["no query", { variables: {} }],
+    ["a query that is not text", { query: ["query { a }"] }],
+  ];
+  for (const [name, body] of notQueries) {
+    it(`send an access GraphQL request once when it holds ${name}`, async () => {
+      const { fake, connection } = setup();
+      fake.injectRepeated(unavailable);
+      await assert.rejects(
+        withoutWaits(() =>
+          connection.access.request({ path: "/graphql", method: "POST", body }),
+        ),
+        failure("unavailable"),
+      );
+      assert.equal(fake.requests.length, 1);
+    });
+  }
+
+  const writes: [string, (platform: ContractPlatform) => Promise<unknown>][] = [
+    [
+      "a comment",
+      (platform) => platform.connect().issueTracker.createComment(1, "Hi"),
+    ],
+    [
+      "a pull request comment",
+      (platform) => platform.connect().pullRequests.comment(2, "Hi"),
+    ],
+    [
+      "a squash merge",
+      (platform) =>
+        platform.connect().pullRequests.squashMerge(2, {
+          expectedHead: head,
+          title: "Title",
+          body: "Body",
+        }),
+    ],
+    [
+      "a label change",
+      (platform) => platform.connect().issueTracker.addLabels(1, ["bug"]),
+    ],
+    [
+      "an unclassified POST",
+      (platform) =>
+        platform.connect().access.request({
+          path: `/repos/${path}/dispatches`,
+          method: "POST",
+          body: { event_type: "build" },
+        }),
+    ],
+    [
+      "a DELETE",
+      (platform) =>
+        platform.connect().access.request({
+          path: `/repos/${path}/issues/1/labels/bug`,
+          method: "DELETE",
+        }),
+    ],
+  ];
+  for (const [name, write] of writes) {
+    it(`send ${name} once when it fails unavailable`, async () => {
+      const { platform, fake } = startGitHub();
+      platform.addIssue();
+      platform.addPullRequest({ headBranch: "feature", headCommit: head });
+      fake.injectRepeated(unavailable);
+      await assert.rejects(
+        withoutWaits(() => write(platform)),
+        failure("unavailable"),
+      );
+      assert.equal(fake.requests.length, 1);
+    });
+  }
+
+  it("send a rate-limited read once", async () => {
+    for (const response of [
+      { status: 429, body: '{"message":"Too many requests"}' },
+      {
+        status: 403,
+        headers: { "x-ratelimit-remaining": "0" },
+        body: '{"message":"API rate limit exceeded"}',
+      },
+      {
+        status: 200,
+        body: JSON.stringify({
+          errors: [
+            { type: "RATE_LIMITED", message: "API rate limit exceeded" },
+          ],
+        }),
+      },
+    ]) {
+      const { platform, fake } = startGitHub();
+      platform.addIssue();
+      fake.injectRepeated(response);
+      await assert.rejects(
+        withoutWaits(() => platform.connect().issueTracker.issue(1)),
+        failure("rateLimited"),
+      );
+      assert.equal(fake.requests.length, 1);
+    }
   });
 });
 

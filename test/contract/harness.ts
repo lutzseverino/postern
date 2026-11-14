@@ -217,7 +217,10 @@ export interface ContractPlatform {
   /** The squash merge's title and body, or `null` when it is unmerged. */
   mergeOf(pullRequest: number): { title: string; body: string } | null;
 
-  /** Makes the next request fail the way the platform fails for this reason. */
+  /**
+   * Makes the next request fail the way the platform fails for this reason.
+   * An unavailable platform stays unavailable for every repeat of that request.
+   */
   failNext(failure: Failure): void;
   /**
    * Makes the next request succeed with its response malformed this way.
