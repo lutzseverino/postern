@@ -156,7 +156,7 @@ function githubIdentity(remoteUrl) {
   return `${owner}/${repository}`;
 }
 
-function inferRepository(projectRoot) {
+function inferRepository(projectRoot, operationName) {
   const remotes = run(
     "git",
     [
@@ -187,7 +187,7 @@ function inferRepository(projectRoot) {
   }
   if (identities.size > 1) {
     return {
-      blocked: `Multiple github.com repositories were found in Git remotes (${[...identities.values()].sort().join(", ")}); resolve the target before setup.`,
+      blocked: `Multiple github.com repositories were found in Git remotes (${[...identities.values()].sort().join(", ")}); resolve the target before ${operationName}.`,
     };
   }
   return { identity: identities.values().next().value };
@@ -287,7 +287,7 @@ export async function prepareGithubRepository(request, operationName) {
     return { blocked: `${operationName} requires gh 2.57.0 or newer.` };
   }
 
-  const inferred = inferRepository(request.projectRoot);
+  const inferred = inferRepository(request.projectRoot, operationName);
   if (inferred.blocked) return inferred;
 
   const signIn = `${operationName} requires authenticated github.com access through gh; sign in with gh auth login --hostname github.com.`;
@@ -337,7 +337,7 @@ export async function prepareGithubRepository(request, operationName) {
         ? repository.full_name
         : "an unknown repository";
     return {
-      blocked: `GitHub resolved ${inferred.identity} as ${resolved}; resolve the mismatched target before setup.`,
+      blocked: `GitHub resolved ${inferred.identity} as ${resolved}; resolve the mismatched target before ${operationName}.`,
     };
   }
   return { identity: inferred.identity, repository, access };

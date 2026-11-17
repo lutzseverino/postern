@@ -33,8 +33,9 @@ export function runWebStackCheck(stack) {
         files,
       ).differences.map((difference) => `\`${path}\`: ${difference}`),
     );
+    // Seam (deferred): per-stack validation checks; consumers: 1; wrap at 2.
     process.stdout.write(
-      `${JSON.stringify({ format: "repo-standards/result/v2", status: corrections.length ? "failed" : "passed", message: corrections.length ? `The typescript-${stack} stack needs correction: ${corrections.join(" ")}` : `The typescript-${stack} stack manifest facts are valid for ${paths.length} Project${paths.length === 1 ? "" : "s"}; framework, React, Tailwind, TypeScript and test-runner majors, actual astro check/ui:check execution by validate, CI coverage, Setup and validation, integrity, wrappers and theme behavior still require contextual assessment.` })}\n`,
+      `${JSON.stringify({ format: "repo-standards/result/v2", status: corrections.length ? "failed" : "passed", message: corrections.length ? `The typescript-${stack} stack needs correction: ${corrections.join(" ")}` : `The typescript-${stack} stack manifest facts are valid for ${paths.length} Project${paths.length === 1 ? "" : "s"}; framework, React, Tailwind, TypeScript and test-runner majors, actual ${stack === "astro" ? "astro check/" : ""}ui:check execution by validate, CI coverage, Setup and validation, integrity, wrappers and theme behavior still require contextual assessment.` })}\n`,
     );
   } catch (error) {
     process.stderr.write(

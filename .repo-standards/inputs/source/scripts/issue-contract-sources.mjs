@@ -9,6 +9,19 @@ export const digest = (value) =>
   `sha256:${createHash("sha256").update(value).digest("hex")}`;
 export const same = isDeepStrictEqual;
 
+// Configuration identifies an account; preserve platform spelling in evidence.
+export function isFactoryTriageAuthor(login, triageResult) {
+  const author = triageResult?.author;
+  const fold = (value) =>
+    value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+  return (
+    typeof login === "string" &&
+    typeof author === "string" &&
+    author.length > 0 &&
+    fold(login) === fold(author)
+  );
+}
+
 // Value owners: the standard owns the protocol; the repository owns its cutoff
 // and durable per-issue facts; the issue owns its contract. Consumers: validator,
 // operator, Scriptorium. Crossing repositories makes the wire format costly to
@@ -249,19 +262,19 @@ export function bodyTriageAssociation(snapshot, contract) {
     !same(payload, proof.payload) ||
     !same(edit, proof.attestation.edit) ||
     digest(comment.body) !== proof.attestation.revision ||
-    (comment.user ?? comment.author)?.login !== config.author ||
+    !isFactoryTriageAuthor((comment.user ?? comment.author)?.login, config) ||
     markedRun(comment.body, config.marker) !== payload.run ||
     !intake ||
     !same(payload.intake, {
       author: intake.author,
       writerRun: intake.writerRun,
     }) ||
-    (intake.author === config.author &&
+    (isFactoryTriageAuthor(intake.author, config) &&
       (!intake.writerRun || intake.writerRun === payload.run))
   )
     return null;
   if (
-    intake.author === config.author &&
+    isFactoryTriageAuthor(intake.author, config) &&
     (!intake.writerProof ||
       intake.writerProof.run !== intake.writerRun ||
       intake.writerProof.repository !== snapshot.repository ||

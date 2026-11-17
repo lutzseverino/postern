@@ -8,6 +8,7 @@ import {
   markedRun,
   attestationFormat,
   intakeOriginal,
+  isFactoryTriageAuthor,
 } from "./issue-contract-sources.mjs";
 
 export const ledgerBranch = "repo-canon/issue-contracts";
@@ -273,7 +274,7 @@ export async function captureContractIntake(
 // record. No body marker or model-supplied Original request can mint it.
 function intakeWithWriter(intake, proof, repository, issue, triageResult) {
   if (
-    intake.author !== triageResult?.author ||
+    !isFactoryTriageAuthor(intake.author, triageResult) ||
     proof.repository !== repository ||
     proof.issue !== issue ||
     !same(proof.sourceEdit, intake.sourceEdit) ||
@@ -304,7 +305,7 @@ export async function recordContractPublication(
   const comment = comments.find(
     (candidate) => String(candidate.id) === String(publication.attestationId),
   );
-  if (!comment || comment.author.login !== triageResult.author)
+  if (!comment || !isFactoryTriageAuthor(comment.author.login, triageResult))
     throw new Error("Configured-author attestation is missing.");
   const edits = await sourceEditIdentities(connection, [
     issue.nodeId,

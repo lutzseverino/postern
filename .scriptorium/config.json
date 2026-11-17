@@ -23,7 +23,8 @@
   "runKinds": {
     "triage": {
       "skill": "triage",
-      "arguments": "#{issue}"
+      "arguments": "#{issue}",
+      "resultLabels": ["type:", "model:", "priority:", "factory:skip"]
     },
     "implement": {
       "skill": "implement",

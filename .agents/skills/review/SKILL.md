@@ -32,11 +32,16 @@ refusal; otherwise fix the cause and run it again.
 1. **Read the round.** Run `round.mjs`. When it reports `held yes`, delivery
    already started, as after a run stopped before step 5 finished, a later
    babysit round or a cleared gate: go to step 5. When it reports
-   `reviewed yes` and `held no`, your round on this head left a finding open:
-   stop and report that the head waits for the implementation or grill its
-   review asked for. Otherwise read the authoritative implementation contract
+   `reviewed yes` and `held no`, read its review and the recorded resolution.
+   An unresolved finding still waits for its implementation or grill. When a
+   grill settled the contract finding without requiring a code change, resume
+   with the inputs below and step 2 on this unchanged head; resolution alone
+   does not make it hold.
+   Read the authoritative implementation contract
    under `CONTRIBUTING.md`'s Implementation contracts section, the whole issue
-   and its discussion, and every earlier round's review. A PR without an issue
+   and its discussion, every earlier round's review and the grill's decision,
+   including acceptance of any contract revision the guide requires. Without
+   a settled contract, retain the contract-finding stop. A PR without an issue
    takes its decision-bearing body as its contract. Done when you hold the
    head, the round number, the contract and the issue.
 2. **Review.** Check out the head in a checkout you own and run `code-review`
@@ -53,7 +58,8 @@ refusal; otherwise fix the cause and run it again.
    or **small**, by the rules' section. Done when every finding from both axes
    is dropped with its reason or sorted.
 3. **Fix small findings** when no contract or larger finding stands; otherwise
-   fix nothing and carry every finding into the review. Commit the fixes to the
+   fix nothing and carry every finding into the review. With no fix, retain the
+   current head. Commit the fixes to the
    PR branch, run the required checks the development guide names, and push.
    Run `round.mjs` again: its head is the head this round's review covers. Done
    when the diff from the reviewed head to that head holds only the fixes and
@@ -62,10 +68,17 @@ refusal; otherwise fix the cause and run it again.
    `.repo-standards/rules/comments.md#reviews`: the actual Standards and Spec
    outcomes, the fixes under `Fixed`, and each open finding under `Findings`
    with its file and line, all in its body, listing only the findings the
-   rules count as open. Post it with `round.mjs <number> --post <file>`;
+   rules count as open. For a same-head reassessment, explain in `Spec` which
+   contract finding was resolved, link its recorded decision and report the
+   actual reassessment. Record it with
+   `round.mjs <number> --reassess <file>`: it updates this account's latest
+   complete non-holding review of this head, preserving the previous assessment
+   as quoted history. The round number and convergence bound stay unchanged.
+   For a new head, post with `round.mjs <number> --post <file>`;
    exit `2` means the file is not a complete review of the current head, so
-   correct it and post again; exit `3` means this head already has your
-   review, so post none. Then:
+   correct it and record again; exit `3` means no review can be posted or
+   reassessed, so reread the round and leave an already holding review intact.
+   Then:
    - The round **holds**: go to step 5.
    - A **larger** finding in round 1 **hands back**: leave the PR a draft and
      end the run, reporting the hand-back with the review's link, so `implement`

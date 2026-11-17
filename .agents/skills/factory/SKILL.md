@@ -17,8 +17,9 @@ blockers, and any existing PR and handoff before choosing a path below.
 1. Check the contract's accepted revision and its validator notice, parent
    readiness and open blockers under the guide and installed rules. Resolve
    missing required inputs before seeking readiness.
-2. Choose the ticket's model, weighing its triage suggestion. Prefer a stronger
-   model for design judgment, ambiguous scope or a long cross-cutting change.
+2. Choose the ticket's model under the installed `factory-workflow` rules'
+   Model selection rule, weighing its triage suggestion, and record the
+   one-line guidance-based reason that rule requires.
    Use the rules' model-label syntax and metadata; the host operator resolves
    an unavailable or disallowed model rather than substituting one silently.
 3. Apply the readiness policy through `triage`'s readiness command. With an App

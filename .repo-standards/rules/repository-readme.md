@@ -3,10 +3,9 @@
 The top-level `README.md` is the Repository README, the entry document for
 someone discovering the repository. Write it for that reader.
 
-Start with one centered header block: optionally one project image, then the
-title, a one-sentence description that says what the project is and who it is
-for, then badges, in that order, before anything else. The image is optional;
-without it, start with the title as usual. For example:
+Start with one centered header block: the project's icon when it has one, then
+the title, a one-sentence description that says what the project is and who it
+is for, then badges, in that order, before anything else. For example:
 
 ```html
 <div align="center">
@@ -19,8 +18,13 @@ without it, start with the title as usual. For example:
 </div>
 ```
 
+A project has an icon when it already uses an image as its own mark, such as
+its site icon or favicon, or its app's avatar. Its header block then starts
+with that icon as its one project image. A project without an icon starts with
+the title, and nobody creates an icon for the README.
+
 Setting `align="center"` on each element is also accepted: the `h1`, the
-description `p`, and the badge `p` paragraphs. Center an optional leading image
+description `p`, and the badge `p` paragraphs. Center a leading project image
 with the shared `div` or a containing `p align="center"`. An `img` or
 `picture` element's own `align="center"` does not horizontally center it.
 
@@ -42,6 +46,10 @@ Use `alt=""` when the image is decorative and adds no information beyond the
 adjacent title, as in this example. An image that communicates additional
 information needs an appropriate text alternative; assess its purpose using
 the [W3C image guidance](https://www.w3.org/WAI/tutorials/images/decorative/).
+
+The repository's GitHub About description is the README description, word for
+word: the same single sentence. The requirements for the description apply to
+that shared sentence.
 
 The description contains no term defined in the repository's root
 `GLOSSARY.md` or in a context glossary listed in its `GLOSSARY-MAP.md`, matched

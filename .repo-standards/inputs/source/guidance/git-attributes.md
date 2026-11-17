@@ -13,9 +13,10 @@ through contextual work; this declaration has no deterministic fix or check.
    and [default vendor list](https://github.com/github-linguist/linguist/blob/main/lib/linguist/vendor.yml).
    `vendor/` and `.github/` are already excluded. For the current profiles,
    the counted files are the issue-contract source-selection,
-   ledger and cutoff commands, the rendered-Markdown runtime, the babysit
-   skill's `.mjs` files,
-   the triage skill's `ready.mjs`,
+   ledger and cutoff commands, the rendered-Markdown runtime, the factory
+   label metadata, the canonical label metadata, the babysit skill's `.mjs`
+   files, the code-review skill's `ownership-facts.mjs`, the triage skill's
+   `ready.mjs`,
    the review skill's `round.mjs`, and the diagnosing-bugs skill's shell
    template. Derive the inventory anew on each update; this example is not a
    replacement for the resolved selection.
@@ -34,7 +35,10 @@ through contextual work; this declaration has no deterministic fix or check.
    scripts/issue-contract-store.mjs linguist-vendored
    scripts/issue-contract-cutoff.mjs linguist-vendored
    operations/lib/rendered-markdown.mjs linguist-vendored
+   operations/lib/factory-labels.mjs linguist-vendored
+   operations/lib/canonical-labels.mjs linguist-vendored
    .agents/skills/babysit/** linguist-vendored
+   .agents/skills/code-review/** linguist-vendored
    .agents/skills/review/** linguist-vendored
    .agents/skills/triage/** linguist-vendored
    .agents/skills/diagnosing-bugs/** linguist-vendored
