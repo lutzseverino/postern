@@ -146,10 +146,10 @@ a repository preference had migrated between host configuration and an exact
 standard file. Trigger 2 and Trigger 4 prompt a read: the host owns reachable models,
 credentials and per-kind defaults in host configuration; the repository owns
 its optional model preferences and unavailable-model fallback in its policy
-file; the standard owns the schema and check, never those policy values; the
-issue owns its model-label choice. Current consumers are the factory's
-triage, implement/retry and review runs; other repositories are likely
-consumers. Relocating repository values after adoption is hard to reverse:
+file; the factory that reads that file owns its schema and check, and the
+standard owns neither, nor those policy values; the issue owns its model-label
+choice. Current consumers are the factory's triage, implement/retry and review
+runs; other repositories are likely consumers. Relocating repository values after adoption is hard to reverse:
 this example rates cost now **M**, carrying cost **L** if values stay misplaced,
 and **S** after the split. Wrap the resolution behind an interface that reads
 issue choice, then repository policy, then host default, within host

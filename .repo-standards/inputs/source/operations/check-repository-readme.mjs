@@ -2,6 +2,7 @@ import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { interpretMarkdown } from "./lib/rendered-markdown.mjs";
 import { resolvedLocalPath } from "./lib/local-markdown-links.mjs";
+import { prepareGithubRepository } from "./lib/github-operation.mjs";
 import {
   glossaryCorrections,
   glossaryTerms,
@@ -220,7 +221,8 @@ function checkHeaderPrefix(document, corrections) {
 }
 
 function checkStructure(projectRoot, markdown, license) {
-  if (markdown === null) return ["Create the root README.md."];
+  if (markdown === null)
+    return { corrections: ["Create the root README.md."], description: null };
   const corrections = [];
   const document = interpretMarkdown(markdown);
   checkHeaderPrefix(document, corrections);
@@ -327,7 +329,38 @@ function checkStructure(projectRoot, markdown, license) {
         corrections.push(`Make the License link target ${license.path}.`);
     }
   }
-  return [...new Set(corrections)];
+  return { corrections: [...new Set(corrections)], description };
+}
+
+function collapsedWhitespace(text) {
+  return text.trim().replace(/\s+/g, " ");
+}
+
+// The README holds the description; GitHub's About setting is the platform's
+// copy, read through the shared repository read and never written. An
+// unreadable About description skips the comparison with the shared read's
+// neutral reason, which carries no platform message or credential.
+async function compareAboutDescription(request, description) {
+  const prepared = await prepareGithubRepository(
+    request,
+    "Repository README check",
+  );
+  if (prepared.blocked)
+    return {
+      note: `The GitHub About description was not compared: ${prepared.blocked}`,
+    };
+  const readme = collapsedWhitespace(description);
+  const about =
+    typeof prepared.repository.description === "string"
+      ? collapsedWhitespace(prepared.repository.description)
+      : "";
+  if (about === readme)
+    return {
+      note: "The GitHub About description matches the Repository README description.",
+    };
+  return {
+    correction: `Make the GitHub About description and the Repository README description the same sentence: the README description is "${readme}" and the About description ${about ? `is "${about}"` : "is empty"}.`,
+  };
 }
 
 function lstatIsFile(path) {
@@ -345,11 +378,17 @@ try {
     ? readFileSync(readmePath, "utf8")
     : null;
   const license = rootLicense(request.projectRoot);
-  const corrections = checkStructure(
+  const { corrections, description } = checkStructure(
     request.projectRoot,
     markdown,
     license.blocked ? null : license,
   );
+  const about =
+    description === null
+      ? {}
+      : await compareAboutDescription(request, description);
+  if (about.correction) corrections.push(about.correction);
+  const aboutNote = about.note ? ` ${about.note}` : "";
   if (license.blocked) {
     const otherCorrections =
       corrections.length > 0
@@ -357,14 +396,14 @@ try {
         : "";
     result(
       "blocked",
-      `Owner clarification required: ${license.blocked}${otherCorrections}`,
+      `Owner clarification required: ${license.blocked}${otherCorrections}${aboutNote}`,
     );
   } else {
     result(
       corrections.length === 0 ? "passed" : "failed",
       corrections.length === 0
-        ? "Repository README structure is valid; factual content still requires maintainer or agent review."
-        : `Repository README structure needs correction: ${corrections.join(" ")}`,
+        ? `Repository README structure is valid; factual content still requires maintainer or agent review.${aboutNote}`
+        : `Repository README structure needs correction: ${corrections.join(" ")}${aboutNote}`,
     );
   }
 } catch (error) {

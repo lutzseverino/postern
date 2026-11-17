@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { PlatformError } from "../postern/postern.mjs";
 import { lexer } from "../marked/marked.esm.js";
+import { canonicalLabelName } from "../../operations/lib/canonical-labels.mjs";
 import {
   interpretMarkdown,
   markdownInlineText,
@@ -19,6 +20,7 @@ import {
   same,
   intakeOriginal,
   digest,
+  isFactoryTriageAuthor,
 } from "../../scripts/issue-contract-sources.mjs";
 
 import {
@@ -602,11 +604,11 @@ function historicalSeamsApproval(snapshot, recorded) {
     (event) =>
       String(event.id) === recorded.reviewEventId &&
       event.event === "labeled" &&
-      event.label?.name === recorded.label &&
+      canonicalLabelName(event.label?.name) === recorded.label &&
       event.actor?.login === recorded.reviewer,
   );
   let authority = reviewerAuthority(snapshot.permissions, recorded.reviewer);
-  if (recorded.reviewer === snapshot.triageResult?.author) {
+  if (isFactoryTriageAuthor(recorded.reviewer, snapshot.triageResult)) {
     // Authenticate historical proof without selecting it as today's contract.
     // Only the source selector and the exact match above can grant eligibility.
     if (recorded.source?.type === "issue-body")
@@ -625,7 +627,7 @@ function historicalSeamsApproval(snapshot, recorded) {
       authority =
         contract?.revision === recorded.revision &&
         same(contract.source, recorded.source)
-          ? triageAuthority(snapshot, historical)
+          ? triageAuthority(snapshot, historical, recorded.reviewer)
           : { authorized: false };
     }
   }
@@ -1359,7 +1361,7 @@ function assessReadiness({
     if (
       result.kind === "triaged Agent Brief" &&
       result.contract.type === "issue-body" &&
-      grant.reviewer === snapshot.triageResult?.author
+      isFactoryTriageAuthor(grant.reviewer, snapshot.triageResult)
     ) {
       const association = bodyTriageAssociation(
         snapshot,
@@ -1390,10 +1392,12 @@ function assessReadiness({
           sourceInvalidation,
         };
     }
-    const authority =
-      grant.reviewer === snapshot.triageResult?.author
-        ? triageAuthority(snapshot, result)
-        : reviewerAuthority(permissions, grant.reviewer);
+    const authority = isFactoryTriageAuthor(
+      grant.reviewer,
+      snapshot.triageResult,
+    )
+      ? triageAuthority(snapshot, result, grant.reviewer)
+      : reviewerAuthority(permissions, grant.reviewer);
     if (!authority.authorized) {
       const error = authority.error
         ? `Could not verify @${grant.reviewer}'s review authority: ${authority.error}`
@@ -1592,9 +1596,10 @@ function supersedingDeletedBrief(currentEvent, result) {
 // run's triage result, which names the run on exactly one marked line, and the
 // run did not write the issue. An issue the factory's account opened names the
 // run that wrote it on one marked line too; without one, the writer is unknown.
-function triageAuthority(snapshot, result) {
+// Refusals name `reviewer` as GitHub reports it, not the configured spelling.
+function triageAuthority(snapshot, result, reviewer) {
   const { issue, triageResult } = snapshot;
-  const { marker, author } = triageResult;
+  const { marker } = triageResult;
   if (result.contract.type === "issue-body") {
     const association = bodyTriageAssociation(
       snapshot,
@@ -1603,21 +1608,23 @@ function triageAuthority(snapshot, result) {
     if (association) return { authorized: true, run: association.run };
     return {
       authorized: false,
-      refusal: `@${author}'s readiness lacks authenticated exact-body factory triage proof. A person must review it.`,
+      refusal: `@${reviewer}'s readiness lacks authenticated exact-body factory triage proof. A person must review it.`,
     };
   }
   const brief = result.contract.comment;
   const runs =
-    brief && (brief.user ?? brief.author)?.login === author
+    brief &&
+    isFactoryTriageAuthor((brief.user ?? brief.author)?.login, triageResult)
       ? markedRuns(brief.body, marker)
       : [];
   const run = runs.length === 1 ? runs[0] : null;
   if (!run)
     return {
       authorized: false,
-      refusal: `@${author}'s readiness is not backed by the factory's triage result for this revision.`,
+      refusal: `@${reviewer}'s readiness is not backed by the factory's triage result for this revision.`,
     };
-  if (issue.user?.login !== author) return { authorized: true, run };
+  if (!isFactoryTriageAuthor(issue.user?.login, triageResult))
+    return { authorized: true, run };
   const writers = markedRuns(issue.body, marker);
   if (writers.length !== 1 || !writers[0])
     return {
@@ -1705,6 +1712,11 @@ function feedbackState(body) {
     return null;
   }
   if (!state || typeof state !== "object" || Array.isArray(state)) return null;
+  // Read stored approvals in today's vocabulary, without changing timeline
+  // transition handling. Written results retain the current canonical names.
+  state.label = canonicalLabelName(state.label);
+  if (state.seamsExemption && typeof state.seamsExemption === "object")
+    state.seamsExemption.label = canonicalLabelName(state.seamsExemption.label);
   if (state.format === seamsResultFormat) {
     if (
       !validSeamsExemption(state.seamsExemption) ||

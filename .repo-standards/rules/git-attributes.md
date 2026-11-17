@@ -2,9 +2,12 @@
 
 The root `.gitattributes` marks every file Repo Canon installs that GitHub
 Linguist would count toward language statistics as `linguist-vendored`. This
-covers exact file declarations and files inside installed skill directories,
-including the triage skill's installed `.agents/skills/triage/ready.mjs`
-readiness helper and the orchestrate skill's installed
+covers exact file declarations, including the installed
+`operations/lib/factory-labels.mjs` factory label metadata, and files inside
+installed skill directories, including the triage skill's installed
+`.agents/skills/triage/ready.mjs` readiness helper, the code-review skill's
+installed `.agents/skills/code-review/ownership-facts.mjs` ownership facts
+and the orchestrate skill's installed
 `.agents/skills/orchestrate/wait.mjs` event wait. Reassess the installed
 inventory when updating to a selection that adds, retires or relocates runtime
 code. Paths

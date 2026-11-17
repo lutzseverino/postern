@@ -95,12 +95,16 @@ values cannot confirm that ruleset's enforcement.
 Setup preserves existing bypass configuration; resolve insufficient enforcement
 with the owner rather than changing bypass policy during delivery.
 
-Only recognized plan-limit 403 responses for both classic protection and
-rulesets on a private repository permit merging-agent freshness verification.
+On a confirmed private repository, merging-agent freshness verification requires
+recognized plan-limit 403 responses on the branch-rules and rulesets-list reads.
+The classic-protection read must return either the recognized plan-limit 403 or
+HTTP 403 with the platform message `Resource not accessible by integration`.
+This integration refusal qualifies only on that protection probe after the
+plan-limited branch-rules read; every other permission refusal grants no exception.
 After slow gates, immediately before the expected-head merge, verify the live
 default destination, unchanged validated/reviewed head, successful applicable
 validation on that exact head, and current default-tip ancestry. Missing or
-unreadable evidence, ordinary permission refusals, missing workflow and deferred
+unreadable evidence, all other permission refusals, missing workflow and deferred
 setup grant no exception. Another writer can advance the base after this final
 check and the merge can succeed: the owner accepts this residual concurrent-base
 race only on this proven plan-limited path. Immediate checks narrow the window;
@@ -118,9 +122,44 @@ its final verification with the accepted race.
 
 Each delivery attempt, such as one `babysit` invocation, gets one branch
 update. Never merge the default branch into the PR branch, and never use
-GitHub's update-branch. A failed branch update, or a stale base again after it,
-leaves the PR unmerged and requires the contribution guide's owner handoff with
-its reason; it never starts another update.
+GitHub's update-branch.
+
+Within that one update, a run resolves a reconstruction conflict itself when,
+and only when, it is in the keep-both class. All four conditions must hold:
+
+- Ownership is certain: only this PR's own work is replayed onto the refreshed
+  base.
+- Every conflicting source hunk keeps both sides' lines unchanged. Nothing
+  either side added or changed is dropped, rewritten or combined into new
+  wording. A hunk where one side deletes or rewrites what the other side
+  changed is outside the class.
+- Where the file defines an order, such as a numbered index or sorted list,
+  the kept entries follow that order.
+- Any derived value both sides changed, such as a hash, generated index or
+  snapshot, is recomputed from the merged sources by the repository command
+  or check that produces it. Never copy either side's value or pick one by
+  hand. Without such a command or check, the conflict is outside the class.
+
+Two ADR entries appended at the same place in an ordered index qualify when
+both are kept in index order. Two baseline explanations added to the same test
+with a changed generated hash qualify when both explanations are kept and the
+hash is regenerated once. Rewrites of the same glossary definitions do not
+qualify.
+
+An in-class resolution is part of the attempt's one branch update, not a failed
+update, and never starts another update. It keeps every recovery step:
+work and PR-context preservation, required local validation before pushing,
+history and diff inspection against the refreshed base before the delivery push,
+and applicable replacement-head reviews, owner approval and review requests.
+Before the replacement head's review, post the conflict-resolution delivery
+record under the `comments` rules.
+
+Conflicts outside the class and uncertain ownership require the contribution
+guide's owner handoff. Name the conflicting files and why each conflict is
+outside the class, including any ownership uncertainty. A failed branch update,
+or a stale base again after it, leaves the PR unmerged and requires the
+contribution guide's owner handoff with its reason; it never starts another
+update.
 
 ## Designated owner review
 
@@ -354,12 +393,15 @@ unavailable. Ready transitions never discard a current-head completion or
 unavailability reply these rules already recognize, including evidence recorded
 during draft. Native review evidence remains head-specific as above.
 
-Any comment by `account` at or after the effective request time counts as a
-response, except a request comment, which is never a response. The reviewer did
-not respond when no response arrives within `bounds.responseMinutes` of that
-time, and did not review when no completed review arrives within
-`bounds.reviewMinutes` of it. With `request.onOpen: false`, all these cutoffs
-retain the existing explicit-request time unchanged across ready transitions.
+Any comment by `account` created or last edited at or after the effective
+request time counts as a response, except a request comment, which is never a
+response. An edit before that time does not count. An edit time counts only
+toward a response; it never completes a review, marks the reviewer unavailable
+or extends `bounds.reviewMinutes`. The reviewer did not respond when no response
+arrives within `bounds.responseMinutes` of that time, and did not review when no
+completed review arrives within `bounds.reviewMinutes` of it. With
+`request.onOpen: false`, all these cutoffs retain the existing explicit-request
+time unchanged across ready transitions.
 
 For example, with placeholder values:
 
@@ -414,6 +456,17 @@ with that round's review as input; whoever ran the review relaunches it. A later
 round still carrying a larger finding stops without converging, reports why
 and leaves the PR draft. Wrong or ambiguous contracts move the issue to
 `state:grill` under the guide's Triage section.
+
+After a recorded grill resolution requires no code change, an independent
+reviewer may reassess the unchanged head against the settled authoritative
+contract, including acceptance of revisions where required, and earlier
+findings. Recheck both Standards and Spec, including the contract against its
+issue. Resolution alone grants no holding result. Update the existing round's
+review under the `comments` rules, retaining the resolved finding and its
+decision source; create neither a duplicate review nor a cosmetic commit.
+This reassessment keeps the round number and convergence bound. Unresolved
+findings retain their existing routes; a changed head follows the ordinary
+new-head review and validation path.
 
 A round with no open finding holds: mark the PR ready and deliver under the
 guide's Merging section. List only open findings in the round's review, fixes
@@ -591,15 +644,17 @@ writes.
 
 ## Native blockers
 
-Parent/sub-issue links and blocker/dependency links must use GitHub's native
-relationships. Task lists and `Part of`, `Parent`, or `Blocked by` body
-references do not establish those links, even when a native link cannot be
-created or the feature is unavailable. Required named sections retain their
-content requirements.
+The installed repository-root forms `.github/ISSUE_TEMPLATE/specification.yml` and
+`.github/ISSUE_TEMPLATE/implementation-ticket.yml` define specification and ticket
+sections. Required answers need substantive, non-placeholder
+content. Optional answers may be empty; a native blocker may supply the value
+of Blocked by, whose heading is still required.
 
-GitHub's native issue dependencies are the canonical blocking relationship.
-When adding a native blocker, pass the blocking issue's numeric database ID as
-`issue_id`, not its issue number or `node_id`.
+Use GitHub's native parent/sub-issue and blocker/dependency relationships;
+task lists and `Part of`, `Parent` or `Blocked by` body references never
+establish them, even when native linking is unavailable. Named sections keep
+their content requirements. Add a blocker using its numeric database ID as
+`issue_id`, never its issue number or `node_id`.
 
 ## Agent Brief
 
@@ -672,11 +727,8 @@ by title and link. The workflow does not check these two index conventions.
 
 A child carries exactly one of `wayfinder:research`, `wayfinder:prototype`,
 `wayfinder:grilling`, and `wayfinder:task`, and never `wayfinder:map` with it.
-Its body has a Question section that is not a placeholder, and its parent is an
-issue labeled `wayfinder:map`. Make the child a native sub-issue of its map:
-on GitHub only the native parent relationship counts. A `Parent` section
-retains its content requirements but a body-only reference does not link a
-child. A failed relationship read fails validation before any mutation.
+Its body has a non-placeholder Question section and a native parent labeled
+`wayfinder:map`. A failed relationship read fails validation before mutation.
 
 Maps and children carry no readiness and no workflow state label. Their
 eligibility uses open state, assignment and native blockers, and the workflow

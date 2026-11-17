@@ -2,7 +2,7 @@
 
 // Usage: node merge.mjs <number> <head SHA>, from the repository root.
 // Exit codes: 0 merged, 1 usage or platform error, 2 head changed or validation not successful; wait again,
-// 3 not merged; needs the owner, 4 stale base; update and validate,
+// 3 not merged; owner gate or other owner need, 4 stale base; update and validate,
 // 5 missing review outcome; post the completed record and rerun,
 // 6 unresolved configured-reviewer threads; resolve and rerun,
 // 9 repository or release hold; leave open and resume after the hold ends.
@@ -22,6 +22,8 @@ import {
 } from "./trusted-review-config.mjs";
 import { skipsExternalReview } from "./review-policy.mjs";
 import { completeReview, reviewsSection } from "./review-outcome.mjs";
+
+import { ownerGates } from "./owner-gates.mjs";
 
 import { decide } from "./wait.mjs";
 import { validationCheckStates } from "./required-checks.mjs";
@@ -72,15 +74,26 @@ async function enforcedFreshness(connection, branch, privateRepository) {
   } catch (error) {
     if (!privateRepository || !planLimited(error)) throw error;
     // A branch-rule refusal alone does not establish both capabilities.
+    const protectionPath = `${path}/branches/${encodeURIComponent(branch)}/protection`;
+    // Seam (deferred): accepted private-plan refusal evidence; consumers: 1; extract at 3.
     for (const endpoint of [
-      `${path}/branches/${encodeURIComponent(branch)}/protection`,
+      protectionPath,
       `${path}/rulesets?per_page=100`,
     ]) {
       try {
         await requestData(connection, { path: endpoint });
         return false;
       } catch (capabilityError) {
-        if (!planLimited(capabilityError)) throw capabilityError;
+        if (
+          !planLimited(capabilityError) &&
+          !(
+            endpoint === protectionPath &&
+            capabilityError.status === 403 &&
+            capabilityError.platformMessage ===
+              "Resource not accessible by integration"
+          )
+        )
+          throw capabilityError;
       }
     }
     return "plan-limited";
@@ -170,6 +183,7 @@ async function mergeHolds(connection, revision, number) {
       "Invalid .scriptorium/config.json: expected version 1, 2 or 3 and a labels object when present.",
     );
   const holds = new Map();
+  const problems = [];
   for (const key of ["hold", "releaseHold"]) {
     const label = config.labels?.[key];
     if (label === undefined) continue;
@@ -195,13 +209,31 @@ async function mergeHolds(connection, revision, number) {
       throw new Error("Could not read a merge-hold issue or pull request.");
     for (const issue of issues) {
       if (
-        (key === "hold" || issue.pull_request) &&
-        issue.state === "open" &&
-        issue.number !== number
+        (key === "releaseHold" && !issue.pull_request) ||
+        issue.state !== "open" ||
+        issue.number === number
       )
-        holds.set(issue.number, issue);
+        continue;
+      const evidence = `#${issue.number}, .scriptorium/config.json labels.${key} (${JSON.stringify(label)})`;
+      const names = Array.isArray(issue.labels)
+        ? issue.labels.map((entry) =>
+            typeof entry === "string" ? entry : entry?.name,
+          )
+        : null;
+      if (!names?.every((name) => typeof name === "string")) {
+        problems.push(`Could not read own labels for ${evidence}.`);
+        continue;
+      }
+      if (!names.includes(label)) {
+        problems.push(
+          `Inconsistent hold read for ${evidence}: label-filter result disagrees with the item's own labels; no hold was confirmed for this item and none was bypassed.`,
+        );
+        continue;
+      }
+      holds.set(issue.number, issue);
     }
   }
+  if (problems.length) throw new Error(problems.join(" "));
   return [...holds.values()];
 }
 
@@ -225,6 +257,25 @@ async function held(connection, revision, number) {
   return false;
 }
 
+async function gated(connection, number) {
+  try {
+    const { gates } = await ownerGates(connection, number);
+    if (gates.length) {
+      needsOwner(
+        `Owner gate: ${gates.join(", ")}. Leave the PR open; resume after all applicable gates are removed.`,
+      );
+      return true;
+    }
+  } catch (error) {
+    if (["forbidden", "unauthenticated"].includes(error.reason)) throw error;
+    needsOwner(
+      `Could not confirm owner gates for PR #${number}: ${error.message}`,
+    );
+    return true;
+  }
+  return false;
+}
+
 export async function main(argv = process.argv.slice(2), connection) {
   const [number, head, ...extra] = argv;
   if (
@@ -237,6 +288,7 @@ export async function main(argv = process.argv.slice(2), connection) {
   connection ??= connectionFor();
   const pullRequest = await connection.pullRequests.pullRequest(Number(number));
   if (pullRequest.headCommit !== head) return retry();
+  if (await gated(connection, Number(number))) return;
   let configuration;
   try {
     configuration = await trustedReviewConfiguration(connection, {
@@ -368,6 +420,7 @@ export async function main(argv = process.argv.slice(2), connection) {
     );
   }
   if (await held(connection, configuration.revision, Number(number))) return;
+  if (await gated(connection, Number(number))) return;
   // All slow gates precede this final head, live destination and ancestry read.
   try {
     const finalPull = await connection.pullRequests.pullRequest(Number(number));

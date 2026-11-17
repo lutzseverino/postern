@@ -133,6 +133,8 @@ defaults:
             executable: node
             script: operations/setup-github-labels.mjs
             resources:
+              - operations/lib/canonical-labels.mjs
+              - operations/lib/factory-labels.mjs
               - operations/lib/github-operation.mjs
               - vendor/postern/postern.mjs
               - vendor/postern/LICENSE
@@ -299,6 +301,16 @@ defaults:
       target: vendor/parse5/README.md
       exact: vendor/parse5/README.md
 
+    factory-label-metadata:
+      kind: file
+      target: operations/lib/factory-labels.mjs
+      exact: operations/lib/factory-labels.mjs
+
+    canonical-label-metadata:
+      kind: file
+      target: operations/lib/canonical-labels.mjs
+      exact: operations/lib/canonical-labels.mjs
+
     rendered-markdown-runtime:
       kind: file
       target: operations/lib/rendered-markdown.mjs
@@ -371,8 +383,12 @@ defaults:
               - operations/lib/entry-document.mjs
               - operations/lib/rendered-markdown.mjs
               - operations/lib/local-markdown-links.mjs
+              - operations/lib/github-operation.mjs
               - vendor/marked
               - vendor/parse5
+              - vendor/postern/postern.mjs
+              - vendor/postern/LICENSE
+              - vendor/postern/README.md
             arguments: []
           prerequisite:
             version-arguments: ["--version"]
@@ -619,19 +635,6 @@ profiles:
         guidance: guidance/factory-workflow.md
         discovery: discovery/factory-workflow.md
 
-        checks:
-          - id: factory-model-policy
-            run:
-              executable: node
-              script: operations/check-factory-model-policy.mjs
-              resources:
-                - operations/lib/factory-model-policy.mjs
-              arguments: []
-            prerequisite:
-              version-arguments: ["--version"]
-              version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
-            timeout-seconds: 30
-
       factory-sandbox-image:
         kind: repository
         targets:
@@ -661,6 +664,10 @@ profiles:
         kind: skill
         name: orchestrate
         source: .agents/skills/orchestrate
+      skill-retro:
+        kind: skill
+        name: retro
+        source: .agents/skills/retro
       agent-configuration-index: { exclude: true }
       agent-guidance: { exclude: true }
       bug-report-template: { exclude: true }

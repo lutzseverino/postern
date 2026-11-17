@@ -26,6 +26,7 @@ arises; these rules say what the post holds:
 | A fix or a reasoned decline of a finding               | The finding's review thread                       | [Review-thread replies](#review-thread-replies)       |
 | A review request                                       | The pull request                                  | [Review request comments](#review-request-comments)   |
 | A worker handoff, owner-review designation or approval | The pull request                                  | [Delivery records](#delivery-records)                 |
+| A reconstruction conflict resolution                   | The pull request                                  | [Delivery records](#delivery-records)                 |
 | A configured reviewer that did not review a head       | The pull request                                  | [Delivery records](#delivery-records)                 |
 | A merge outcome a rule requires                        | The pull request                                  | [Delivery records](#delivery-records)                 |
 | Findings links and adoption check outcomes             | As the contribution guide's Findings section says | [Findings](#findings)                                 |
@@ -100,6 +101,13 @@ this round fixed, or is `Nothing`. `Findings` is `None`, or is empty and
 followed by one list item per finding, each starting with the file and line it
 concerns. Quoted or fenced examples and unfilled placeholders are not a review.
 
+For an unchanged-head reassessment after a settled contract finding, update
+the existing review with the actual reassessed outcomes. In `Spec`, explain
+the resolved finding and link the recorded decision. Retain the previous
+assessment as quoted history below the template so the finding remains
+traceable without remaining open. Keep the five template fields as single
+plain text lines; quoted history is not another templated review.
+
 A finding may also open a review thread on its line. Findings and their fix
 discussion stay on the pull request, in reviews and review threads.
 
@@ -124,7 +132,12 @@ Each delivery record that the `github-repository-configuration` or
 
 - A worker handoff records the pull request's current head, validation and
   internal review outcomes, outstanding findings, and any owner-review
-  requirement with its source.
+  requirement with its source. It also names any refused read the run continued
+  past, with the record the contribution guide's Credentials section requires.
+- A conflict-resolution record names, for every resolved file, what each side
+  contributed and confirms both were kept, any recomputed derived value and
+  the command or check that produced it, and why no choice between the sides
+  was needed.
 - An owner-review designation record names the designation and its source. An
   approval record names the approval's source and the full head SHA it
   approves. For adoption pull requests, these records stay in comments and the

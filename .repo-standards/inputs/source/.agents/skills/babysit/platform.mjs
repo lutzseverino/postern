@@ -381,6 +381,8 @@ export function conversationComments(pages) {
       if (
         typeof comment?.body !== "string" ||
         !Number.isFinite(Date.parse(comment.created_at)) ||
+        (comment.updated_at !== undefined &&
+          !Number.isFinite(Date.parse(comment.updated_at))) ||
         (comment.user != null &&
           (typeof comment.user.login !== "string" || !comment.user.login))
       )
@@ -388,6 +390,9 @@ export function conversationComments(pages) {
       comments.push({
         login: comment.user?.login,
         createdAt: comment.created_at,
+        ...(comment.updated_at !== undefined
+          ? { updatedAt: comment.updated_at }
+          : {}),
         body: comment.body,
       });
     }

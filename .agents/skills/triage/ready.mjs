@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { setTimeout as wait } from "node:timers/promises";
+import { factorySkipLabel } from "../../../operations/lib/factory-labels.mjs";
 import {
   issueContractResult,
   isSpecification,
@@ -233,16 +234,18 @@ export async function main(
       break;
     await pause(2000);
   }
-  const chosenModels = companions.filter(isModel);
-  if (chosenModels.length) {
+  const requiredLabels = companions.filter(isModel).map((name) => ({
+    name,
+    color: "5319e7",
+    description: `Factory model: ${name.slice(prefix.length)}`,
+  }));
+  if (prefix !== null && companions.includes(factorySkipLabel.name))
+    requiredLabels.push(factorySkipLabel);
+  if (requiredLabels.length) {
     const existing = await connection.issueTracker.labels();
-    for (const name of chosenModels) {
-      if (!existing.some((entry) => entry.name === name))
-        await connection.issueTracker.createLabel({
-          name,
-          color: "5319e7",
-          description: `Factory model: ${name.slice(prefix.length)}`,
-        });
+    for (const definition of requiredLabels) {
+      if (!existing.some((entry) => entry.name === definition.name))
+        await connection.issueTracker.createLabel(definition);
     }
   }
   await connection.issueTracker.addLabels(number, [...companions, readyLabel]);

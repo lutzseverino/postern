@@ -31,6 +31,12 @@ profiles:
         kind: file
         target: .github/ISSUE_TEMPLATE/bug-report.yml
         exact: .github/ISSUE_TEMPLATE/bug-report.yml
+      canonical-label-metadata:
+        checks: []
+        fixes: []
+        kind: file
+        target: operations/lib/canonical-labels.mjs
+        exact: operations/lib/canonical-labels.mjs
       comments:
         checks: []
         fixes: []
@@ -98,6 +104,12 @@ profiles:
         kind: file
         target: .scriptorium/config.json
         exact: .scriptorium/config.json
+      factory-label-metadata:
+        checks: []
+        fixes: []
+        kind: file
+        target: operations/lib/factory-labels.mjs
+        exact: operations/lib/factory-labels.mjs
       factory-sandbox-image:
         checks: []
         fixes: []
@@ -117,19 +129,7 @@ profiles:
         target: .github/workflows/sandbox-image.yml
         exact: .github/workflows/sandbox-image.yml
       factory-workflow:
-        checks:
-          - id: factory-model-policy
-            run:
-              executable: node
-              script: operations/check-factory-model-policy.mjs
-              resources:
-                - operations/lib/factory-model-policy.mjs
-              arguments: []
-            prerequisite:
-              version-arguments:
-                - --version
-              version: ">=24.0.0 <25.0.0 || >=26.0.0 <27.0.0"
-            timeout-seconds: 30
+        checks: []
         fixes: []
         kind: repository
         guidance: guidance/factory-workflow.md
@@ -192,6 +192,8 @@ profiles:
               executable: node
               script: operations/setup-github-labels.mjs
               resources:
+                - operations/lib/canonical-labels.mjs
+                - operations/lib/factory-labels.mjs
                 - operations/lib/github-operation.mjs
                 - vendor/postern/postern.mjs
                 - vendor/postern/LICENSE
@@ -450,8 +452,12 @@ profiles:
                 - operations/lib/entry-document.mjs
                 - operations/lib/rendered-markdown.mjs
                 - operations/lib/local-markdown-links.mjs
+                - operations/lib/github-operation.mjs
                 - vendor/marked
                 - vendor/parse5
+                - vendor/postern/postern.mjs
+                - vendor/postern/LICENSE
+                - vendor/postern/README.md
               arguments: []
             prerequisite:
               version-arguments:

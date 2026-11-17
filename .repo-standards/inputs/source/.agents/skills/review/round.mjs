@@ -2,6 +2,7 @@
 
 // Usage: node round.mjs <number> [--issue <number>]... [--repo <owner/name>]
 //        node round.mjs <number> --post <file> [--repo <owner/name>]
+//        node round.mjs <number> --reassess <file> [--repo <owner/name>]
 //        node round.mjs <number> --ready [--repo <owner/name>]
 //
 // Rounds are the standing (submitted, undismissed) reviews in the comment
@@ -14,10 +15,14 @@
 // on the PR or those issues.
 // --post posts the file as this round's review of the current head, once it is
 // a complete review of that head and the head has none of this account's yet.
+// --reassess updates this account's latest complete, non-holding review of
+// the current head, retaining its previous assessment as quoted history.
 // --ready marks the draft PR ready for review once the review held.
 // Exit 0: done. 1: invocation or platform error. 2: the file is not a complete
-// review of the current head (--post), or the review has not held (--ready).
-// 3: the current head already has this account's review (--post).
+// review of the current head (--post or --reassess), or the review has not
+// held (--ready).
+// 3: the current head already has this account's review (--post), or there is
+// no latest non-holding complete review of this head to update (--reassess).
 import { readFileSync } from "node:fs";
 import {
   connectionFor,
@@ -31,20 +36,11 @@ import {
   reviewsSection,
 } from "../babysit/review-outcome.mjs";
 
-const usage =
-  "Usage: round.mjs <number> [--issue <number>]... [--post <file> | --ready] [--repo <owner/name>]";
-const positive = /^[1-9]\d*$/;
+import { ownerGates } from "../babysit/owner-gates.mjs";
 
-const closingIssuesQuery = `query ReviewRoundIssues($owner: String!, $name: String!, $number: Int!) {
-  repository(owner: $owner, name: $name) {
-    pullRequest(number: $number) {
-      closingIssuesReferences(first: 50) {
-        nodes { number labels(first: 100) { nodes { name } pageInfo { hasNextPage } } }
-        pageInfo { hasNextPage }
-      }
-    }
-  }
-}`;
+const usage =
+  "Usage: round.mjs <number> [--issue <number>]... [--post <file> | --reassess <file> | --ready] [--repo <owner/name>]";
+const positive = /^[1-9]\d*$/;
 
 // The account this command runs as, the identity whose holding review it
 // trusts. GraphQL's viewer serves App installation tokens too; it names a Bot
@@ -65,8 +61,12 @@ function options(argv) {
     if (flag === "--issue" && positive.test(value ?? "")) {
       parsed.issues.push(Number(value));
       index++;
-    } else if (flag === "--post" && value && !parsed.action) {
-      parsed.action = { post: value };
+    } else if (
+      ["--post", "--reassess"].includes(flag) &&
+      value &&
+      !parsed.action
+    ) {
+      parsed.action = { file: value, reassess: flag === "--reassess" };
       index++;
     } else if (flag === "--ready" && !parsed.action) parsed.action = "ready";
     else if (flag === "--repo" && value) {
@@ -88,32 +88,6 @@ export function completedReviews(reviews) {
       ? [{ head, holds: holdingReview(review.body, head) }]
       : [];
   });
-}
-
-const labelNames = (labels) => labels.map((label) => label.name);
-
-async function closingIssues(connection, number) {
-  const [owner, name] = connection.repository.path.split("/");
-  const response = await requestData(connection, {
-    method: "POST",
-    path: "/graphql",
-    body: { query: closingIssuesQuery, variables: { owner, name, number } },
-  });
-  const references =
-    response?.data?.repository?.pullRequest?.closingIssuesReferences;
-  if (response?.errors?.length || !references)
-    throw new Error(`Could not read the issues pull request #${number} closes.`);
-  if (
-    references.pageInfo.hasNextPage ||
-    references.nodes.some((issue) => issue.labels.pageInfo.hasNextPage)
-  )
-    throw new Error(
-      `Pull request #${number} closes more issues or labels than one read holds.`,
-    );
-  return references.nodes.map((issue) => ({
-    number: issue.number,
-    labels: labelNames(issue.labels.nodes),
-  }));
 }
 
 async function viewerLogin(connection) {
@@ -142,45 +116,30 @@ async function round(connection, { number, issues: extra }) {
   });
   const head = pull?.head?.sha;
   if (!/^[0-9a-f]{40}$/.test(head ?? "") || pull.state !== "open")
-    throw new Error(`Pull request #${number} is not open with a readable head.`);
-  const issues = await closingIssues(connection, number);
-  for (const issue of extra.filter(
-    (candidate) => !issues.some(({ number }) => number === candidate),
-  )) {
-    const read = await requestData(connection, {
-      method: "GET",
-      path: `/repos/${repository}/issues/${issue}`,
-    });
-    issues.push({ number: issue, labels: labelNames(read.labels ?? []) });
-  }
-  const gates = [
-    ...labelNames(pull.labels ?? []).map((label) => [label, "the PR"]),
-    ...issues.flatMap(({ number, labels }) =>
-      labels.map((label) => [label, `#${number}`]),
-    ),
-  ]
-    .filter(([label]) => label.startsWith("gate:"))
-    .map(([label, where]) => `${label} on ${where}`);
+    throw new Error(
+      `Pull request #${number} is not open with a readable head.`,
+    );
+  const { issues, gates } = await ownerGates(connection, number, extra);
   // Only this account's standing reviews record rounds, oldest first. Each
   // reviewed head is one round; the current head's round is the next one until
   // its review is posted. The review held when the latest one is a holding
   // review of the current head.
   const viewer = (await viewerLogin(connection)).toLowerCase();
-  const rounds = completedReviews(
-    (await connection.pullRequests.reviews(number)).filter(
-      (review) =>
-        !["PENDING", "DISMISSED"].includes(review.state) &&
-        review.author?.login?.toLowerCase() === viewer,
-    ),
+  const standing = (await connection.pullRequests.reviews(number)).filter(
+    (review) =>
+      !["PENDING", "DISMISSED"].includes(review.state) &&
+      review.author?.login?.toLowerCase() === viewer,
   );
+  const rounds = completedReviews(standing);
   const heads = new Set(rounds.map((entry) => entry.head));
-  const latest = rounds.at(-1);
+  const latest = standing.at(-1);
   return {
     pull,
     head,
     round: heads.size + (heads.has(head) ? 0 : 1),
     reviewed: heads.has(head),
-    held: latest?.head === head && latest.holds,
+    held: latest?.commit === head && holdingReview(latest.body, head),
+    latest,
     issues,
     gates,
   };
@@ -233,12 +192,41 @@ export const main = async (argv = process.argv.slice(2), connection) => {
       process.stdout.write(`${facts.head}: #${number} is ready for review\n`);
       return 0;
     }
-    const body = readFileSync(action.post, "utf8");
+    const body = readFileSync(action.file, "utf8");
     if (!completeReview(body, facts.head)) {
       process.stderr.write(
         `round.mjs: the file is not a complete review of ${facts.head}; fill the template ${reviewsSection} gives, with that head.\n`,
       );
       return 2;
+    }
+    if (action.reassess) {
+      const previous = facts.latest;
+      if (
+        !previous?.id ||
+        previous.commit !== facts.head ||
+        !completeReview(previous.body, facts.head) ||
+        facts.held
+      ) {
+        process.stderr.write(
+          `round.mjs: no latest complete non-holding review of ${facts.head} for this account to reassess.\n`,
+        );
+        return 3;
+      }
+      const history = previous.body
+        .split(/\r?\n/)
+        .map((line) => `> ${line}`)
+        .join("\n");
+      const updated = await requestData(connection, {
+        method: "PUT",
+        path: `/repos/${connection.repository.path}/pulls/${number}/reviews/${previous.id}`,
+        body: {
+          body: `${body}\n\nPrevious assessment (retained for traceability):\n\n${history}\n`,
+        },
+      });
+      process.stdout.write(
+        `${facts.head}: reassessed round ${facts.round} review ${updated?.html_url ?? ""}\n`,
+      );
+      return 0;
     }
     if (facts.reviewed) {
       process.stderr.write(

@@ -63,11 +63,11 @@ mismatching prefix grant no exemption: the diagnostic explains why the whole
 body was checked. Link-free bodies need no reconstruction.
 
 1. Run `node <this skill's directory>/wait.mjs <number>` from the repository
-   root in the foreground until it exits. It silently waits for checks and the
-   configured reviewer's review of the head. Use a 600000 ms command timeout
-   where supported and ask for the longest wait whenever it yields.
-   Wait requires positive current-head success for every name in trusted
-   `.github/required-checks.json`; no-check timeouts never qualify.
+   root and wait until it exits, in the foreground whenever its exit cannot
+   resume the session. It silently waits for checks and the configured
+   reviewer's review of the head. Use 600000 ms command timeouts where
+   supported. Wait requires positive current-head success for every name in
+   trusted `.github/required-checks.json`; no-check timeouts never qualify.
 
    | Exit | Outcome and action |
    | --- | --- |
@@ -107,7 +107,7 @@ body was checked. Link-free bodies need no reconstruction.
    | --- | --- |
    | `0` | Merged. Record any installed-rule-required outcome under `.repo-standards/rules/comments.md#delivery-records`: delivered head, validation/review results and printed merge commit SHA. |
    | `2` | Head changed or current-head validation has not succeeded. Return to step 1. |
-   | `3` | Not merged; owner needed. Hand off under `.repo-standards/rules/comments.md#owner-questions`, without retrying merge. |
+   | `3` | Not merged; owner needed, including a `gate:` label on the PR or any closing issue. Leave it open and hand off under `.repo-standards/rules/comments.md#owner-questions`, without retrying merge. |
    | `4` | Stale base. Enter Branch-update recovery if this invocation has not used its branch update; otherwise record the owner handoff and stop. |
    | `5` | Current-head policy-skip review missing/incomplete. Complete both internal reviews, post under `.repo-standards/rules/comments.md#reviews` using wait's full-head template, verify other merge conditions and rerun merge. No owner handoff. |
    | `6` | Configured-reviewer threads remain unresolved. Resolve them on the platform, verify the other gates and rerun merge. Replies alone do not resolve threads. |
@@ -124,6 +124,15 @@ and all configured-reviewer threads for resolution, on both freshness paths.
 Unreadable or incomplete check/thread evidence permits no merge. After slow
 gates it rechecks the head, live destination and current-base ancestry.
 
+The merge command independently checks current `gate:` labels on the PR and
+all platform closing issues, including without factory configuration or a prior
+review step. It checks again after slow validation before merging. Any gate
+returns `3`, naming its label and source; approval comments or reviews do not
+clear labels. Incomplete, malformed or unreadable gate evidence permits no
+merge. The helper changes no labels, workflow states or review records; the
+caller performs the owner handoff. After all applicable gates are removed, a
+fresh invocation rechecks every merge condition.
+
 The merge command independently resolves trusted review configuration and checks
 the platform PR author on every invocation, even without a prior wait. Invalid
 trusted declarations require its owner-handoff exit `3`; unreadable review
@@ -133,8 +142,14 @@ Immediately before its merge write, it reads `labels.hold` and
 `labels.releaseHold` from
 `.scriptorium/config.json` at that same destination default-branch snapshot and
 lists open issues and PRs for the repository hold and open PRs for the release
-hold, excluding only the PR being merged. An absent file or key adds no hold. Unreadable or invalid configuration or issue/PR reads
-permit no merge write and follow the freshness-read failure handling.
+hold, excluding only the PR being merged. A candidate is a hold only when its
+own labels carry the exact configured name (REST label objects and strings are
+recognized). A filter result disagreeing with a candidate's own labels refuses
+with exit `3`, even alongside real holds: the diagnostic names each inconsistent
+item, label key and name, and pinned revision, and states that no hold was
+confirmed for that item and none was bypassed. An absent file or key adds no
+hold. Unreadable labels or invalid configuration or issue/PR reads permit no
+merge write and follow the freshness-read failure handling.
 
 ## Branch-update recovery
 
@@ -142,12 +157,16 @@ Every owner handoff in this section and in step 5 posts its question as
 `.repo-standards/rules/comments.md#owner-questions` says.
 
 Follow the `github-repository-configuration` rules' Required-check freshness
-section: strict non-bypassable GitHub enforcement wherever available; only
-recognized plan-limit 403s for both classic protection and rulesets on a private
-repository permit merging-agent verification. After slow gates, immediately
+section: strict non-bypassable GitHub enforcement wherever available. On a
+confirmed private repository, merging-agent verification requires recognized
+plan-limit 403s on the branch-rules and rulesets-list reads. The classic-protection
+probe must return either the recognized plan-limit 403 or HTTP 403 with the
+platform message `Resource not accessible by integration`. Accept that integration
+refusal only on the protection probe after the plan-limited branch-rules read;
+every other permission refusal grants no exception. After slow gates, immediately
 before expected-head merge, verify the live default destination, unchanged
 validated/reviewed head, successful applicable validation on that exact head
-and current default-tip ancestry. Missing/unreadable evidence, ordinary
+and current default-tip ancestry. Missing/unreadable evidence, all other
 permission refusals, missing workflow and deferred setup grant no exception.
 Only on this proven plan-limited path does the owner accept the concurrent-base
 race: another writer may advance the base after verification and merge can succeed. Immediate
@@ -159,8 +178,11 @@ staged, unstaged and untracked work and the PR's review and handoff context
 before changing history. Fetch origin, resolve its remote default branch again,
 and inspect outgoing history (including each merge parent) and the whole diff.
 Rebase or replay only this PR's work onto the refreshed base; keep unrelated
-work preserved separately. Uncertain ownership or reconstruction conflicts
-require the owner handoff.
+work preserved separately. Apply the same section's keep-both class to every
+reconstruction conflict. Resolve every in-class conflict within this one update;
+such a resolution is not a failed branch update. For conflicts outside the class
+or uncertain ownership, preserve the work and hand off to the owner, naming the
+conflicting files and why each conflict is outside the class.
 
 Validate the integrated change with the repository's required local checks;
 wait for their final successful status before pushing with an explicit lease
@@ -168,6 +190,11 @@ when history changed. Before the delivery push, refresh origin and its default
 branch again and inspect both `git log --stat --patch -m origin/HEAD..HEAD`
 and `git diff origin/HEAD...HEAD`. Revalidate after any further reconstruction.
 A permission refusal ends recovery under Credentials, without another push.
+
+After resolving conflicts, post one conflict-resolution record on the PR under
+`.repo-standards/rules/comments.md#delivery-records` before the replacement
+head's review. Account for every resolved file, both sides' contributions kept,
+any derived value and its producing command or check, and why no choice was needed.
 
 For the replacement head, repeat applicable internal reviews and owner approval,
 then request and wait again from step 1 under freshly applied trusted app-author

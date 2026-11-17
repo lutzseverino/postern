@@ -78,10 +78,13 @@ export const reviewerState = (
     if (finished) return "reviewed";
   }
   if (requestedAt === null) return "not requested";
-  // GitHub times have second resolution, so a same-second reply responds.
+  // GitHub times have second resolution, so a same-second creation or edit responds.
   const responses = replies.filter(
     (comment) =>
-      Date.parse(comment.createdAt) >= requestedAt &&
+      Math.max(
+        Date.parse(comment.createdAt),
+        Date.parse(comment.updatedAt ?? comment.createdAt),
+      ) >= requestedAt &&
       comment.body.trim() !== reviewer.request.comment,
   );
   if (

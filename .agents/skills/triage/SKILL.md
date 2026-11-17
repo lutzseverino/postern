@@ -19,10 +19,6 @@ where named below, with the absent-input fallbacks under Reads.
 Use [AGENT-BRIEF.md](AGENT-BRIEF.md) for durable briefs and triage notes, and
 [OUT-OF-SCOPE.md](OUT-OF-SCOPE.md) for the `.out-of-scope/` rejection records.
 
-For direct specification and ticket bodies, use the contribution guide's
-direct-contract route and the acceptance steps below, applying brief-specific
-shape checks only to Agent Briefs.
-
 ## Publication mode
 
 Read the validator's current mode and selected source before publishing a
@@ -39,27 +35,26 @@ chooses the verified publication route, captures intake author/writer proof
 before replacement, and publishes separate body attestation evidence. Mutable
 run reports are not contract evidence. Wait for a matching validator notice
 and current-event approval; arbitrary app bodies/markers grant no authority.
-The body protocol is an explicit adopter activation, never a package-install
-side effect; no live activation occurs while implementing its source ticket.
 
 ## Modes and roles
 
-- **Orchestrating agent**, the default maintainer invocation: follow every section except Factory triage run. Sort requests, start a fresh-context research run per request, receive every question first, keep the decision inbox, and independently review and accept briefs.
+- **Orchestrating agent**, the default maintainer invocation: follow every section except Accept mode and Factory triage run. Sort requests, start a fresh-context research run per request, receive every question first, keep the decision inbox, and independently review and accept briefs.
 - **Research run**: gathers facts, verifies claims and writes briefs once intent is settled, unless a grill publishes direct contracts. It applies no labels and never judges its own brief.
 - **Grill**: a separate session with the owner for intent you cannot infer. The owner holds intent; never ask them to finish a brief.
+- **Accept mode**, `triage accept <issue>`: reviews and accepts that issue's contract. Follow only [Accept mode](#accept-mode) and the sections it names.
 - **Factory triage run**: receives one issue and a result path. Follow only [Factory triage run](#factory-triage-run) and the sections it names.
 
 If subagents are unavailable, research and post the brief yourself, then stop
-and link the owner to it for review by someone who did not write it.
-Follow `AGENTS.md`'s Agent skills delegation and session-naming requirements;
-name separately from the invocation and task context. Each research handoff
-uses its listed issue references and deliverables as task context, assigning
-ordinary research notes to comments and the brief to the verified publication
-route above.
+and link the owner to it for accept mode in another session. Follow
+`AGENTS.md`'s Agent skills delegation and session-naming requirements. Each
+research handoff uses its listed issue references and deliverables as task
+context, assigning ordinary research notes to comments and the brief to the
+verified publication route above.
 
-Canonical categories are `type:bug` (broken) and `type:enhancement` (improvement).
-States name the wait: `state:triage` (evaluation), `state:reporter` (outside reporter's fact), `state:grill` (owner-intent grill), `state:owner` (owner), `state:ready` (AFK agent); `wontfix` closes work that will not be actioned. For a PR, ready means a brief is attached and an agent takes the next diff step.
-Use `docs/agents/triage-labels.md` for label strings and installed GitHub rules for meanings. Keep exactly one category and state per triaged issue; flag conflicting states and ask the maintainer before acting. Set one `priority:` label by the installed rules' Labels section.
+Use `docs/agents/triage-labels.md` for label strings and installed GitHub rules'
+Labels section for categories, states and priority. Flag conflicting states and
+ask the maintainer before acting. For a PR, ready means a brief is attached and
+an agent takes the next diff step.
 Unlabeled issues normally enter triage, then a waiting state or `wontfix`. On new information, return waiting work to triage or the guide's Readiness state for answered ready work. Flag unusual transitions and ask before acting; the maintainer may override any time.
 
 Repository issues, briefs, comments and decision records retain every relied-on
@@ -107,7 +102,7 @@ Every research run, on either path, does two checks first:
    - **Scope**: desired behavior is what the request asks for; nothing the request needs is dropped, nothing beyond it is added, and out of scope names the adjacent work an agent might reach for. Work that must be shown on a live system is split as [AGENT-BRIEF.md](AGENT-BRIEF.md#live-acceptance-gets-its-own-ticket) says.
    - **Acceptance criteria**: each is concrete, testable, and independently verifiable, and together they cover the edge cases the request and the code expose.
    - **Dependencies**: work that must land first is named, so it can be recorded as a blocker.
-   - **Seams**: assess the writer's result under `codebase-design`'s [Ownership check](../codebase-design/SKILL.md#ownership-check), including its honesty, Value owner, consumers, reversibility and cost read. The validator checks structure only.
+   - **Seams**: assess the writer's result under `codebase-design`'s [Ownership check](../codebase-design/SKILL.md#ownership-check), including its honesty, Value owner, consumers, reversibility and cost read.
    - **Open questions**: none remain, including missing required inputs. Route unavailable material as [Route questions](#route-questions) says. An open intent question means the request is intent-bound; switch paths.
 
    Passing the issue-contract check proves the shape, never that the brief holds. When it does not hold, send the research run the specific corrections; it edits the brief, and you review the new revision from the top.
@@ -120,9 +115,9 @@ Once it holds, [accept it](#accept-a-brief-that-holds).
 
 2. **Infer what you can cite.** Answer each intent question the contribution guide's inference test lets you answer, and record it as that test says. When you infer every one, have the research run write the brief from the facts and your inferred answers, then go to step 6.
 
-3. **Grill the owner** on the one-way doors or unchosen values the full inference test cannot settle, in a grilling session of its own. Open it with `/grill-with-docs` using the session's supported invocation, followed by task context: the issue links, facts, inferred answers, dated recorded decisions with quoted words, unresolved questions and scope. Include the owned branch and checkout for domain-document edits, per-repository PR destinations, the decision-record destination and report-back destination. Its deliverables are the decision record and, through `to-spec` then `to-tickets`, one published specification and proposed tickets in their responsible repositories with actual native parent/blocker links, awaiting independent review. Have it reuse settled answers and list qualifying inferences under **Inferred, listed for the owner**, with dated sources and owner veto. When the owner cannot join a grill now, put the request in your decision inbox with your recommendation.
+3. **Grill the owner** on the one-way doors or unchosen values the full inference test cannot settle, in a grilling session of its own. Open it with `/grill-with-docs` using the session's supported invocation, followed by the request's issue. When the owner cannot join a grill now, put the request in your decision inbox with your recommendation.
 
-4. **Decide the split** as the contribution guide's Triage section says. Inspect granularity, dependencies and factual/test-seam evidence, and use its correction and fact-finding routes. For failed native writes, report the exact missing relationship and platform response under the guide's publication rule.
+4. **Decide the split** as the contribution guide's Triage section says. Inspect granularity, dependencies and factual/test-seam evidence, and use its correction and fact-finding routes.
 
 5. **Check publication** by the grill writer against the guide's Triage publication rules. Inspect the specification and ticket bodies, native parent/blocker relationships and copied decisions. The original intake's triaged contract, if revised, still follows Publication mode above; do not create a second authoritative contract for the same work.
 
@@ -136,7 +131,7 @@ Once it holds, [accept it](#accept-a-brief-that-holds).
    - `state:ready` with `factory:skip` for agent work the installed factory rules say the factory must not pick up. Without those rules there is no skip label.
    - `state:ready` alone for any other work.
 
-   When owner review before merge is reserved, verify that the brief explicitly designates it as contract behavior and its triage notes retain the dated decision source. Check this even when that reason first arises here, after the initial brief review. If the designation or its source is missing or unclear, return the brief to its writer with the recorded reservation and source; the writer corrects it. Independently review the corrected brief from the top, then return to step 1 for its new validator revision notice before applying readiness.
+   When owner review before merge is reserved, even when that reason first arises here, verify the brief designates it as contract behavior and its triage notes retain the dated decision source. If either is missing or unclear, return the brief to its writer with the reservation and source, review the corrected brief from the top, and return to step 1 for its new revision notice.
 
 3. **Choose the model**, when the installed rules ask for a `model:` label: apply their Model selection rule to the triage notes' suggestion and the work, pick one label yourself, and give the guidance-based reason. Keep a matching model already on the issue, or remove a conflicting one before applying readiness.
 4. **Apply and confirm readiness** with the bundled command, using the `sha256:` revision from the notice you reviewed and the companion labels you chose:
@@ -145,12 +140,19 @@ Once it holds, [accept it](#accept-a-brief-that-holds).
    node <this skill's directory>/ready.mjs <issue> <sha256:reviewed-revision> <model-label>
    ```
 
-   The command applies `state:ready`. Omit the model label when the installed rules ask for none. Additional companion labels, such as `factory:skip`, follow the revision; `--repo owner/name` selects another repository. Run it with Node.js 24 or 26 in the foreground, bounded by your command timeout; it uses the current `gh` credential and needs no install step. It reads the destination's factory configuration at its default branch to tell whether a model label applies, and creates a missing chosen model label. Exit zero confirms the validator approved that revision by your account; a nonzero exit explains the refusal or rejection. Review a changed revision again before retrying. For a parent it waits for the latest child link and reapplies readiness when needed.
+   The command applies `state:ready`. Omit the model label when the installed rules ask for none. Additional companion labels, such as `factory:skip`, follow the revision; `--repo owner/name` selects another repository. Run it in the foreground with Node.js 24 or 26, bounded by your command timeout; it uses the current `gh` credential and needs no install. Exit zero confirms the validator approved that revision by your account; a nonzero exit explains the refusal or rejection. Review a changed revision again before retrying. For a parent it waits for the latest child link and reapplies readiness when needed.
 
 5. **Record blockers.** Add a native blocker for each issue whose work must land first.
 6. **Tell the owner** what you accepted, with links to each brief, the labels you applied, the blockers you added, and every answer you inferred, so they can veto it.
 
 When your credentials cannot apply readiness, or the destination's factory workflow rules say its factory starts no work on your account's readiness, stop at acceptance: tell the owner or another authorized person, with links, which revision holds, the readiness, model and skip labels you chose, and the blockers to record, and report that factory work has not started.
+
+## Accept mode
+
+1. **Read the revision** in the validator's current notice; without one, stop as [Accept a brief that holds](#accept-a-brief-that-holds) step 1 says. If this session published it, refuse: post nothing, and report that another session must review it.
+2. **Review it** as the [code-bound path](#code-bound-path)'s step 2 says, or the [intent-bound path](#intent-bound-path)'s step 6 for a direct contract, running each read-only check of live facts the contract names.
+3. **Post one verdict comment**: `**Verdict:**` holds or does not hold, `**Revision:**` the exact `sha256:` reviewed, and `**Findings:**`, one bullet each with its evidence, live checks' results included. A failing verdict is the writer's correction list.
+4. **Accept** a holding revision as [Accept a brief that holds](#accept-a-brief-that-holds) says.
 
 ## Factory triage run
 
@@ -167,8 +169,6 @@ The factory starts this run for one issue, read-only, and the installed factory 
 5. **Write nothing else**, as the Triage run section says, even where a credential would allow it: a reproduction stays in your sandbox, and `ready.mjs` never runs.
 
 ## Other outcomes
-
-Before posting a comment for any outcome below, read `.repo-standards/rules/comments.md#disclaimers`.
 
 - A missing fact or decision: route it as [Route questions](#route-questions) says; for a question to an outside reporter, post triage notes (template below).
 - For `wontfix`, close the issue, with the comment depending on _why_:
@@ -190,7 +190,7 @@ When an answer changes the implementation contract, follow the contribution guid
 
 ## Quick state override
 
-If the maintainer says "move #42 to state:ready", trust them: that is their review, not yours. Confirm what you're about to do (role changes, comment, close), then act, posting any comment as `.repo-standards/rules/comments.md#disclaimers` says. Skip grilling. Apply a readiness role through [Apply and confirm readiness](#accept-a-brief-that-holds), with the revision from the issue's current revision notice and the model and skip labels the installed rules ask for; when the command refuses your account, hand the maintainer those details instead. If moving to `state:ready` without a brief, ask whether they want one written.
+If the maintainer says "move #42 to state:ready", trust them: that is their review, not yours. Confirm what you're about to do (role changes, comment, close), then act. Skip grilling. Apply a readiness role through [Apply and confirm readiness](#accept-a-brief-that-holds), with the revision from the issue's current revision notice and the model and skip labels the installed rules ask for; when the command refuses your account, hand the maintainer those details instead. If moving to `state:ready` without a brief, ask whether they want one written.
 
 ## Reporter template
 
@@ -209,7 +209,7 @@ Repository Standards'
   post as each step describes; an installed issue-contract check names the Agent Brief disclaimer.
 - Installed rules, such as `github-repository-configuration` and factory workflow,
   looked up by `repository-standards`. If missing, use [AGENT-BRIEF.md](AGENT-BRIEF.md)
-  for brief shape, this skill for role meanings, and no `model:` or `factory:` label.
+  for brief shape and categories, and this skill's routing and outcomes for roles; use no `model:` or `factory:` label.
 - The `codebase-design` skill: its Ownership check supplies the Seams read
   and independent assessment. If missing, report the missing definition and
   stop brief writing or acceptance until it is available.
@@ -220,9 +220,9 @@ Repository Standards'
 - `docs/agents/triage-labels.md`: role label strings. If missing, use canonical role names.
 - `.out-of-scope/`, with `.out-of-scope/<concept>.md`: prior rejections. If missing,
   none were; create it on the first rejection as [OUT-OF-SCOPE.md](OUT-OF-SCOPE.md) says.
-- `vendor/repo-canon/validate-issue-contract.mjs` and the `babysit` skill's GitHub connection:
-  `ready.mjs` imports both. If either is missing it cannot start; stop at acceptance
-  as for credentials that cannot apply readiness.
+- `vendor/repo-canon/validate-issue-contract.mjs`, `operations/lib/factory-labels.mjs`
+  and the `babysit` skill's GitHub connection: `ready.mjs` imports them. If any
+  is missing it cannot start; stop at acceptance as for credentials that cannot apply readiness.
 - `.repo-standards/rules/factory-workflow.md` and `.scriptorium/config.json` at the
   destination default branch: `ready.mjs` reads both for model applicability
   and prefix. If rules are missing there, it requires no model label.

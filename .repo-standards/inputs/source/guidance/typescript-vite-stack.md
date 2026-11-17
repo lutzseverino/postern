@@ -38,9 +38,10 @@ YAML forms are the same as the [Node guidance](typescript-node-stack.md#supporte
 
 Assess framework, React, Tailwind, TypeScript and runner majors separately,
 including correcting the runner when tests exist. Tests are not required and
-a testless App needs no Vitest. Inspect actual `astro check` and `ui:check`
-execution through `validate`, required CI coverage on supported Node majors,
-and Setup and validation. Assess generated-output integrity, wrapper behavior,
+a testless App needs no Vitest. Inspect actual execution of the Project's
+checks through `validate`, including `ui:check` for UI holders, along with
+required CI coverage on supported Node majors and Setup and validation.
+Assess generated-output integrity, wrapper behavior,
 `data-slot` styling, theme ownership, and the rest of the shared rules. The
 manifest check does not resolve framework requirements through consumers and
 does not prove these assessed requirements. Cite evidence for each judgment.

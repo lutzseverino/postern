@@ -73,7 +73,7 @@ function normalizedRenderedText(content, includeCode = true) {
     .trim();
 }
 
-function isMeaningful(text) {
+export function isMeaningful(text) {
   const normalized = text.replace(/\s+/g, " ").trim().toLowerCase();
   const placeholderCandidate = normalized.replace(/[.!?,;:…]+$/u, "").trim();
   const words = normalized.match(/[\p{L}\p{N}]+/gu) ?? [];

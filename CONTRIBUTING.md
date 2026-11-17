@@ -23,7 +23,7 @@ implementation contract in its issue body and needs no intake triage, Agent
 Brief, or category label. A triaged request uses the validator's body Agent Brief after explicit
 activation. Preparation retains latest-comment contracts; cutoff preserves exact unchanged
 inventoried comments until revision into the body. Preserve one verbatim `Original request` at the body's end.
-See [the protocol](docs/development/issue-contract-v2.md).
+See [Agent Brief](.repo-standards/rules/github-repository-configuration.md#agent-brief).
 
 Before implementing, read the whole issue, its discussion, its parent
 specification, and its blockers, and clarify contradictions. Start a ticket
@@ -196,11 +196,11 @@ For attribution, follow [Agents on the maintainer's account](#agents-on-the-main
 
 An agent working on the maintainer's account may comment, file issues, open and
 merge pull requests, and apply labels as the installed
-[GitHub repository configuration rules](rules/github-repository-configuration.md)
-and, where applicable, [factory workflow rules](rules/factory-workflow.md) allow;
+[GitHub repository configuration rules](.repo-standards/rules/github-repository-configuration.md)
+and, where applicable, [factory workflow rules](.repo-standards/rules/factory-workflow.md) allow;
 the [readiness](#readiness), [credential](#credentials), and [merge](#merging)
 gates still apply. What it posts on issues and pull requests follows the
-[comment rules](rules/comments.md), as for any account.
+[comment rules](.repo-standards/rules/comments.md), as for any account.
 
 The attribution ban forbids crediting an agent, model or tool in commits and
 pull request titles and bodies, and never applies to comments. Under it, omit
@@ -296,7 +296,7 @@ Post one check-outcomes comment with the repository's own
 validation outcomes, confirmation of the recorded ready-to-commit verdict, and findings
 links or unfiled findings under the
 [findings rule](#findings).
-Write the check-outcomes comment under the [comment rules](rules/comments.md).
+Write the check-outcomes comment under the [comment rules](.repo-standards/rules/comments.md).
 
 The Repository Standards update action uses `chore!:` titles and includes
 Impact and Migration sections for major advances and breaking `0.x` minor
@@ -320,7 +320,7 @@ head alongside the conditions below.
 
 Merge a pull request once every required check passes on its latest head and
 every review thread is answered with its fix or a reasoned decline under the
-[comment rules](rules/comments.md). Checks must include the current default branch
+[comment rules](.repo-standards/rules/comments.md). Checks must include the current default branch
 under GitHub enforcement wherever available; proven private-plan limitations
 require immediate merging-agent verification with the accepted concurrent-base race. The
 `github-repository-configuration` rules define freshness, passing checks and
@@ -337,26 +337,37 @@ it is outside the change's ticket or scope; when it guards a rule another layer
 owns, such as by duplicating that layer's validation; or when it guards against
 the owner misconfiguring files only the owner writes, or a component corrupting
 state it owns itself, which lie outside the threat model. Answer a decline with
-its reason in its review thread under the [comment rules](rules/comments.md). Record real findings declined because they
+its reason in its review thread under the [comment rules](.repo-standards/rules/comments.md). Record real findings declined because they
 are outside the change's ticket or scope, or because another layer owns the
 rule they guard, under the [findings rule](#findings). Do not file findings
 declined because they do not hold or lie outside the threat model.
 
 ## Credentials
 
-An agent run uses only the credentials it was given. It never looks for, tests,
-or uses another identity, whether a token, a CLI login, an environment variable,
-a connector, or an app, including one reached through the agent provider's own
-login. Searching for one, such as listing credential environment variables or
-probing other `gh` configurations, counts as looking. When a push, merge, or API
-call is refused for permission, the refusal stands: the agent stops and asks
-the owner, as for any answer only the owner can give, and never retries under
-another identity.
+Use only supplied credentials. Never look for, test or use another identity,
+including tokens, CLI logins, environment variables, connectors, apps or the
+agent provider's own login. Searching, such as listing credential variables or
+probing other `gh` configurations, counts as looking. Never retry a
+permission-refused call; both cases below retain these bans.
+
+A refused write, such as a push or merge, stops the run with an owner handoff,
+as does a refused read the work depends on. The work depends on a read when
+any step the run must complete uses its result: implementation contracts,
+issues and blockers; check, review, readiness and merge gate evidence,
+including branch protection and rulesets; state behind writes; and every read
+made by scripts the run's skill directs. A read the run cannot show to be
+unneeded counts as one the work depends on.
+
+A refused read the work does not depend on ends no run: continue without its
+result, never repeat it. Record its method, endpoint, platform refusal message
+and what could not be learned in the final report (factory run result) and any
+worker handoff, without tokens or credential values. Add no comment occasion;
+keep this record out of the internal review template.
 
 ## Owner questions
 
 When an agent needs an answer only the owner can give, it posts the question as
-the [comment rules](rules/comments.md#owner-questions) say, and stops without a
+the [comment rules](.repo-standards/rules/comments.md#owner-questions) say, and stops without a
 pull request if none is open, or leaving the open pull request unmerged and
 linked from the question. This owner handoff ends the agent's babysitting of
 the pull request. The agent neither closes the pull request nor waits for the
@@ -369,4 +380,4 @@ continuation.
 ## Comments
 
 Every rule about what agents post on issues and pull requests, on any account,
-lives in the installed [comment rules](rules/comments.md).
+lives in the installed [comment rules](.repo-standards/rules/comments.md).
