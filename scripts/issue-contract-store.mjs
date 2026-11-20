@@ -7,6 +7,8 @@ import {
   validReceipt,
   markedRun,
   attestationFormat,
+  attestationMarker,
+  attestationPayload,
   intakeOriginal,
   isFactoryTriageAuthor,
 } from "./issue-contract-sources.mjs";
@@ -316,16 +318,7 @@ export async function recordContractPublication(
     editedAt: issue.bodyEditTime,
     editId: edits[issue.nodeId].id,
   };
-  const prefix = "<!-- repo-canon:triage-attestation ";
-  const lines = comment.body
-    .split("\n")
-    .filter((line) => line.includes("<!-- repo-canon:triage-attestation"));
-  const payload =
-    lines.length === 1 &&
-    lines[0].startsWith(prefix) &&
-    lines[0].endsWith(" -->")
-      ? JSON.parse(lines[0].slice(prefix.length, -4))
-      : null;
+  const payload = attestationPayload(comment.body, attestationMarker);
   const revision = digest(
     JSON.stringify({
       format: "repo-canon/issue-contract-revision/v1",

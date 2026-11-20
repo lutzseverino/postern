@@ -3,12 +3,16 @@
 import { setTimeout as wait } from "node:timers/promises";
 import { factorySkipLabel } from "../../../operations/lib/factory-labels.mjs";
 import {
+  contractFootprint,
+  footprintRefusal,
   issueContractResult,
   isSpecification,
   noticePrecedes,
   observedChangeId,
   readyLabels,
   readIssueContractObservation,
+  supersededWithoutFate,
+  supersessionRefusal,
 } from "../../../vendor/repo-canon/validate-issue-contract.mjs";
 import {
   connectionFor,
@@ -92,6 +96,26 @@ async function snapshot(connection, number) {
   return { issue, events, current, ...result };
 }
 
+// The validator's refusal of a new grant, checked before any label write,
+// including the withdrawal that records approved readiness again: a direct
+// contract's malformed footprint, or a specification's superseded issue
+// without a fate.
+async function grantRefusal(connection, { issue, state }) {
+  const repository = connection.repository.path;
+  const footprint = footprintRefusal(state.kind, issue.body, repository);
+  if (footprint || !isSpecification(issue)) return footprint;
+  const unfated = await supersededWithoutFate({
+    specification: { repository, number: issue.number },
+    footprint: contractFootprint(issue.body, repository),
+    tickets: issue.subIssues,
+    trackerFor: (path) =>
+      path.toLowerCase() === repository.toLowerCase()
+        ? connection.issueTracker
+        : connectionFor(path).issueTracker,
+  });
+  return supersessionRefusal(unfated, repository);
+}
+
 // Whether the result has observed the latest readiness change.
 const processed = ({ state, events, current }) =>
   current &&
@@ -109,6 +133,37 @@ function parentNeedsReapply({ issue, events }, label) {
     (event) => event.label === label && event.action === "added",
   );
   return !applied || Date.parse(applied.time) <= Date.parse(issue.linkTime);
+}
+
+// Creates each required companion the repository lacks, keeping existing
+// labels' metadata: model labels under the factory prefix and the skip label.
+async function provisionLabels(connection, prefix, companions) {
+  const requiredLabels = companions
+    .filter((name) => prefix !== null && name.startsWith(prefix))
+    .map((name) => ({
+      name,
+      color: "5319e7",
+      description: `Factory model: ${name.slice(prefix.length)}`,
+    }));
+  if (prefix !== null && companions.includes(factorySkipLabel.name))
+    requiredLabels.push(factorySkipLabel);
+  if (!requiredLabels.length) return;
+  const existing = await connection.issueTracker.labels();
+  for (const definition of requiredLabels) {
+    if (!existing.some((entry) => entry.name === definition.name))
+      await connection.issueTracker.createLabel(definition);
+  }
+}
+
+// Withdraws readiness so it can be recorded again, after attaching the given
+// companions so readiness never comes off before them. The caller then waits
+// for the validator to report the removal awaiting review.
+async function withdrawReadiness(connection, number, prefix, companions) {
+  if (companions.length) {
+    await provisionLabels(connection, prefix, companions);
+    await connection.issueTracker.addLabels(number, companions);
+  }
+  await connection.issueTracker.removeLabel(number, readyLabel);
 }
 
 function checkContract(current, revision) {
@@ -181,6 +236,7 @@ export async function main(
   const prefix = await modelPolicy(connection);
   const isModel = (name) => prefix !== null && name.startsWith(prefix);
   let before;
+  let refusalChecked = false;
   for (;;) {
     before = await snapshot(connection, number);
     if (
@@ -200,10 +256,22 @@ export async function main(
       await pause(2000);
       continue;
     }
+    if (!refusalChecked) {
+      const refusal = await grantRefusal(connection, before);
+      if (refusal) throw new Error(refusal);
+      refusalChecked = true;
+    }
     const staleParent = parentNeedsReapply(before, readyLabel);
+    // Approved readiness lacking a requested companion is recorded again.
+    const missing =
+      before.state.status === "approved" &&
+      before.issue.labels.includes(readyLabel)
+        ? companions.filter((name) => !before.issue.labels.includes(name))
+        : [];
     if (
       before.state.status !== "awaiting-review" &&
-      !(staleParent && before.state.status === "approved")
+      !(staleParent && before.state.status === "approved") &&
+      !missing.length
     )
       throw new Error(
         "The feedback does not report a complete contract awaiting review.",
@@ -212,8 +280,13 @@ export async function main(
       await pause(2000);
       continue;
     }
-    if (staleParent) {
-      await connection.issueTracker.removeLabel(number, readyLabel);
+    if (staleParent || missing.length) {
+      await withdrawReadiness(
+        connection,
+        number,
+        prefix,
+        staleParent ? [] : missing,
+      );
       await pause(2000);
       continue;
     }
@@ -234,20 +307,7 @@ export async function main(
       break;
     await pause(2000);
   }
-  const requiredLabels = companions.filter(isModel).map((name) => ({
-    name,
-    color: "5319e7",
-    description: `Factory model: ${name.slice(prefix.length)}`,
-  }));
-  if (prefix !== null && companions.includes(factorySkipLabel.name))
-    requiredLabels.push(factorySkipLabel);
-  if (requiredLabels.length) {
-    const existing = await connection.issueTracker.labels();
-    for (const definition of requiredLabels) {
-      if (!existing.some((entry) => entry.name === definition.name))
-        await connection.issueTracker.createLabel(definition);
-    }
-  }
+  await provisionLabels(connection, prefix, companions);
   await connection.issueTracker.addLabels(number, [...companions, readyLabel]);
   for (;;) {
     const current = await snapshot(connection, number);
@@ -273,7 +333,7 @@ export async function main(
           "The validator did not approve this account's readiness event.",
         );
       if (parentNeedsReapply(current, readyLabel)) {
-        await connection.issueTracker.removeLabel(number, readyLabel);
+        await withdrawReadiness(connection, number, prefix, []);
         await pause(2000);
         return main(argv, connection, pause, now);
       }

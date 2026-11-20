@@ -11,13 +11,13 @@ Take the PR through authorized delivery under `CONTRIBUTING.md` and the
 
 Before requesting or waiting, establish your role from `CONTRIBUTING.md`'s
 Merging section and applicable installed rules. Record any prescribed worker
-handoff on the open PR under `.repo-standards/rules/comments.md#delivery-records`
-and stop. The designated merging agent resumes with its review requirements
+handoff in the open PR body's Delivery subsection under
+`.repo-standards/rules/comments.md#delivery-records` and stop. The designated merging agent resumes with its review requirements
 and outstanding findings. For an owner-question pause, follow installed
 continuation rules before request and wait. For authorized delivery of a
 stopped run's open PR, enter Branch-update recovery first, using this
 invocation's branch update. Carry the handoff context and follow installed
-rules for retaining its waiting marker and recording the merge outcome.
+rules for retaining its waiting marker.
 
 The bundled scripts require Node.js 24 or 26. Request and wait read optional
 `.github/pull-request-reviewer.json` and `.github/factory-review-policy.json`
@@ -93,8 +93,8 @@ body was checked. Link-free bodies need no reconstruction.
    After any push or re-request, return to step 1.
 5. Before each merge attempt, verify merge ownership and any required owner
    approval against the current head under the applicable installed rules.
-   Read the authoritative implementation contract and any worker handoff and
-   apply the `github-repository-configuration` rules' Designated owner review gate.
+   Read the authoritative implementation contract and any worker handoff in
+   the PR body's Delivery subsection, and apply the `github-repository-configuration` rules' Designated owner review gate.
    Read PR comments carrying designation provenance and current-head approval;
    record approval there under `.repo-standards/rules/comments.md#delivery-records`.
    Missing required approval means the guide's owner-question handoff under
@@ -107,8 +107,8 @@ body was checked. Link-free bodies need no reconstruction.
    | --- | --- |
    | `0` | Merged. Record any installed-rule-required outcome under `.repo-standards/rules/comments.md#delivery-records`: delivered head, validation/review results and printed merge commit SHA. |
    | `2` | Head changed or current-head validation has not succeeded. Return to step 1. |
-   | `3` | Not merged; owner needed, including a `gate:` label on the PR or any closing issue. Leave it open and hand off under `.repo-standards/rules/comments.md#owner-questions`, without retrying merge. |
-   | `4` | Stale base. Enter Branch-update recovery if this invocation has not used its branch update; otherwise record the owner handoff and stop. |
+   | `3` | Not merged; owner needed, including a `gate:` label on the PR or any closing issue, a closing issue's declared deletion still present, or an edit to a surface another open issue's `Deletes:` names. Leave it open and hand off under `.repo-standards/rules/comments.md#owner-questions`, without retrying merge. |
+   | `4` | Stale base. Enter Branch-update recovery: at most 2 further updates for a non-overlapping advance; the next stale base goes to the owner with "base did not settle". An overlap after the first update goes to the owner. |
    | `5` | Current-head policy-skip review missing/incomplete. Complete both internal reviews, post under `.repo-standards/rules/comments.md#reviews` using wait's full-head template, verify other merge conditions and rerun merge. No owner handoff. |
    | `6` | Configured-reviewer threads remain unresolved. Resolve them on the platform, verify the other gates and rerun merge. Replies alone do not resolve threads. |
    | `9` | Another open issue/PR has the repository-hold label, or another open PR has the release-hold label. Leave this PR open; retry only after the hold ends. Factory runs end for factory relaunch after the hold; other runs rerun merge after it ends. No owner handoff. |
@@ -173,13 +173,27 @@ race: another writer may advance the base after verification and merge can succe
 checks narrow that window without GitHub's atomic protection. Exit `4` means
 stale base, distinct from head change or owner-only failure; no merge succeeded.
 
-The same section bounds recovery and says what it never does. Preserve committed,
+The first update is unconditional. There are at most 2 further updates for a non-overlapping advance; the next stale base goes to the owner
+with "base did not settle". Count updates across this invocation, including entry
+from a stopped run; a wait or merge retry does not reset the count.
+
+Preserve the full base SHA integrated by the previous update and its head SHA.
+After fetching, run `node <this skill's directory>/branch-update.mjs <previous-base> <previous-head> <new-base> <updates-used>`.
+Before the first update use the PR's merge-base and current head, with count `0`.
+Exit `0` permits the update; `3` requires the owner handoff with its printed
+reason; `1` means missing or invalid Git evidence, which permits no further update
+until resolved. At count `0`, exit `1` still permits the unconditional first
+update and carries no review. The script checks all paths touched by added base commits, including
+reverts and merge parents, and `git merge-tree --write-tree` (Git 2.38 or newer).
+A clean merge that touches a PR path is still an overlap. Prose grants no override.
+
+The freshness section says what recovery never does. Preserve committed,
 staged, unstaged and untracked work and the PR's review and handoff context
 before changing history. Fetch origin, resolve its remote default branch again,
 and inspect outgoing history (including each merge parent) and the whole diff.
 Rebase or replay only this PR's work onto the refreshed base; keep unrelated
 work preserved separately. Apply the same section's keep-both class to every
-reconstruction conflict. Resolve every in-class conflict within this one update;
+reconstruction conflict. Resolve every in-class conflict within the current update;
 such a resolution is not a failed branch update. For conflicts outside the class
 or uncertain ownership, preserve the work and hand off to the owner, naming the
 conflicting files and why each conflict is outside the class.
@@ -196,9 +210,24 @@ After resolving conflicts, post one conflict-resolution record on the PR under
 head's review. Account for every resolved file, both sides' contributions kept,
 any derived value and its producing command or check, and why no choice was needed.
 
-For the replacement head, repeat applicable internal reviews and owner approval,
-then request and wait again from step 1 under freshly applied trusted app-author
-policy. Pending/failed checks permit no merge; old-head checks never qualify it.
+After an allowed update, rerun `branch-update.mjs` with the same four inputs and
+the replacement head as a fifth argument. Only `nonOverlapping: true` together
+with `patchUnchanged: true` carries internal and external review; every other
+replacement repeats both. Record the carried internal outcomes for the current
+head, citing the previous review and the script's base/head SHAs and patch result,
+in the current-head review record; unresolved findings stay unresolved.
+Pass `--updated-from <previous-base>:<previous-head>:<new-base>` to request and
+wait only for that verified unchanged update. Both commands recompute proof against
+the live head. Wait accepts completed external review of the previous head,
+and otherwise retains normal reviewer behavior. When carrying across more than
+one update, keep the reviewed base/head pair and verify the whole advance from it.
+Keep the immediately previous update's base/head separately for the next overlap
+decision and count. No host configuration or state is read.
+
+For every replacement head, renew any designated owner approval and run request
+and wait again from step 1 under freshly applied trusted app-author policy.
+The unchanged-patch case repeats only required checks, while retaining review
+records and owner gates. Pending/failed checks permit no merge; old-head checks never qualify it.
 Re-establish merge ownership before step 5. Finish each waiting PR's delivery
 before the next, refreshing each base independently.
 
@@ -214,13 +243,14 @@ Paths are relative to the repository root.
   steps and the commands' own checks as written, and hand off to the owner in
   one PR comment for any rule the steps leave to the guide.
 - `.repo-standards/rules/comments.md`: the installed comment rules, whose
-  sections the steps name before each post. When it is missing, post each
-  record or question the steps name as one comment, and each review in the
-  shape the wait prints.
+  sections the steps name before each post. When it is missing, keep the
+  worker handoff in the PR body's Evidence section, post each other record or
+  question the steps name as one comment, and each review in the shape the
+  wait prints.
 - The installed rules the steps name, such as the
   `github-repository-configuration` rules, which the `repository-standards`
   skill looks up. When they are missing, the commands' own behavior stands, no
-  rule prescribes a worker handoff, owner approval or merge outcome record,
+  rule prescribes a worker handoff or owner approval,
   and `CONTRIBUTING.md` alone sets the merge rules.
 - `.github/required-checks.json`: the required-name authority for wait and merge.
   Missing, invalid or unreadable at the selected trusted commit stops delivery
@@ -235,13 +265,18 @@ Paths are relative to the repository root.
   missing or unreadable, that path permits no merge.
 - `.scriptorium/config.json`: its `labels.hold` and `labels.releaseHold`, which the
   merge command reads. When the file or a key is missing, that hold does not apply.
+- `.agents/skills/` and `rules/` at the pull request's head and merge base: the
+  skills, references and rule sections that open issues' `Deletes:` lines name,
+  which the merge command resolves. When a surface is missing at both, the
+  command reports it unchecked.
 - `.repo-standards/runtime/`: the pinned Repository Standards runtime, its
   `package-lock.json` and `node_modules/.bin/repo-standards`, which the
   request command uses to rebuild an adoption summary. When it is missing, no
   link is exempt as part of an adoption summary.
-- `vendor/postern/postern.mjs`, `vendor/marked/marked.esm.js` and
-  `vendor/parse5/parse5.esm.js`: the bundles the commands import, which Repo
-  Canon's adoption installs. When they are missing, the commands cannot start:
+- `vendor/postern/postern.mjs`, `vendor/marked/marked.esm.js`,
+  `vendor/parse5/parse5.esm.js` and `vendor/repo-canon/validate-issue-contract.mjs`:
+  the bundles and contract parser the commands import, which Repo Canon's
+  adoption installs. When they are missing, the commands cannot start:
   carry out each step by hand with the GitHub CLI under the same rules, and
   squash-merge with the subject `<title> (#<number>)` and the PR body passed
   explicitly.

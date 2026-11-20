@@ -140,6 +140,9 @@
     },
     {
       "id": "factory-sandbox-image-workflow",
+      "check-locations": [
+        "github"
+      ],
       "checks": [],
       "fixes": [],
       "kind": "file",
@@ -396,6 +399,9 @@
     },
     {
       "id": "issue-contract-workflow",
+      "check-locations": [
+        "github"
+      ],
       "checks": [],
       "fixes": [],
       "kind": "file",
@@ -508,6 +514,9 @@
     },
     {
       "id": "pr-metadata-workflow",
+      "check-locations": [
+        "github"
+      ],
       "checks": [],
       "fixes": [],
       "kind": "file",
@@ -788,6 +797,9 @@
     },
     {
       "id": "standards-update-workflow",
+      "check-locations": [
+        "github"
+      ],
       "checks": [],
       "fixes": [],
       "kind": "file",

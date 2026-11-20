@@ -24,6 +24,7 @@ import { skipsExternalReview } from "./review-policy.mjs";
 import { completeReview, reviewsSection } from "./review-outcome.mjs";
 
 import { ownerGates } from "./owner-gates.mjs";
+import { declaredDeletions } from "./declared-deletions.mjs";
 
 import { decide } from "./wait.mjs";
 import { validationCheckStates } from "./required-checks.mjs";
@@ -276,6 +277,27 @@ async function gated(connection, number) {
   return false;
 }
 
+// Reports the footprint and unresolved surfaces on every run; a failure is the
+// owner's to settle, by changing the PR, the contract or the order of work.
+async function deletionsRefused(connection, number, branch, head) {
+  let result;
+  try {
+    result = await declaredDeletions(connection, number, branch, head);
+  } catch (error) {
+    if (["forbidden", "unauthenticated"].includes(error.reason)) throw error;
+    needsOwner(
+      `Could not check declared deletions for ${head}: ${error.message}`,
+    );
+    return true;
+  }
+  for (const line of result.report) console.error(line);
+  if (!result.failures.length) return false;
+  needsOwner(
+    `Declared deletions refuse the merge: ${result.failures.join(" ")} Leave the PR open for the owner.`,
+  );
+  return true;
+}
+
 export async function main(argv = process.argv.slice(2), connection) {
   const [number, head, ...extra] = argv;
   if (
@@ -348,6 +370,7 @@ export async function main(argv = process.argv.slice(2), connection) {
     return unreadableFreshness(error);
   }
   if (await held(connection, configuration.revision, Number(number))) return;
+  if (await deletionsRefused(connection, Number(number), branch, head)) return;
   try {
     if (freshness === "plan-limited") {
       const workflowPath = ".github/workflows/pr-metadata.yml";

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { devNull, tmpdir } from "node:os";
 import { join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -123,7 +123,11 @@ export function ownershipFacts(cwd, comparisonBase, head) {
   return facts;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (
+  import.meta.main ??
+  (process.argv[1] &&
+    realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)))
+) {
   try {
     const [base, head, ...extra] = process.argv.slice(2);
     if (!base || !head || extra.length)

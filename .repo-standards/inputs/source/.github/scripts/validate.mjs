@@ -66,15 +66,14 @@ export async function githubValidation(
       payload,
     });
   }
+  const trackerFor = (path) =>
+    connect(`https://github.com/${path}`, connectionOptions).issueTracker;
   return validate(
     { kind, event },
     connection,
-    (reference) =>
-      connect(
-        `https://github.com/${reference.repository}`,
-        connectionOptions,
-      ).issueTracker.issue(reference.number),
+    (reference) => trackerFor(reference.repository).issue(reference.number),
     options.resolveBoundary,
+    trackerFor,
   );
 }
 

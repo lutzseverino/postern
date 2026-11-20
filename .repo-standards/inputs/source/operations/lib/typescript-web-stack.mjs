@@ -85,7 +85,12 @@ export function webStackDifferences(
     manifest: readManifest(projectRoot, rootPath).manifest,
     catalogs: catalogsAt(projectRoot, result.workspaceRoot),
   };
-  if (stack === "astro") {
+  const classification = (
+    memberships ?? classifyWebPackages(projectRoot, files)
+  ).get(path);
+  // Confirmed shared packages inherit the formatter from their consumers.
+  const shared = classification?.kind === "shared";
+  if (stack === "astro" && !shared) {
     const difference = toolDifference(
       { name: "prettier-plugin-astro" },
       { path, manifest },
@@ -95,11 +100,7 @@ export function webStackDifferences(
   }
   const packages = workspacePackages(projectRoot, result.workspaceRoot, files);
   const ownConfig = joinPath(parentOf(path), "components.json");
-  const classification = (
-    memberships ?? classifyWebPackages(projectRoot, files)
-  ).get(path);
   // Confirmed shared packages without UI need no shadcn declaration of their own.
-  const shared = classification?.kind === "shared";
   const holders =
     shared && !isRegularFile(projectRoot, ownConfig)
       ? []

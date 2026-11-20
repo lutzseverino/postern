@@ -2,7 +2,7 @@ format: repo-standards/v2
 name: repo-canon
 description: Repository documentation, contribution, agent workflow, and GitHub validation standards
 requires:
-  repo-standards: ">=10.0.0"
+  repo-standards: ">=11.0.0"
 
 defaults:
   declarations:
@@ -253,6 +253,7 @@ defaults:
 
     issue-contract-workflow:
       kind: file
+      check-locations: [github]
       target: .github/workflows/issue-contracts.yml
       exact: .github/workflows/issue-contracts.yml
 
@@ -323,11 +324,13 @@ defaults:
 
     pr-metadata-workflow:
       kind: file
+      check-locations: [github]
       target: .github/workflows/pr-metadata.yml
       exact: .github/workflows/pr-metadata.yml
 
     standards-update-workflow:
       kind: file
+      check-locations: [github]
       target: .github/workflows/standards-update.yml
       exact: .github/workflows/standards-update.yml
 
@@ -612,12 +615,15 @@ defaults:
           timeout-seconds: 30
 
 profiles:
+  # Seam (deferred): per-check-group locations; consumers: 1; extract at 2.
   standard:
     description: The Repo Canon standards for every adopting repository
+    check-locations: [github, runner, self-reported]
     declarations: {}
 
   factory:
     description: The standard profile plus the factory's repository files and workflow rules, for a repository a factory serves
+    check-locations: [github, runner, self-reported]
     declarations:
       skill-factory:
         kind: skill
@@ -646,6 +652,7 @@ profiles:
 
       factory-sandbox-image-workflow:
         kind: file
+        check-locations: [github]
         target: .github/workflows/sandbox-image.yml
         exact: .github/workflows/sandbox-image.yml
 

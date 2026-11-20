@@ -3,8 +3,8 @@ cli:
   version: 11.0.1
 standards:
   repository: https://github.com/lutzseverino/repo-canon
-  version: v0.29.0
-  commit: 37c1f2c7917c5bce547b4b52ab7b3052e0bb142e
+  version: v0.31.0
+  commit: e528a4585cb055b099fdaae298e5b9d7f35a9742
 profile: factory
 platform: github
 checks: github

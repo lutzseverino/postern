@@ -34,9 +34,14 @@ passing. An issue closes when its own acceptance criteria hold. After
 readiness, nobody edits an implementation contract to record progress: progress
 lives in linked pull requests, sub-issue states and comments.
 
-Work that must be shown on a live system splits into a source ticket, which
-closes when its pull request merges, and a live-acceptance ticket, blocked by
-the source ticket, which closes only on its recorded live acceptance.
+Live evidence is an acceptance criterion of the source ticket; split it into a
+live-acceptance ticket only when its live steps need host access the source
+work does not or its evidence can only exist after the source pull request
+merges. Record the source ticket's live evidence before its pull request
+merges, so its closing reference closes it at merge only after its acceptance
+criteria hold. For the split case, the source ticket closes when its pull
+request merges, and the live-acceptance ticket, blocked by the source ticket,
+closes only on its recorded live acceptance.
 
 ## Triage
 
@@ -73,12 +78,14 @@ inference test under **Inferred, listed for the owner**, with dated sources
 and veto. Grill answers and plan approval remain gates.
 
 The grill writer invokes `to-spec`, then `to-tickets`, publishing direct body
-contracts for independent review, without intake triage, redundant Agent
-Briefs or category labels. One specification lives in the repository
-containing most work; tickets in their responsible repositories are its native
-sub-issues with blockers. Copy relied-on decisions, dates and quotes into
-every contract. A failed native edge stops progression: report the exact
-missing relationship and platform failure.
+contracts for independent review. Each states `Supersedes:` (ADRs, issues),
+`Adds:` and `Deletes:` (durable surfaces, never paths) lines; readiness waits
+for a fate on each open issue a specification supersedes, directly or by ADR.
+One specification lives in the repository containing most work; tickets in
+their responsible repositories are its native sub-issues with blockers. Copy
+relied-on decisions, dates and quotes into every contract. A failed native
+edge stops progression: report the exact missing relationship and platform
+failure.
 
 The orchestrating agent decides the final split, merging, splitting, dropping
 or setting aside drafts, and never accepts its own contract. Substantial split
@@ -94,15 +101,13 @@ leave readiness to the owner, reporting links under comment rules.
 Changes to a plan's goal, Done means or row scope require an amendment grill,
 possibly one round: revise the specification, then run `to-tickets` on the
 delta, updating affected contracts and native links. Edited accepted contracts
-lose readiness; require new notice, independent review and renewed readiness.
-Findings, follow-ups passing the inference test and reorderings already
-permitted by blockers need no amendment. Progress never edits ready contracts.
+need independent review again. Findings, follow-ups passing the inference test
+and reorderings already permitted by blockers need no amendment.
 
 Grills edit domain documents on their own branch and checkout, never a shared
 default-branch checkout. Open one draft PR per repository with domain changes,
 delivered by separate `review`, run by the orchestrating agent unless a
-factory reviews it. Return contracts for acceptance. Authoritative contracts
-stay in repository issues.
+factory reviews it. Return contracts for acceptance.
 
 A fact only an outside reporter holds goes to the reporter, with the issue in
 `state:reporter`. A question only the owner can answer goes to the owner with
@@ -113,7 +118,8 @@ a grill must settle the owner's intent.
 
 Applying `state:ready` is the review action, and the
 `github-repository-configuration` rules name the roles it needs, the factory
-triage run's exception to them, and the labels. After revising a contract or
+triage run's exception to them for its own brief and for a direct contract it
+reviewed, and the labels. After revising a contract or
 posting an Agent Brief, wait for the issue-contract workflow's revision notice
 before applying readiness. Editing a contract removes its readiness. The workflow keeps one workflow state label on
 an issue, a `state:` label or the closing `wontfix` in its place: authorized
@@ -141,35 +147,18 @@ checks documented in the development guide before requesting review.
 
 ## Findings
 
-Every agent run records findings: implementation, release, review, and adoption or update. A
-finding is a defect, gap, or stale instruction the run observed outside the
-work it is responsible for. Fix defects inside the change's responsibility in
-the change. An adoption run's own contextual work in the adopting repository
-is not a finding.
+Note out-of-scope observations in the pull request body or the run's result,
+not as issues. Open an issue only for one that blocks an active goal or causes
+harm (security, data loss, a broken default branch), after checking for an
+existing one, in the responsible repository with `state:triage`.
 
-A factory run cites its filing run in each finding it files, and never opens a
-separate unticketed pull request: out-of-scope work, however small, is a
-finding.
+Park a person's idea as an issue only when they ask. Search the responsible
+repository's tracker first and reuse an existing issue. File it with
+`state:grill` only when they want it decided; otherwise file an ordinary issue
+at `priority:low`.
 
-Before filing, check for an open issue that already reports the finding and
-link it instead of creating a duplicate. Otherwise, open one issue per finding
-through the target repository's issue forms, labelled `state:triage`. File it
-in the repository responsible for the affected material or tooling. Each issue
-cites the run's pull request or issue and distinguishes what the run observed
-from what it only read in code. Leave the issues to triage.
-
-Link every filed or existing issue in this order:
-
-1. A run with a pull request links them from a comment on that pull request.
-   For adoption, use its check-outcomes comment.
-2. A run without a pull request links them from the issue it was working on,
-   if there is one, such as a release run's planning issue.
-3. Only a run with neither a pull request nor an issue lists them in its final
-   message.
-
-If filing fails, list each unfiled finding in the same place the links would
-go, name its target repository, and state that it was not filed. Findings never
-block or delay the run's pull request or other work.
+A factory run cites its filing run in each issue it files, and never opens a
+separate unticketed pull request for out-of-scope work, however small.
 
 ## Titles and commits
 
@@ -197,7 +186,7 @@ For attribution, follow [Agents on the maintainer's account](#agents-on-the-main
 An agent working on the maintainer's account may comment, file issues, open and
 merge pull requests, and apply labels as the installed
 [GitHub repository configuration rules](.repo-standards/rules/github-repository-configuration.md)
-and, where applicable, [factory workflow rules](.repo-standards/rules/factory-workflow.md) allow;
+and, where applicable, the factory workflow rules allow;
 the [readiness](#readiness), [credential](#credentials), and [merge](#merging)
 gates still apply. What it posts on issues and pull requests follows the
 [comment rules](.repo-standards/rules/comments.md), as for any account.
@@ -250,24 +239,28 @@ adoption pull request, use the adoption record as described below.
 
 ### Worker handoff
 
-Before worker handoff, every required check must pass on the latest pushed PR
-head. Required names come from the pinned trusted default-branch
-`.github/required-checks.json` under the `github-repository-configuration`
-rules. Every configured location runs the same required command:
+Before worker handoff, required checks must pass on the latest pushed PR head;
+the separate-review handoff's passing-checks condition follows the factory workflow
+rules' environment-performed step rule in their Run kinds section.
+Required names come from pinned trusted default-branch `.github/required-checks.json`
+under the `github-repository-configuration` rules. Each location runs the required command:
 
 - `github`: use required hosted check results on that head.
 - `runner`: use required commit statuses from the repository's named runner.
 - `self-reported`: run and report the required local command on that head.
 
-A head change invalidates earlier evidence. Pending, missing, failing,
-unavailable or unrun required results cannot qualify. Unavailable Actions cannot
-substitute a local pass for configured runner results. Fix and revalidate, or
-follow existing blocked/failure delivery rules, naming checks and reasons.
-Add no timeout, fallback or bypass.
+A head change invalidates earlier evidence. Run-performed gates reject pending,
+missing, failing, unavailable or unrun results. Unavailable Actions cannot
+substitute a local pass for configured runner results. Fix and revalidate or
+follow blocked/failure delivery rules, naming checks and reasons. Add no timeout,
+fallback or bypass.
 
 Record the full head SHA, trusted declaration revision, location, required command,
-names and outcomes. Draft-to-separate-review and no-review handoffs both retain
-review/merge ownership and gates.
+names and outcomes in the body's Evidence section as its `### Delivery`
+subsection, under the comment rules'
+[delivery records](.repo-standards/rules/comments.md#delivery-records), and
+keep it current on each push. Draft-to-separate-review and no-review handoffs
+both retain review/merge ownership and gates.
 
 Self-reported success requires the independent review run, another agent and
 sandbox, to rerun the same command on the current head before merging. The
@@ -293,8 +286,8 @@ if absent. Then optionally append one `## Related issue` section outside the
 byte-preserved record, using the ordinary closing or partial-work reference.
 Squash with the complete PR body, including that relationship.
 Post one check-outcomes comment with the repository's own
-validation outcomes, confirmation of the recorded ready-to-commit verdict, and findings
-links or unfiled findings under the
+validation outcomes, confirmation of the recorded ready-to-commit verdict, and
+out-of-scope notes and opened issue links under the
 [findings rule](#findings).
 Write the check-outcomes comment under the [comment rules](.repo-standards/rules/comments.md).
 
@@ -302,7 +295,7 @@ The Repository Standards update action uses `chore!:` titles and includes
 Impact and Migration sections for major advances and breaking `0.x` minor
 advances of either pin.
 
-For adoption or update findings, use these target repositories:
+For issues an adoption or update run opens, use these target repositories:
 
 - For the standards source's guidance, discovery, checks, fixes, installed
   files, or drafter, use the source repository identified by the source URL in
@@ -314,9 +307,9 @@ For adoption or update findings, use these target repositories:
 
 Before delivery, read applicable installed rules for merge ownership and
 owner review. When they assign the merge to another agent, the worker records
-the prescribed PR handoff and stops without merging. The designated merging
-agent resumes delivery from that handoff, enforcing those rules on the current
-head alongside the conditions below.
+the prescribed handoff in the body's Delivery subsection and stops without
+merging. The designated merging agent resumes delivery from that subsection,
+enforcing those rules on the current head alongside the conditions below.
 
 Merge a pull request once every required check passes on its latest head and
 every review thread is answered with its fix or a reasoned decline under the
@@ -337,9 +330,9 @@ it is outside the change's ticket or scope; when it guards a rule another layer
 owns, such as by duplicating that layer's validation; or when it guards against
 the owner misconfiguring files only the owner writes, or a component corrupting
 state it owns itself, which lie outside the threat model. Answer a decline with
-its reason in its review thread under the [comment rules](.repo-standards/rules/comments.md). Record real findings declined because they
+its reason in its review thread under the [comment rules](.repo-standards/rules/comments.md). Note real findings declined because they
 are outside the change's ticket or scope, or because another layer owns the
-rule they guard, under the [findings rule](#findings). Do not file findings
+rule they guard, under the [findings rule](#findings). Do not note findings
 declined because they do not hold or lie outside the threat model.
 
 ## Credentials
