@@ -8,7 +8,8 @@ its next revision. Readiness follows independent acceptance, as
 [SKILL.md](SKILL.md) describes. Never pick a competing comment after migration.
 
 In body mode, preserve the reporter's request verbatim once under
-`## Original request` at the end, after the brief and triage notes. On first
+`## Original request` at the end, after the brief, its triage notes and, in a
+hand post, the comment rules' disclosure footer. On first
 conversion capture the original before replacing intake; reuse a correctly
 preserved original on later revisions. Never nest a previous brief/body or
 invent missing text. Missing or ambiguous original input blocks publication
@@ -36,6 +37,12 @@ Describe **what** the system should do, not **how** to implement it. The agent w
 - **Good:** "`SkillConfig` accepts an optional `schedule: CronExpression`"; "`/triage` without arguments shows issues needing attention."
 - **Bad:** "Add the field in src/types/skill.ts at line 42"; "Add a switch statement in the main handler."
 
+### Short fields
+
+Summary is one sentence. Current behavior and Desired behavior hold at most
+three sentences each. Every list item and acceptance criterion is one sentence.
+Link longer material instead of copying it.
+
 ### Complete acceptance criteria
 
 Every brief needs concrete, testable, independently verifiable criteria, such
@@ -45,9 +52,9 @@ as "`gh issue list --label state:triage` returns classified issues", not "Triage
 
 After readiness, nobody edits the brief to record progress, ticking its acceptance criteria included: editing it removes its readiness. Progress lives in linked pull requests, sub-issue states and comments, and the issue closes when its own acceptance criteria hold.
 
-### Live acceptance gets its own ticket
+### Live evidence and split tickets
 
-When work must be shown on a live system, write two briefs. The source ticket's brief covers the change, and its issue closes when the pull request merges. The live-acceptance ticket's brief, blocked by the source ticket, has acceptance criteria that are the recorded evidence that the deployed change behaves on the live system as its contract says. A merge never closes the live-acceptance ticket: the source pull request links it without a closing reference, and it closes only once that evidence is recorded on it. Its readiness follows the installed rules for work whose live steps need host access.
+When work must be shown on a live system, follow the contribution guide's Implementation contracts paragraph: put the live evidence in the source brief's acceptance criteria. In its split case, write two briefs instead: the live-acceptance brief, blocked by the source ticket, makes the recorded live evidence its acceptance criteria, and the source pull request links it without a closing reference. Its readiness follows the installed rules for work whose live steps need host access.
 
 ### Explicit scope boundaries
 
@@ -78,7 +85,7 @@ Implementation choices that don't change what users or operators see stay with t
 
 ## Triage notes
 
-The triage notes that accompany a brief follow it in the selected body or eligible legacy comment, never between the disclaimer and the `## Agent Brief` heading. Fact-finding and owner decisions posted before the brief exists are separate triage notes comments. A brief's notes cover:
+The triage notes that accompany a brief follow it in the selected body or eligible legacy comment, never between the lead line and the `## Agent Brief` heading. Fact-finding and owner decisions posted before the brief exists are separate triage notes comments. Collapse a brief's notes in `<details>` behind the summary the [template](#template) shows, with its owner-question and inferred-intent counts and the model. Owner questions and inferred intent stay visible above the collapsed notes whenever there are any. A brief's notes cover:
 
 - **Path**: code-bound or intent-bound, with a one-line reason.
 - **Verification**: what was checked and how (reproduction, code path, tests run), and where the redundancy search looked.
@@ -90,7 +97,13 @@ The triage notes that accompany a brief follow it in the selected body or eligib
 
 ## Template
 
+The lead line comes first, as the comment rules' Lead line section says. The
+template carries no disclosure footer: a hand post adds the one the comment
+rules require, and a factory frames its run result itself.
+
 ```markdown
+✅ **Ready for implementation** · code-bound · priority normal
+
 ## Agent Brief
 
 **Category:** bug / enhancement
@@ -121,6 +134,13 @@ Be specific about edge cases and error conditions.
 
 **Seams:**
 Record the Ownership check's result.
+
+<details>
+<summary><b>Triage notes</b> · owner questions: none · inferred intent: none · model <model></summary>
+
+Path, verification, owner decisions, dependencies and the model's reason.
+
+</details>
 ```
 
 ## Examples
@@ -128,6 +148,8 @@ Record the Ownership check's result.
 ### Good agent brief (bug)
 
 ```markdown
+✅ **Ready for implementation** · code-bound · priority normal
+
 ## Agent Brief
 
 **Category:** bug
@@ -158,6 +180,8 @@ Record the Ownership check's result.
 ### Good agent brief (enhancement)
 
 ```markdown
+✅ **Ready for implementation** · intent-bound · priority low
+
 ## Agent Brief
 
 **Category:** enhancement
@@ -200,6 +224,8 @@ cheapest local record; defer a shared record interface until another consumer.
 For a PR, "Current behavior" describes the state of the diff, and the brief asks the agent to finish or fix it rather than build from scratch.
 
 ```markdown
+✅ **Ready for implementation** · code-bound · priority normal
+
 ## Agent Brief
 
 **Category:** enhancement

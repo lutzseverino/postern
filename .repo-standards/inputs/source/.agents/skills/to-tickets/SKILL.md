@@ -46,23 +46,37 @@ Break the work into **tracer bullet** tickets.
 </vertical-slice-rules>
 
 Give each ticket its **blocking edges**: the other tickets that must complete
-before it can start. Keep dependencies cycle-free. A ticket with no blockers
-uses the contribution guide's Readiness and installed parent-readiness rules.
+before it can start. A real dependency, expand–contract order, a live-acceptance
+ticket after its source ticket, and a ticket whose `Deletes:` line names a
+surface ahead of every ticket that edits that surface each take an edge.
+**Overlapping writes** take an edge only when both tickets will rewrite the
+same authored passage or the same shared inventory: a list, table or registry
+both edit. A shared file prompts that check and never serializes the tickets
+on its own; tickets writing different passages of one file take no overlap
+edge. The blocked ticket's **Blocked by** names the passage or inventory
+behind an overlap edge. Keep dependencies cycle-free. A ticket with no
+blockers uses the contribution guide's Readiness and installed
+parent-readiness rules.
 
-**Wide refactors are the exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. Every ticket's change merges into its base branch on its own, with its checks passing: when even the batches can't stay green alone, fold the batches that can't into one ticket.
+**Wide refactors are an exception to vertical slicing.** A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no vertical slice can land green. Don't force it into a tracer bullet; sequence it as **expand–contract**. First expand: add the new form beside the old so nothing breaks. Then migrate the call sites over in batches sized by blast radius (per package, per directory), each batch its own ticket blocked by the expand, keeping CI green batch to batch because the old form still exists. Finally contract: delete the old form once no caller remains, in a ticket blocked by every migrate batch. Every ticket's change merges into its base branch on its own, with its checks passing: when even the batches can't stay green alone, fold the batches that can't into one ticket.
 
-**Live acceptance is a ticket of its own.** When work must be shown on a live system, split it into a **source ticket**, which closes when its pull request merges, and a **live-acceptance ticket**, blocked by the source ticket, whose acceptance criteria are the recorded evidence that the deployed change behaves on the live system as its contract says. A merge never closes it: the source ticket's pull request links it without a closing reference, and it closes only once that evidence is recorded on it. Its live steps take the route the installed rules give work that needs host access.
+**Deepening tickets are the other exception to vertical slicing.** A **deepening ticket** restructures code into a deeper module, in `codebase-design`'s vocabulary, and makes no new end-to-end behaviour work. Its **What to build** states the structural outcome, then `Behaviour changes: none` or each behaviour change listed, never a promise that behaviour is unchanged. It carries one acceptance criterion naming the type, parameter or function that must no longer exist. That criterion names the thing itself, never a line count or an inline block, which describe today's structure; when the thing is a durable surface, the ticket's `Deletes:` line names it too. Tests observing the deepened module's external interface keep passing without assertion changes, except where a listed behaviour change requires one; tests of the shallow modules it removes are replaced, as `codebase-design`'s replace-don't-layer testing strategy says. Several deepening tickets over one area order by the overlapping-writes rule above.
+
+**Live evidence follows the contribution guide's Implementation contracts paragraph**, which says when it is a criterion of the **source ticket** and when it splits into a **live-acceptance ticket**. In that split case, block the live-acceptance ticket on the source ticket, make the recorded live evidence its acceptance criteria, and have the source pull request link it without a closing reference. Its live steps take the route the installed rules give work that needs host access.
+
+**A cross-repository switch waits on its activation steps.** A ticket **switches** one side of a cross-repository break when its change, once merged, released or adopted, activates a protocol, configuration or workflow change that a deployed producer or consumer in another repository, or a host, cannot yet handle. Each **activation step** the switch needs, whether a release, an adopter update, a host step or the recovery path for a repository the switch deliberately pauses, is a ticket of its own, published in the repository that owns that step. Join the activation steps to the switching ticket with blocking edges: every activation step that must land before the switch blocks it, so the switching ticket stays behind them on the frontier, and an activation step that can only follow the switch, such as recovering a paused repository, is blocked by it. The split's evidence for independent review checks the activation steps against each intervening deployed state: who can still deliver each remaining activation step, the merge tooling on the destination repository's base, contracts and results that are already ready, and adopters' installed versions. A host-step ticket names the step and its outcome; host names, providers and access mechanisms stay in owner setup. A later change to the activation steps is an amendment under step 1's rule.
 
 ### 4. Prepare the split for independent review
 
 Present the proposed breakdown as a numbered list. For each ticket, show:
 
 - **Title**: short descriptive name
-- **Blocked by**: which other tickets (if any) must complete first
-- **What it delivers**: the end-to-end behaviour this ticket makes work
+- **Blocked by**: which other tickets (if any) must complete first, with each overlap edge's reason
+- **What it delivers**: the end-to-end behaviour this ticket makes work, or a deepening ticket's structural outcome and behaviour changes
 
 Attach evidence for granularity, real dependencies, independently mergeable
-slices and test seams, and identify any factual verification the independent
+slices, test seams and any cross-repository switch's intervening deployed
+states, and identify any factual verification the independent
 reviewer must finish. Reuse recorded answers and plan approval. Read and apply
 the contribution guide's Triage inference test, inferred-list and
 owner-question rules to unanswered choices.
@@ -96,9 +110,9 @@ publication progress belongs in comments and native sub-issue states.
 
 # <NN>: <Ticket title>
 
-**What to build:** the end-to-end behaviour this ticket makes work, from the user's perspective, not a layer-by-layer implementation list.
+**What to build:** the end-to-end behaviour this ticket makes work, from the user's perspective, not a layer-by-layer implementation list. A deepening ticket states its structural outcome, then `Behaviour changes: none` or each change.
 
-**Blocked by:** the numbers/titles of the tickets that gate this one, or "None (readiness still required)".
+**Blocked by:** the numbers/titles of the tickets that gate this one, each overlap edge with the passage or inventory both rewrite, or "None (readiness still required)".
 
 **Status:** state:triage
 
@@ -115,7 +129,7 @@ A reference to the parent issue on the tracker (if the source was an existing is
 
 ## What to build
 
-The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation.
+The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation. A deepening ticket states its structural outcome, then `Behaviour changes: none` or each change.
 
 ## Acceptance criteria
 
@@ -124,7 +138,7 @@ The end-to-end behaviour this ticket makes work, from the user's perspective, no
 
 ## Blocked by
 
-- A reference to each blocking ticket, or "None (readiness still required)".
+- A reference to each blocking ticket, with the passage or inventory both rewrite for an overlap edge, or "None (readiness still required)".
 
 </issue-template>
 
@@ -156,6 +170,9 @@ Paths are relative to the repository root.
   ask the user only for unresolved owner choices.
 - The `grilling` skill: the inference fallback, only when the contribution
   guide is missing. If also missing, report it and stop for the missing policy.
+- The `codebase-design` skill: the vocabulary a deepening ticket uses and its
+  replace-don't-layer testing strategy. When it is missing, describe the
+  deepened module in the codebase's own words.
 - The `to-spec` skill: publish the single specification before a grill's
   tickets. If missing, report it and stop ticket publication until a
   specification exists.

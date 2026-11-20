@@ -13,6 +13,7 @@ export async function validate(
   connection,
   resolveIssue,
   resolveBoundary,
+  resolveTracker,
 ) {
   if (input.kind === "issue-contract")
     return runIssueContractValidation(
@@ -24,6 +25,7 @@ export async function validate(
       undefined,
       undefined,
       resolveBoundary,
+      resolveTracker,
     );
   if (input.kind === "pr-metadata")
     return validatePullRequestMetadata(input.pullRequest);
@@ -53,15 +55,14 @@ export async function main(
     input.kind === "issue-contract"
       ? connect(input.repository, options)
       : undefined;
+  const trackerFor = (path) =>
+    connect({ ...connection.repository, path }, options).issueTracker;
   return validate(
     input,
     connection,
-    (reference) =>
-      connect(
-        { ...connection.repository, path: reference.repository },
-        options,
-      ).issueTracker.issue(reference.number),
+    (reference) => trackerFor(reference.repository).issue(reference.number),
     connectionOptions.resolveBoundary,
+    trackerFor,
   );
 }
 

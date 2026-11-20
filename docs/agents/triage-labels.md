@@ -11,4 +11,5 @@ rules' Labels section and, where installed, the `factory-workflow` rules' State 
 |                            | `state:grill`        |
 | `ready-for-agent`          | `state:ready`        |
 | `ready-for-human`          | `state:owner`        |
+|                            | `state:carried`      |
 | `wontfix`                  | `wontfix`            |

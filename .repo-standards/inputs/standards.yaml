@@ -3,7 +3,7 @@ name: repo-canon
 description: Repository documentation, contribution, agent workflow, and GitHub
   validation standards
 requires:
-  repo-standards: ">=10.0.0"
+  repo-standards: ">=11.0.0"
 defaults:
   declarations: {}
 profiles:
@@ -123,6 +123,8 @@ profiles:
             - .factory/config.json
           directories: []
       factory-sandbox-image-workflow:
+        check-locations:
+          - github
         checks: []
         fixes: []
         kind: file
@@ -305,6 +307,8 @@ profiles:
         target: vendor/repo-canon/validate-issue-contract.mjs
         exact: vendor/repo-canon/validate-issue-contract.mjs
       issue-contract-workflow:
+        check-locations:
+          - github
         checks: []
         fixes: []
         kind: file
@@ -389,6 +393,8 @@ profiles:
         target: .github/scripts/validate-pr-metadata.mjs
         exact: .github/scripts/validate-pr-metadata.mjs
       pr-metadata-workflow:
+        check-locations:
+          - github
         checks: []
         fixes: []
         kind: file
@@ -596,6 +602,8 @@ profiles:
         target: .github/ISSUE_TEMPLATE/specification.yml
         exact: .github/ISSUE_TEMPLATE/specification.yml
       standards-update-workflow:
+        check-locations:
+          - github
         checks: []
         fixes: []
         kind: file

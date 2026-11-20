@@ -39,7 +39,8 @@ refusal; otherwise fix the cause and run it again.
    does not make it hold.
    Read the authoritative implementation contract
    under `CONTRIBUTING.md`'s Implementation contracts section, the whole issue
-   and its discussion, every earlier round's review and the grill's decision,
+   and its discussion, the PR body's Delivery subsection, which holds the
+   worker's handoff, every earlier round's review and the grill's decision,
    including acceptance of any contract revision the guide requires. Without
    a settled contract, retain the contract-finding stop. A PR without an issue
    takes its decision-bearing body as its contract. Done when you hold the
@@ -52,11 +53,11 @@ refusal; otherwise fix the cause and run it again.
    contract against the issue, and report where the contract contradicts,
    drops or invents what the issue and its recorded decisions ask, or leaves it
    ambiguous. A PR without an issue has no such check. Verify every finding
-   against the source and drop those that do not hold. A defect outside the
-   change's responsibility goes under `CONTRIBUTING.md`'s Findings section, not
-   into this review. Sort each remaining finding as **contract**, **larger**
-   or **small**, by the rules' section. Done when every finding from both axes
-   is dropped with its reason or sorted.
+   against the source and drop those that do not hold. Route a defect outside
+   the change's responsibility under `CONTRIBUTING.md`'s Findings section;
+   an issue it opens is a Filed row of this review. Sort each remaining finding as **contract**,
+   **larger** or **small**, by the rules' section. Done when every finding
+   from both axes is dropped with its reason or sorted.
 3. **Fix small findings** when no contract or larger finding stands; otherwise
    fix nothing and carry every finding into the review. With no fix, retain the
    current head. Commit the fixes to the
@@ -66,11 +67,11 @@ refusal; otherwise fix the cause and run it again.
    the checks pass.
 4. **Post the round's review**, after reading
    `.repo-standards/rules/comments.md#reviews`: the actual Standards and Spec
-   outcomes, the fixes under `Fixed`, and each open finding under `Findings`
-   with its file and line, all in its body, listing only the findings the
-   rules count as open. For a same-head reassessment, explain in `Spec` which
-   contract finding was resolved, link its recorded decision and report the
-   actual reassessment. Record it with
+   outcomes, a row for each open, fixed or filed finding, and the round and
+   head `round.mjs` printed; a holding round's lead line records the merge.
+   For a same-head reassessment, name in the Spec note the resolved contract
+   finding, link its recorded decision and report the actual reassessment.
+   Record it with
    `round.mjs <number> --reassess <file>`: it updates this account's latest
    complete non-holding review of this head, preserving the previous assessment
    as quoted history. The round number and convergence bound stay unchanged.

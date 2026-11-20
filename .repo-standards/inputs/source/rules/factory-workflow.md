@@ -13,31 +13,33 @@ resuming one repository.
 Canonical stages are ordered below. Configured run kinds determine coverage;
 uncovered stages are factory gaps.
 
-| Stage                      | Configured factory coverage                                                                                                                                                                                                                                    | Hand skill                                                                            | Input                                                                 |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Intake                     | An owner's idea enters through conversation with the orchestrating agent, then a grill unless the owner approves a shorter path. No run kind covers ideas. Filed requests enter through triage; its run covers them where enabled, within Triage run's limits. | `triage` for filed requests; ideas stay conversation, with no launch                  | The filed issue                                                       |
-| Grill                      | No run kind conducts the owner grill. Triage can gather facts and prepare questions; the owner answers under the contribution guide.                                                                                                                           | `grill-with-docs`                                                                     | The request's issue; owner-facing, started by the orchestrating agent |
-| Specification              | No run kind publishes the grill's specification; the contribution guide governs publication.                                                                                                                                                                   | `to-spec`                                                                             | The grill's decision record                                           |
-| Tickets                    | No run kind publishes the ticket split; retain native parent and blocking links.                                                                                                                                                                               | `to-tickets`                                                                          | The specification issue                                               |
-| Brief review and readiness | Triage prepares research and briefs and accepts only within Triage run's exception. Direct specification and ticket contracts need independent authorized acceptance of exact revisions. Plan approval remains the owner's gate; Parent readiness applies.     | `triage` in accept mode                                                               | The contract's issue                                                  |
-| Implement                  | Implement takes an eligible ready ticket through code and checks to a draft PR. Readiness never bypasses blockers.                                                                                                                                             | `implement`                                                                           | The ticket issue                                                      |
-| Review                     | Configured review independently reviews the implemented draft and handles findings under Run kinds.                                                                                                                                                            | `review`                                                                              | The pull request                                                      |
-| Merge                      | Configured review delivers through merge; otherwise implement follows Run kinds' delivery route. Skipped work retains separate merge ownership.                                                                                                                | `babysit`                                                                             | The pull request                                                      |
-| Release                    | No configured run kind supplies release; follow the repository's existing rules.                                                                                                                                                                               | None yet (gap)                                                                        | The release's planning issue                                          |
-| Live acceptance            | No run kind supplies live access. The separately blocked live-acceptance ticket closes only on recorded live evidence, as Skipped work says.                                                                                                                   | `implement`, under a time-bounded grant                                               | The live-acceptance issue                                             |
-| Close                      | Issue closure follows the contract and Issue closure below. A merged source PR never closes its live-acceptance ticket. No run kind supplies plan closure.                                                                                                     | `improve-codebase-architecture` for architecture Close reviews; `retro` for the retro | The plan row; owner-facing                                            |
+| Stage                      | Configured factory coverage                                                                                                                                                                                                                                       | Hand skill                                                                            | Input                                                                 |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Intake                     | An owner's idea enters through conversation with the orchestrating agent, then a grill unless the owner approves a shorter path. No run kind covers ideas. Filed requests enter through triage; its run covers them where enabled, within Triage run's limits.    | `triage` for filed requests; ideas stay conversation, with no launch                  | The filed issue                                                       |
+| Grill                      | No run kind conducts the owner grill. Triage can gather facts and prepare questions; the owner answers under the contribution guide.                                                                                                                              | `grill-with-docs`                                                                     | The request's issue; owner-facing, started by the orchestrating agent |
+| Specification              | No run kind publishes the grill's specification; the contribution guide governs publication.                                                                                                                                                                      | `to-spec`                                                                             | The grill's decision record                                           |
+| Tickets                    | No run kind publishes the ticket split; retain native parent and blocking links.                                                                                                                                                                                  | `to-tickets`                                                                          | The specification issue                                               |
+| Brief review and readiness | Triage accepts its own brief or a direct contract it reviewed and did not write under Triage run's exception. Other direct contracts need independent authorized acceptance of exact revisions. Plan approval remains the owner's gate; Parent readiness applies. | `triage` in accept mode                                                               | The contract's issue                                                  |
+| Implement                  | Implement takes an eligible ready ticket through code and checks to a draft PR. Readiness never bypasses blockers.                                                                                                                                                | `implement`                                                                           | The ticket issue                                                      |
+| Review                     | Configured review independently reviews the implemented draft and handles findings under Run kinds.                                                                                                                                                               | `review`                                                                              | The pull request                                                      |
+| Merge                      | Configured review delivers through merge; otherwise implement follows Run kinds' delivery route. Skipped work retains separate merge ownership.                                                                                                                   | `babysit`                                                                             | The pull request                                                      |
+| Release                    | No configured run kind supplies release; follow the repository's existing rules.                                                                                                                                                                                  | None yet (gap)                                                                        | The release's planning issue                                          |
+| Live acceptance            | No run kind supplies live access. In the contribution guide's split case, the separately blocked live-acceptance ticket closes only on recorded live evidence, as Skipped work says.                                                                              | `implement`, under a time-bounded grant                                               | The live-acceptance issue                                             |
+| Close                      | Issue closure follows the contract and Issue closure below. A merged source PR never closes its live-acceptance ticket. No run kind supplies plan closure.                                                                                                        | `improve-codebase-architecture` for architecture Close reviews; `retro` for the retro | The plan row; owner-facing                                            |
 
-Owner grills, plan approval, independent contract acceptance and live access
-retain their existing gates. The contribution guide owns publication authority
-and amendment rules. Consumers reference this definition.
+Owner grills, plan approval, independent contract acceptance outside Triage
+run's direct-contract exception, and live access retain their existing gates.
+The contribution guide owns publication authority and amendment rules.
+Consumers reference this definition.
 
 ## Run kinds
 
 `.scriptorium/config.json` enables run kinds under `runKinds`, mapping each to a
 skill and its arguments:
 
-- **Triage** researches one issue and ends with its Agent Brief or the
-  question that stops it, changing no code, as Triage run says.
+- **Triage** researches one issue and ends with its Agent Brief, acceptance of
+  a direct contract it reviewed, or the question that stops it, changing no
+  code, as Triage run says.
 - **Implement** takes a ready issue to a draft pull request.
 - **Review** reviews that draft pull request as an agent that wrote none of
   it, under the `github-repository-configuration` rules' Review of an
@@ -49,6 +51,9 @@ merges its own PR. Otherwise only review merges. Triage stays read-only, and
 every run ends with a result the factory posts and turns into labels.
 Configuration holds mechanics; execution choices follow Model selection below.
 
+Where the run's environment states it performs a named step, the run leaves
+that step to it.
+
 ## Handoffs
 
 Runs hand off through the issue's workflow state and pull request:
@@ -57,20 +62,22 @@ Runs hand off through the issue's workflow state and pull request:
    starts triage by opening the issue or applying `state:triage`; an agent on
    their account counts as that person. The issue-contract workflow's fallback
    never triggers triage, so an outside reporter's issue waits for that person.
-2. **Triage** ends with `state:ready` and the labels readiness needs, or in a
-   `state:` stop.
+2. **Triage** ends with `state:ready` and the labels readiness needs, accepting
+   its own brief or the exact revision of a holding direct contract it
+   reviewed and did not write, or in a `state:` stop.
 3. **Readiness** starts implement when applied by a person or the factory's
-   own triage run under the GitHub rules' Readiness roles. Other bot/App
-   readiness never starts a run, even if validator-approved. An orchestrating
-   agent on such an account applies no readiness: it stops at acceptance under
-   `triage` and never reports factory work started.
+   own triage run under the GitHub rules' Readiness roles, for its own brief or
+   a direct contract it reviewed. Other bot/App readiness never starts a run,
+   even if validator-approved. An orchestrating agent on such an account
+   applies no readiness: it stops at acceptance under `triage` and never
+   reports factory work started.
 4. **Implement** ends at a draft pull request, which starts review on it.
 5. **Review** ends in a merge, a hand-back to implement on the same pull
    request, a stop at an owner gate, or a `state:grill` stop for a wrong or
    ambiguous contract. When its rounds do not converge, the issue gets
    `factory:failed`.
-6. **A `state:` stop** leaves the issue with whoever must answer until it is
-   back in `state:ready`, as Questions and stops says.
+6. **A `state:` stop** leaves the issue with whoever must answer until a
+   person applies its next state, as Questions and stops says.
 
 ## Implementation inputs
 
@@ -99,8 +106,9 @@ then request readiness and wait for approval of that current event. Consume the
 validator's verified v2 association; never parse a competing contract or infer
 authority from an app author. Retain the exact unchanged inventoried legacy
 exception indefinitely; edits move it into the body, and deletion cannot resurrect it.
-Compatible release/adoption/host activation and actual pickup evidence belong
-to their separately closing live-acceptance ticket, never to source closure.
+In the contribution guide's split case, compatible release/adoption/host
+activation and actual pickup evidence belong to their separately closing
+live-acceptance ticket, never to source closure.
 
 ## Parent readiness
 
@@ -140,7 +148,7 @@ information; Repo Canon supplies no model ranking or task-difficulty ladder.
 The one-line model reason identifies the actual guidance used.
 
 For model resolution, fallback and provider diversity, follow
-[Scriptorium's model selection documentation](https://github.com/lutzseverino/scriptorium/blob/scriptorium-v4.1.0/docs/usage/host.md#model-selection).
+[Scriptorium's model selection documentation](https://github.com/lutzseverino/scriptorium/blob/scriptorium-v4.3.0/docs/usage/host.md#model-selection).
 
 The chosen model label uses
 `model:<slug>` or `model:<provider>/<slug>`, optionally followed by
@@ -165,8 +173,8 @@ Triage run says.
 
 Factory triage uses `triage` on one issue, without an orchestrating agent,
 workbench or decision inbox. It only reads: no posts, labels, pushes or fixes.
-Its result asks the factory to post its brief or question and apply its chosen
-labels, never a `gate:` label.
+Its result asks the factory to post its brief, question or cited carrier and
+apply its chosen labels, never a `gate:` label.
 
 It applies the contribution guide's inference test with sources recorded only
 in the repository: its ADRs, its glossary, and linked issues and their
@@ -175,8 +183,12 @@ inferred answer for the owner to veto, in place of the orchestrating agent's
 report. Every other intent question, and any it is unsure of, moves the issue
 to `state:grill` with the facts gathered and the open questions. A fact only
 an outside reporter holds moves it to `state:reporter`, and one only the owner
-holds to `state:owner`, each with its question; whether to close a request
-already implemented or rejected before is the owner's. For an intake request,
+holds to `state:owner`, each with its question. A disposition no record
+settles is the owner's. When the records settle it, the run asks for
+`state:carried`, citing the carrier: the change on the default branch, the
+duplicate, the ticket whose pull request closes it, or a past rejection the
+request adds nothing to. A request that brings a new argument against a
+rejection stays `state:owner`. For an intake request,
 a bug report, feature request or triaged request, every outcome carries the
 issue's one `type:` label. A directly authored specification or implementation
 ticket needs no category label under the contribution guide's Implementation
@@ -187,6 +199,21 @@ Readiness roles allow, asking for `state:ready` with the labels readiness
 needs: one `model:` label it chooses under Model selection, any
 `factory:skip` that Skipped work requires, and a `priority:` label as the
 GitHub rules' Labels section says.
+
+A directly authored specification or implementation ticket, an issue-body
+contract with no category label, gets no Agent Brief. The run reviews the
+revision the validator's current notice names, as `triage`'s accept mode
+reviews a direct contract. A body that holds and that this run did not write
+is accepted at that exact `sha256:` revision, as the GitHub rules' Readiness
+roles exception allows: the result asks the host for acceptance with
+`state:ready`, the labels a brief it accepts asks for, and the review's
+findings. A run that wrote the issue refuses acceptance and stops in
+`state:owner`, naming `state:triage` for an independent run to review it.
+A body that needs correction stops in `state:owner`, naming
+the correction a separate writer makes before the issue returns to
+`state:triage`, as the contribution guide's Owner questions section says. An
+open intent question stops in `state:grill`. Without a notice naming the
+revision, the run stops in `state:owner` and says the notice is missing.
 
 ## Gates
 
@@ -235,6 +262,12 @@ Skip and hold labels follow Skipped work and Repository and release holds.
 `state:owner` is for an answer, an account, a credential or a grant only the
 owner has, and for work an owner gate stopped.
 
+`state:carried` means another record or ticket carries the request's fate, and
+the factory leaves it; it mentions nobody. The orchestrating agent closes a
+carried request whose carrier is done, as an issue verified as done. A request
+carried by open work stays carried until that work's pull request closes it.
+Removing `state:carried` starts nothing.
+
 ## Skipped work
 
 Agent work the factory must not pick up gets `state:ready`, one `model:` label
@@ -242,19 +275,19 @@ and `factory:skip`, applied together: work that edits `.github/workflows/`, or
 work whose live steps need host access the maintainer grants. A directly
 launched worker performs the agent work, including the source changes; host
 access gates only the live host steps and does not designate owner review of
-the source PR. A live-acceptance ticket, blocked by its source ticket, takes
-this route and closes only on its recorded live acceptance; a merge never
-closes it. The orchestrating agent that asked the maintainer for a
-time-bounded host access grant owns it and records the workers using it.
-Workers never end a grant: it ends when the last of them reports back, or at
-its own time bound. Whoever applies `factory:skip` creates it if the
-repository lacks it, as for `model:` labels; the factory never creates or
-removes it.
+the source PR. In the contribution guide's split case, a live-acceptance
+ticket, blocked by its source ticket, takes this route and closes only on its
+recorded live acceptance; a merge never closes it. The orchestrating agent
+that asked the maintainer for a time-bounded host access grant owns it and
+records the workers using it. Workers never end a grant: it ends when the last
+of them reports back, or at its own time bound. Whoever applies `factory:skip`
+creates it if the repository lacks it, as for `model:` labels; the factory
+never creates or removes it.
 
 For every skip-labelled PR and every PR opened by a directly launched worker,
 including a PR without a skip label, the implementing worker delivers an open PR
 and hands it to the orchestrating agent without merging. Worker completion is
-the recorded PR handoff, a delivery record under the `comments` rules; the issue
+the recorded PR handoff, the body's delivery record under the `comments` rules; the issue
 stays open until delivery finishes. The orchestrating agent continues `babysit`
 and owns the merge under the contribution guide and applicable review rules.
 
@@ -331,13 +364,26 @@ state to whoever must answer: `state:owner` for the owner's answer,
 outside reporter holds. A factory run asks for that state in its run result.
 Work without an issue uses no state label.
 
-An answered question returns the issue to `state:ready`, which resumes the
-same work and pull request on a current base, whether the pull request is open
-or closed unmerged; the factory never opens a replacement. An answer that
-changes the implementation contract first needs the edited revision's
-validator notice, independent review and renewed readiness under the
-contribution guide; an unchanged contract needs none. Skipped work resumes as
-Skipped work says.
+A person answers a stop by applying the issue's next state, or by closing the
+issue; the one-state rule replaces the stop. Each stop names the exact next
+state that answers it, one of these:
+
+- `state:ready` at the unchanged approved contract resumes the stopped work:
+  the same work and pull request on a current base, whether the pull request
+  is open or closed unmerged; the factory never opens a replacement. An answer
+  that changes the implementation contract first needs the edited revision's
+  validator notice, independent review and renewed readiness under the
+  contribution guide; an unchanged contract needs none. Skipped work resumes
+  as Skipped work says.
+- `state:triage` starts triage again.
+- `state:carried` holds the request, as State labels says.
+
+After the grill settles a `state:grill` request, an authorized person applies
+`state:triage` to return it to triage, or applies readiness through the normal
+exact-revision acceptance route for a published or revised contract. There is
+no separate grill-removal or comment trigger; a comment alone starts nothing.
+The reporter answers a `state:reporter` stop by replying on the issue, which
+still starts triage; an authorized person may apply `state:triage` instead.
 
 An agent that stops without a pull request and without a `state:` stop posts a
 stop note on the issue under the `comments` rules.

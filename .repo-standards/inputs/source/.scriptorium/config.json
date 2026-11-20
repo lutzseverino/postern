@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/lutzseverino/scriptorium/scriptorium-v4.1.0/schemas/factory-configuration.schema.json",
+  "$schema": "https://raw.githubusercontent.com/lutzseverino/scriptorium/scriptorium-v4.3.0/schemas/factory-configuration.schema.json",
   "version": 3,
   "labels": {
     "triage": "state:triage",

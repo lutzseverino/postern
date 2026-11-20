@@ -21,7 +21,7 @@
 // counts as a failed check.
 //
 // Usage: node wait.mjs <number> [--repo <owner/name>] [--limit <seconds>]
-//        [--interval <seconds>]
+//        [--interval <seconds>] [--updated-from <base>:<head>:<new base>]
 //
 // The default polling limit is 540 seconds. Each platform request has a
 // 45-second timeout; paginated reads retain their request bounds.
@@ -46,6 +46,7 @@ import {
 } from "./trusted-review-config.mjs";
 import { reviewsSection, reviewTemplate } from "./review-outcome.mjs";
 import { skipsExternalReview } from "./review-policy.mjs";
+import { unchangedUpdate } from "./branch-update.mjs";
 import {
   reviewRequestedAt,
   reviewerState,
@@ -96,6 +97,7 @@ export const decide = ({
   policy,
   author,
   head,
+  reviewHead = head,
   checks,
   runs = [],
   requestedAt,
@@ -107,7 +109,7 @@ export const decide = ({
   startedAt,
   limitMs,
 }) => {
-  const state = reviewerState(reviewer, {
+  const reviewContext = {
     policy,
     author,
     head,
@@ -117,7 +119,16 @@ export const decide = ({
     comments,
     reviews,
     now,
-  });
+  };
+  // Only completed review carries forward. An old absence, timeout or request
+  // never becomes a review of the replacement head.
+  const carried =
+    reviewHead !== head &&
+    reviewerState(reviewer, {
+      ...reviewContext,
+      head: reviewHead,
+    }) === "reviewed";
+  const state = carried ? "reviewed" : reviewerState(reviewer, reviewContext);
   const review = state
     ? { reviewer: state, reviewerPhrase: reviewerPhrase(reviewer, state) }
     : {};
@@ -217,16 +228,20 @@ const parseArguments = (argv) => {
   const options = { limit: 540, interval: 30 };
   const positional = [];
   for (let index = 0; index < argv.length; index += 1) {
-    const flag = /^--(repo|limit|interval)$/.exec(argv[index])?.[1];
+    const flag = /^--(repo|limit|interval|updated-from)$/.exec(
+      argv[index],
+    )?.[1];
     if (!flag) {
       positional.push(argv[index]);
       continue;
     }
     const value = argv[(index += 1)];
     if (value === undefined) throw new UsageError(`--${flag} needs a value`);
-    options[flag] = flag === "repo" ? value : Number(value);
+    options[flag] = ["repo", "updated-from"].includes(flag)
+      ? value
+      : Number(value);
     if (
-      flag !== "repo" &&
+      !["repo", "updated-from"].includes(flag) &&
       (!(options[flag] > 0) || !Number.isFinite(options[flag] * 1000))
     ) {
       throw new UsageError(
@@ -236,7 +251,7 @@ const parseArguments = (argv) => {
   }
   if (positional.length !== 1 || !/^[1-9]\d*$/.test(positional[0])) {
     throw new UsageError(
-      "usage: wait.mjs <number> [--repo <owner/name>] [--limit <seconds>] [--interval <seconds>]",
+      "usage: wait.mjs <number> [--repo <owner/name>] [--limit <seconds>] [--interval <seconds>] [--updated-from <base>:<head>:<new base>]",
     );
   }
   return { number: positional[0], ...options };
@@ -261,6 +276,7 @@ const look = async (
   policy,
   requiredChecks,
   connection,
+  updatedFrom,
 ) => {
   const path = `/repos/${connection.repository.path}`;
   if (reviewer && !connection.pullRequests.capabilities.reviewCommits)
@@ -268,6 +284,8 @@ const look = async (
       "Review commits are unavailable; cannot establish latest-head review.",
     );
   const pull = await connection.pullRequests.pullRequest(Number(number));
+  const reviewHead =
+    unchangedUpdate(updatedFrom, pull.headCommit) ?? pull.headCommit;
   const [rollup, comments, reviews, reviewCommentPages, runs, push, readyAt] =
     await Promise.all([
       checkRollup(connection, pull.headCommit),
@@ -298,6 +316,7 @@ const look = async (
   if (push.pushRecorded) pushTimes.set(pull.headCommit, push);
   return {
     head: pull.headCommit,
+    reviewHead,
     checks: validationCheckStates(rollup, requiredChecks, workflowRuns(runs)),
     runs: workflowRuns(runs),
     reviewer,
@@ -357,6 +376,7 @@ export const main = async (argv = process.argv.slice(2), connection) => {
         policy,
         requiredChecks,
         connection,
+        options["updated-from"],
       );
     } catch (error) {
       process.stderr.write(

@@ -10,7 +10,7 @@ permissions:
 jobs:
   validate:
     name: PR metadata
-    runs-on: ${{ vars.REPO_CANON_RUNS_ON && fromJSON(vars.REPO_CANON_RUNS_ON) || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - name: Check out the trusted base revision
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5

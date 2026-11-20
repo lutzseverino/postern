@@ -15,7 +15,7 @@ jobs:
   update:
     name: Update Repository Standards
     if: vars.REPO_CANON_UPDATES == 'true'
-    runs-on: ${{ vars.REPO_CANON_RUNS_ON && fromJSON(vars.REPO_CANON_RUNS_ON) || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write

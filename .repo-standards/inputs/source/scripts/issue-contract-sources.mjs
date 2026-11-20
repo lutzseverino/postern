@@ -4,6 +4,7 @@ import { interpretMarkdown } from "../operations/lib/rendered-markdown.mjs";
 
 export const bodyResultFormat = "repo-canon/issue-contract-state/v2";
 export const cutoffFormat = "repo-canon/issue-contract-cutoff/v1";
+export const attestationMarker = "repo-canon:triage-attestation";
 export const attestationFormat = "repo-canon/triage-attestation/v1";
 export const digest = (value) =>
   `sha256:${createHash("sha256").update(value).digest("hex")}`;
@@ -219,6 +220,119 @@ export function markedRun(markdown, marker) {
   }
 }
 
+// The one attestation reader: the JSON object on the single line of
+// `markdown` marked `<!-- <marker> {…} -->`, or `null` when no line, several
+// lines or a malformed one carry the marker. Both the body-mode publication
+// proof and the factory review attestation are read through it.
+export function attestationPayload(markdown, marker) {
+  const prefix = `<!-- ${marker} `;
+  const lines = (markdown ?? "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .filter((line) => line.includes(`<!-- ${marker}`));
+  if (
+    lines.length !== 1 ||
+    !lines[0].startsWith(prefix) ||
+    !lines[0].endsWith(" -->")
+  )
+    return null;
+  try {
+    const value = JSON.parse(lines[0].slice(prefix.length, -4));
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? value
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+// Value owner: Repo Canon owns this published format (ADR 0047); a format
+// change is a new version. Consumers: the validator, which decides the
+// factory's readiness on a direct contract from it, and hosts such as
+// Scriptorium, which post it through these functions and restate nothing.
+export const reviewAttestationMarker = "repo-canon:review-attestation";
+export const reviewAttestationFormat = "repo-canon/review-attestation/v1";
+const reviewAttestationFields = [
+  "format",
+  "repository",
+  "issue",
+  "run",
+  "revision",
+  "source",
+];
+
+// The factory review attestation's marker line for a triage run that reviewed
+// a direct specification or implementation ticket and did not write it. The
+// facts are the repository `OWNER/REPO`, the issue's node ID, the run, and the
+// exact `sha256:` revision and body `source` the validator's notice names.
+// Facts that could never verify are refused rather than published.
+export function reviewAttestationLine({
+  repository,
+  issue,
+  run,
+  revision,
+  source,
+}) {
+  const named = (value) =>
+    typeof value === "string" && value.length > 0 && value.trim() === value;
+  if (
+    !/^[\w.-]+\/[\w.-]+$/.test(repository ?? "") ||
+    !named(issue) ||
+    !named(run) ||
+    !/^sha256:[a-f0-9]{64}$/.test(revision ?? "") ||
+    !validReviewSource(source)
+  )
+    throw new Error(
+      "A review attestation needs the repository OWNER/REPO, the issue node ID, the run, a sha256: revision and the issue-body source the validator's notice names.",
+    );
+  const payload = {
+    format: reviewAttestationFormat,
+    repository,
+    issue,
+    run,
+    revision,
+    source: { type: source.type, editedAt: source.editedAt },
+  };
+  return `<!-- ${reviewAttestationMarker} ${JSON.stringify(payload)} -->`;
+}
+
+function validReviewSource(source) {
+  return Boolean(
+    source &&
+    typeof source === "object" &&
+    Object.keys(source).length === 2 &&
+    source.type === "issue-body" &&
+    (source.editedAt === null || typeof source.editedAt === "string"),
+  );
+}
+
+// Whether `markdown` carries exactly the review attestation of `facts`, as
+// `reviewAttestationLine` produces it: `null` when it does, otherwise the
+// reason it does not, naming the first fact that differs.
+export function verifyReviewAttestation(markdown, facts) {
+  const payload = attestationPayload(markdown, reviewAttestationMarker);
+  if (!payload)
+    return "It carries no single well-formed review attestation line.";
+  if (payload.format !== reviewAttestationFormat)
+    return `Its format is not ${reviewAttestationFormat}.`;
+  if (
+    Object.keys(payload).length !== reviewAttestationFields.length ||
+    !reviewAttestationFields.every((field) => Object.hasOwn(payload, field))
+  )
+    return `It does not carry exactly the fields ${reviewAttestationFields.join(", ")}.`;
+  if (payload.repository !== facts.repository)
+    return `It names another repository, not ${facts.repository}.`;
+  if (payload.issue !== facts.issue)
+    return "It names another issue than this one.";
+  if (payload.run !== facts.run)
+    return `It names run ${JSON.stringify(payload.run)}, not ${facts.run}.`;
+  if (payload.revision !== facts.revision)
+    return `It names another revision, not the current ${facts.revision}.`;
+  if (!validReviewSource(payload.source) || !same(payload.source, facts.source))
+    return "It names another body source than the current revision's.";
+  return null;
+}
+
 // Publication proof comes from authenticated durable storage, never a copied
 // marker. The host records it after capturing intake and publishing evidence.
 export function bodyTriageAssociation(snapshot, contract) {
@@ -234,21 +348,7 @@ export function bodyTriageAssociation(snapshot, contract) {
       String(comment.node_id ?? comment.nodeId ?? comment.id)
     ];
   const intake = snapshot.contractSources.record.intake;
-  const prefix = "<!-- repo-canon:triage-attestation ";
-  const lines = (comment?.body ?? "")
-    .split("\n")
-    .filter((line) => line.includes("<!-- repo-canon:triage-attestation"));
-  let payload;
-  try {
-    payload =
-      lines.length === 1 &&
-      lines[0].startsWith(prefix) &&
-      lines[0].endsWith(" -->")
-        ? JSON.parse(lines[0].slice(prefix.length, -4))
-        : null;
-  } catch {
-    return null;
-  }
+  const payload = attestationPayload(comment?.body, attestationMarker);
   if (
     !payload ||
     typeof payload.run !== "string" ||

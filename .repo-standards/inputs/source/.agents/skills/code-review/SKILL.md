@@ -21,7 +21,8 @@ The issue tracker should have been provided to you.
 Whatever the user said is the fixed point (a commit SHA, branch name, tag, `main`, `HEAD~5`, etc.). If they didn't specify one, ask for it.
 
 Resolve the fixed point and `HEAD` to full commit SHAs with
-`git rev-parse --verify <ref>^{commit}`, then pin their merge-base with
+`git rev-parse --verify <ref>^{commit}`, then pin their merge-base as the
+comparison base, `<comparison-base-sha>`, with
 `git merge-base <fixed-point-sha> <head-sha>`. Capture the diff command once:
 `git diff <comparison-base-sha> <head-sha>`. Also note the commits via
 `git log <fixed-point-sha>..<head-sha> --oneline`. Keep these SHAs for the

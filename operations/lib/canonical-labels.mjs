@@ -41,6 +41,11 @@ export const canonicalLabels = [
     ],
   },
   {
+    name: "state:carried",
+    color: "ededed",
+    description: "Carried by another record or ticket; the factory leaves it",
+  },
+  {
     name: "state:ready",
     color: "0e8a16",
     description: "Reviewed; waits on an agent to implement it",
@@ -127,7 +132,8 @@ export const canonicalLabels = [
   },
 ];
 
-// Standard-owned names shared by setup and stored issue-contract results.
+// Standard-owned names shared by setup, stored issue-contract results and
+// non-readiness workflow event ordering.
 // Unknown names pass through; callers decide which canonical labels qualify.
 export function canonicalLabelName(name) {
   return (

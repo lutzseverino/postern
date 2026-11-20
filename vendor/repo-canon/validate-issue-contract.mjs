@@ -21,6 +21,10 @@ import {
   intakeOriginal,
   digest,
   isFactoryTriageAuthor,
+  attestationPayload,
+  markedRun,
+  reviewAttestationMarker,
+  verifyReviewAttestation,
 } from "../../scripts/issue-contract-sources.mjs";
 
 import {
@@ -35,6 +39,9 @@ import {
 // The annotated tag and GitHub release are the immutable public identity.
 export const seamsReleaseTag = "v0.26.0";
 export const seamsResultFormat = "repo-canon/issue-contract-state/v3";
+// The result that names a factory review attestation a direct contract's
+// notice observed, around its v1 or v2 base. Every other result keeps its base.
+export const reviewResultFormat = "repo-canon/issue-contract-state/v4";
 const seamsSource = "/repos/lutzseverino/repo-canon";
 const utcTime = (value) =>
   typeof value === "string" &&
@@ -197,14 +204,358 @@ function normalizeMarkdown(value) {
   return value.replace(/\r\n?/g, "\n");
 }
 
+// A direct contract's footprint (ADR 0045): its `Supersedes:` line names the
+// ADRs and issues it replaces, and its `Adds:` and `Deletes:` lines name
+// durable surfaces, never file paths. A field is a line of rendered prose that
+// starts with its plain or bold name; code, HTML and quotations are example
+// content.
+const footprintFields = ["Supersedes", "Adds", "Deletes"];
+const fileExtensions =
+  /\.(?:md|mdx|mjs|cjs|js|jsx|ts|tsx|json|jsonc|ya?ml|sh|toml|txt|lock|html|css|py)$/i;
+
+// The rendered prose lines of a Markdown document and its link targets,
+// without code blocks, HTML or blockquotes. Inline code keeps its backticks.
+function proseLines(markdown) {
+  const lines = [""];
+  const links = [];
+  const inline = (tokens) => {
+    for (const token of tokens ?? []) {
+      if (token.type === "html") continue;
+      if (token.type === "br") lines.push("");
+      else if (token.type === "codespan")
+        lines[lines.length - 1] += `\`${token.text}\``;
+      else if (token.tokens) {
+        if (token.type === "link") links.push(token.href);
+        inline(token.tokens);
+      } else if (typeof token.text === "string") {
+        const [first, ...rest] = token.text.split("\n");
+        lines[lines.length - 1] += first;
+        lines.push(...rest);
+      }
+    }
+  };
+  const blocks = (tokens) => {
+    for (const token of tokens ?? []) {
+      if (token.type === "paragraph" || token.type === "text") {
+        if (token.tokens) inline(token.tokens);
+        else lines[lines.length - 1] += token.text;
+        lines.push("");
+      } else if (token.type === "heading") {
+        inline(token.tokens);
+        lines.push("");
+      } else if (token.type === "list")
+        for (const item of token.items) blocks(item.tokens);
+    }
+  };
+  blocks(lexer(normalizeMarkdown(markdown)));
+  return { lines: lines.map((line) => line.trim()).filter(Boolean), links };
+}
+
+const repositoryPattern = String.raw`[\w.-]+\/[\w.-]+`;
+
+function referenceText({ repository, number }, from) {
+  return repository.toLowerCase() === from.toLowerCase()
+    ? `#${number}`
+    : `${repository}#${number}`;
+}
+
+// The ADR and issue ids a `Supersedes:` value names in its prose. A value
+// starting with `none` names none, whatever its explanation cites.
+function supersededIds(value, repository) {
+  const ids = { issues: [], adrs: [] };
+  if (/^none\b/i.test(value)) return ids;
+  const id = new RegExp(
+    String.raw`https:\/\/github\.com\/(${repositoryPattern})\/issues\/(\d+)|(?<![\w/#])(?:(${repositoryPattern}))?#(\d+)|(?:(${repositoryPattern})\s+)?\bADR(s?)[ -]?(\d+)((?:(?:\s*,\s*|\s+and\s+|\s*,\s*and\s+)\d+\b)*)`,
+    "gi",
+  );
+  for (const match of value.matchAll(id)) {
+    const [, urlRepository, urlNumber, issueRepository, issueNumber] = match;
+    const [adrRepository, plural, adrNumber, more] = match.slice(5);
+    if (urlNumber || issueNumber)
+      ids.issues.push({
+        repository: urlRepository ?? issueRepository ?? repository,
+        number: Number(urlNumber ?? issueNumber),
+      });
+    else
+      for (const number of [
+        adrNumber,
+        ...(plural ? (more.match(/\d+/g) ?? []) : []),
+      ])
+        ids.adrs.push({
+          repository: adrRepository ?? repository,
+          number: Number(number),
+        });
+  }
+  return ids;
+}
+
+function isFilePath(item) {
+  return item
+    .split(/\s+/)
+    .map((word) =>
+      word.replace(/^[`"'([<]+/, "").replace(/[`"')\]>,;:.!?]+$/, ""),
+    )
+    .some(
+      (word) =>
+        /^(?:\.{1,2}|~)?\/[\w.@-]+\//.test(word) ||
+        (/^[\w.@-]+(?:\/[\w.@-]+)*\/?$/.test(word) &&
+          ((word.includes("/") && word.endsWith("/")) ||
+            fileExtensions.test(word))),
+    );
+}
+
+// The footprint a direct contract body states. `known` is false while any of
+// the three fields is missing; that footprint is unknown, never empty. A
+// repeated field adds its items. `errors` names file paths and empty fields,
+// which refuse a new readiness grant but never structure or an approval.
+// `repository` resolves unqualified ADR and issue ids.
+export function contractFootprint(body, repository) {
+  const found = new Map();
+  for (const line of proseLines(body ?? "").lines) {
+    const match = /^(Supersedes|Adds|Deletes)\s*:\s*(.*)$/i.exec(line);
+    if (!match) continue;
+    const name = footprintFields.find(
+      (field) => field.toLowerCase() === match[1].toLowerCase(),
+    );
+    found.set(name, [...(found.get(name) ?? []), match[2].trim()]);
+  }
+  const errors = [];
+  const items = (name, separator) =>
+    (found.get(name) ?? [])
+      .filter((value) => !/^none\b/i.test(value))
+      .flatMap((value) => value.replace(/`/g, "").split(separator))
+      .map((item) => item.trim().replace(/\.$/, "").trim())
+      .filter(Boolean);
+  const supersedes = { issues: [], adrs: [] };
+  for (const value of found.get("Supersedes") ?? []) {
+    const ids = supersededIds(value.replace(/`/g, ""), repository);
+    supersedes.issues.push(...ids.issues);
+    supersedes.adrs.push(...ids.adrs);
+  }
+  const surfaces = {};
+  for (const name of footprintFields) {
+    surfaces[name] = items(name, name === "Supersedes" ? /[,;]/ : ";");
+    for (const item of surfaces[name].filter(isFilePath))
+      errors.push(
+        name === "Supersedes"
+          ? `Name ADRs and issues in \`Supersedes:\` by id, never by file path: \`${item}\`.`
+          : `Name durable surfaces in \`${name}:\`, never file paths: \`${item}\`.`,
+      );
+  }
+  for (const name of footprintFields)
+    if (found.get(name)?.every((value) => !value))
+      errors.push(`Complete \`${name}:\`, or write \`none\`.`);
+  const missing = footprintFields.filter((name) => !found.has(name));
+  return {
+    known: missing.length === 0,
+    missing,
+    supersedes,
+    adds: surfaces.Adds,
+    deletes: surfaces.Deletes,
+    errors,
+  };
+}
+
+// Whether an issue body cites the ADR. In the ADR's own repository a bare
+// `ADR 0045` cites it unless another known repository qualifies it.
+function citesAdr(body, issueRepository, adr, knownRepositories) {
+  const { lines, links } = proseLines(body ?? "");
+  const own = issueRepository.toLowerCase() === adr.repository.toLowerCase();
+  const padded = String(adr.number).padStart(4, "0");
+  const linked = links.some((href) => {
+    const target = href.toLowerCase();
+    const inRepository =
+      target.includes(`github.com/${adr.repository.toLowerCase()}/`) ||
+      (own && !/^[a-z][a-z0-9+.-]*:/.test(target));
+    return (
+      inRepository &&
+      new RegExp(String.raw`(?:^|\/)adr\/${padded}-`).test(target)
+    );
+  });
+  if (linked) return true;
+  const adrName = adr.repository.split("/")[1].toLowerCase();
+  const others = knownRepositories
+    .filter((path) => path.toLowerCase() !== adr.repository.toLowerCase())
+    .flatMap((path) => [path.toLowerCase(), path.split("/")[1].toLowerCase()]);
+  const citation = new RegExp(
+    String.raw`(?:(\S+)\s+)?\bADR[ -]?0*${adr.number}(?!\d)`,
+    "gi",
+  );
+  for (const line of lines)
+    for (const [, before] of line.matchAll(citation)) {
+      const qualifier = (before ?? "").replace(/[^\w./-]/g, "").toLowerCase();
+      if (
+        qualifier === adr.repository.toLowerCase() ||
+        qualifier === adrName ||
+        (own && !qualifier.includes("/") && !others.includes(qualifier))
+      )
+        return true;
+    }
+  return false;
+}
+
+// Whether a comment records the issue's fate under the specification: a
+// `Fate:` line that closes it as superseded, rescopes it or keeps it with a
+// reason, in a comment linking the specification. A closed issue needs no
+// fate.
+function recordsFate(body, issueRepository, specification) {
+  const { lines, links } = proseLines(body ?? "");
+  const [owner, name] = specification.repository
+    .toLowerCase()
+    .split("/")
+    .map((part) => part.replace(/[.-]/g, "\\$&"));
+  const same =
+    issueRepository.toLowerCase() === specification.repository.toLowerCase();
+  const reference = new RegExp(
+    String.raw`(?:github\.com\/${owner}\/${name}\/issues\/${specification.number}(?!\d)|(?:^|[^\w/#])${owner}\/${name}#${specification.number}(?!\d)${same ? String.raw`|(?:^|[^\w/#])#${specification.number}(?!\d)` : ""})`,
+    "i",
+  );
+  if (![...lines, ...links].some((text) => reference.test(text))) return false;
+  return lines.some((line) => {
+    const fate = /^Fate\s*:\s*(.*)$/i.exec(line)?.[1] ?? "";
+    if (/^(?:rescoped|closed as superseded)\b/i.test(fate)) return true;
+    const reason = /^kept\b(.*)$/i
+      .exec(fate)?.[1]
+      ?.replace(new RegExp(reference.source, "gi"), "");
+    return /\p{L}/u.test(reason ?? "");
+  });
+}
+
+// The open issues a specification supersedes that have no fate yet: those its
+// `Supersedes:` names, and those in its repositories whose body cites an ADR
+// it supersedes. Its repositories are its own and its tickets'. `trackerFor`
+// returns the issue tracker of a repository. Read failures propagate.
+export async function supersededWithoutFate({
+  specification,
+  footprint,
+  tickets = [],
+  trackerFor,
+}) {
+  const key = ({ repository, number }) =>
+    `${repository.toLowerCase()}#${number}`;
+  const excluded = new Set([specification, ...tickets].map(key));
+  const candidates = new Map();
+  for (const reference of footprint.supersedes.issues) {
+    const issue = await trackerFor(reference.repository).issue(
+      reference.number,
+    );
+    if (issue.state === "open") candidates.set(key(reference), reference);
+  }
+  if (footprint.supersedes.adrs.length) {
+    const repositories = [
+      ...new Map(
+        [specification, ...tickets].map(({ repository }) => [
+          repository.toLowerCase(),
+          repository,
+        ]),
+      ).values(),
+    ];
+    const known = [
+      ...repositories,
+      ...footprint.supersedes.adrs.map(({ repository }) => repository),
+    ];
+    for (const repository of repositories)
+      for (const issue of await trackerFor(repository).issues({
+        state: "open",
+      })) {
+        const reference = { repository, number: issue.number };
+        if (
+          !excluded.has(key(reference)) &&
+          footprint.supersedes.adrs.some((adr) =>
+            citesAdr(issue.body, repository, adr, known),
+          )
+        )
+          candidates.set(key(reference), reference);
+      }
+  }
+  const unfated = [];
+  for (const reference of candidates.values()) {
+    if (excluded.has(key(reference))) continue;
+    const comments = await trackerFor(reference.repository).comments(
+      reference.number,
+    );
+    if (
+      !comments.some((comment) =>
+        recordsFate(comment.body, reference.repository, specification),
+      )
+    )
+      unfated.push(reference);
+  }
+  return unfated;
+}
+
+// The result's footprint line for a direct contract: adds against deletes
+// over the contract and, for a specification, its tickets, which
+// `snapshot.tickets` holds as `{ repository, number, body }`. Shown, never
+// gated; a contract without the three fields is listed as unknown.
+function footprintTally(snapshot, result) {
+  if (!directContractKinds.includes(result.kind)) return null;
+  const { repository } = snapshot;
+  const contracts = [
+    {
+      name: `this ${result.kind}`,
+      footprint: contractFootprint(result.contract.body, repository),
+    },
+    ...(snapshot.tickets ?? []).map((ticket) => ({
+      name: referenceText(ticket, repository),
+      footprint: contractFootprint(ticket.body, ticket.repository),
+    })),
+  ];
+  const known = contracts.filter(({ footprint }) => footprint.known);
+  const unknown = contracts.filter(({ footprint }) => !footprint.known);
+  const fields = "`Supersedes:`, `Adds:` and `Deletes:`";
+  if (contracts.length === 1 && !known.length)
+    return `Footprint: unknown, without ${fields} lines.`;
+  const count = (number, noun) => `${number} ${noun}${number === 1 ? "" : "s"}`;
+  const adds = known.flatMap(({ footprint }) => footprint.adds).length;
+  const deletes = known.flatMap(({ footprint }) => footprint.deletes).length;
+  const tickets = contracts.length - 1;
+  const knownTickets = known.filter(({ name }) => name !== contracts[0].name);
+  const scope = !tickets
+    ? ""
+    : ` over ${known[0] === contracts[0] ? "this specification and " : ""}${knownTickets.length === tickets ? "its" : `${knownTickets.length} of its`} ${count(tickets, "ticket")}`;
+  const unknownNote = unknown.length
+    ? ` Unknown footprint, without ${fields} lines: ${unknown.map(({ name }) => name).join(", ")}.`
+    : "";
+  const refusal = footprintRefusal(
+    result.kind,
+    result.contract.body,
+    repository,
+  );
+  const errorNote = refusal ? ` ${refusal}` : "";
+  return `Footprint: ${count(adds, "add")} against ${count(deletes, "delete")}${scope}, shown and never gated.${unknownNote}${errorNote}`;
+}
+
+const directContractKinds = ["specification", "implementation ticket"];
+
+// The refusal of a new readiness grant to a direct contract whose footprint
+// names a file path or leaves a field empty, or null.
+export function footprintRefusal(kind, body, repository) {
+  if (!directContractKinds.includes(kind)) return null;
+  const { errors } = contractFootprint(body, repository);
+  return errors.length
+    ? `A new readiness grant waits for a well-formed footprint. ${errors.join(" ")}`
+    : null;
+}
+
+// The refusal naming each superseded issue still missing a fate.
+export function supersessionRefusal(unfated, repository) {
+  return unfated.length
+    ? `Readiness waits for a fate on each open issue this specification supersedes; post one on ${unfated.map((reference) => referenceText(reference, repository)).join(", ")}.`
+    : null;
+}
+
 const feedbackMarker = "<!-- repo-canon:issue-contract-feedback -->";
 const feedbackStatePrefix = "<!-- repo-canon:issue-contract-state ";
 // The published result format. Any change to the state line's fields or their
 // meaning is a new version.
 export const resultFormat = "repo-canon/issue-contract-state/v1";
+// Headings of the notices posted before the feedback led with its outcome,
+// still read from those notices.
 const needsAttentionHeading = "## Issue contract needs attention";
 const structureCorrectedHeading = "## Issue contract structure corrected";
 const readinessRemovedHeading = "## Issue contract readiness removed";
+const readinessRemovedLead = "❌ **Readiness removed**";
 // An open issue's workflow state is its one `state:` label, or the `wontfix`
 // outcome that closes it. Only `state:ready` is readiness, bound to a review;
 // the validator's own fallback is `state:triage`. The `triage` readiness
@@ -276,6 +627,7 @@ const wayfinderChildFields = new Set(["parent", "question"]);
 // - `blockedBy`, `parent`: the port relationships and the resolved parent;
 // - `bodyRevision`: the direct body's `{ id, lastEditedAt }` edit revision;
 // - `issueEvents`: the complete authoritative issue-event timeline;
+// - `repositoryLabels`: the complete live repository label names;
 // - `permissions`: each looked-up login's repository `{ role }`, `null` when
 //   GitHub reports none, with an `error` when the lookup failed;
 // - `evaluatedAt`: the second the adapter decided in, which the result
@@ -335,7 +687,7 @@ export function decideIssueContract(snapshot) {
   if (decision.feedback) {
     const line = feedbackStateLine(decision.feedback.body);
     const state = JSON.parse(line.slice(feedbackStatePrefix.length, -4));
-    if (state.format === seamsResultFormat) state.baseFormat = bodyResultFormat;
+    if (state.baseFormat) state.baseFormat = bodyResultFormat;
     else state.format = bodyResultFormat;
     state.selection = selected.selection;
     state.observation = issueContractObservation({
@@ -502,6 +854,7 @@ function decideCurrentContract(snapshot) {
 
   const contract = contractRevision(snapshot, result);
   const revision = contract.revision;
+  const review = factoryReview(snapshot, result, contract);
   const readiness = assessReadiness({
     snapshot,
     result,
@@ -509,6 +862,7 @@ function decideCurrentContract(snapshot) {
     previousFeedback,
     revision,
     openingEligible: contract.openingEligible,
+    review,
   });
   const published = {
     ...evaluation,
@@ -517,6 +871,8 @@ function decideCurrentContract(snapshot) {
     publishedAt: revisionPublishedAt(recorded, previousFeedback, revision),
     sourceInvalidation:
       readiness.sourceInvalidation ?? evaluation.sourceInvalidation,
+    footprint: footprintTally(snapshot, result),
+    factoryReview: publishedReview(review, recorded, previousFeedback),
   };
   if (!readiness.valid) {
     const writes = stateWrites();
@@ -572,6 +928,7 @@ function decideCurrentContract(snapshot) {
             reviewer: readiness.reviewer,
             reviewEventId: readiness.reviewEventId,
             triageRun: readiness.triageRun,
+            reviewAttested: readiness.reviewAttested,
           })
         : awaitingReviewFeedback(published, {
             reason: readiness.rejectionReason,
@@ -1150,11 +1507,11 @@ function validateAgentBrief(body, labels, errors, seamsRequired) {
   const preamble = agentBriefPreamble(body.slice(0, heading.index));
   if (preamble === "notes-before-brief") {
     errors.push(
-      "Put the `## Agent Brief` heading directly after the triage disclaimer and move other notes below the brief.",
+      "Put the `## Agent Brief` heading directly after its lead line or triage disclaimer and move other notes below the brief.",
     );
-  } else if (preamble !== "disclaimer-only") {
+  } else if (preamble === "missing") {
     errors.push(
-      "Start the Agent Brief comment with `> *This was generated by AI during triage.*`, the triage disclaimer in `.repo-standards/rules/comments.md#disclaimers`.",
+      "Start the Agent Brief with its lead line, the triage disclaimer `> *This was generated by AI during triage.*`, or that disclaimer then the lead line, as `.repo-standards/rules/github-repository-configuration.md#agent-brief` says.",
     );
   }
   const fields = parseBriefFields(markdownSection(body, heading));
@@ -1207,19 +1564,58 @@ function parseBriefFields(body) {
   return fields;
 }
 
-// The text before the Agent Brief heading: `disclaimer-only` when it is the
-// triage disclaimer blockquote alone, `notes-before-brief` when it starts with
-// that disclaimer and more content follows, and `missing` otherwise.
+// The text before the Agent Brief heading, by its blocks: `lead-line`,
+// `disclaimer-only` or `disclaimer-then-lead-line` for the accepted preambles,
+// `notes-before-brief` when one of them starts it and more content follows,
+// and `missing` otherwise. Disclosure is checked only where the old preamble
+// carries it; no host frame or footer is read.
 function agentBriefPreamble(markdown) {
   const blocks = lexer(markdown).filter((token) => token.type !== "space");
   const quoteBlocks =
     blocks[0]?.type === "blockquote"
       ? (blocks[0].tokens?.filter((token) => token.type !== "space") ?? [])
       : [];
-  if (!isTriageDisclaimer(quoteBlocks[0])) return "missing";
-  return blocks.length === 1 && quoteBlocks.length === 1
-    ? "disclaimer-only"
-    : "notes-before-brief";
+  if (isTriageDisclaimer(quoteBlocks[0])) {
+    if (quoteBlocks.length !== 1) return "notes-before-brief";
+    if (blocks.length === 1) return "disclaimer-only";
+    if (blocks.length === 2 && isLeadLine(blocks[1]))
+      return "disclaimer-then-lead-line";
+    return "notes-before-brief";
+  }
+  if (!isLeadLine(blocks[0])) return "missing";
+  return blocks.length === 1 ? "lead-line" : "notes-before-brief";
+}
+
+// The status markers of the comment rules' Status markers table, its one
+// home; a conformance test keeps this copy equal to it. Each is compared
+// without its emoji variation selector.
+export const statusMarkers = [
+  "✅",
+  "🔄",
+  "⏸️",
+  "❌",
+  "🔁",
+  "👤",
+  "⬜",
+  "⏭️",
+  "↗️",
+];
+const withoutVariation = (text) => text.replace(/\uFE0F/g, "");
+const markerTexts = new Set(statusMarkers.map(withoutVariation));
+
+// A lead line, recognized by its shape: one line holding a status marker,
+// then its state or verdict in bold, then anything.
+function isLeadLine(block) {
+  if (block?.type !== "paragraph") return false;
+  const inline = block.tokens ?? [];
+  return (
+    !block.text.includes("\n") &&
+    inline[0]?.type === "text" &&
+    /^\S+[\t ]+$/.test(inline[0].raw) &&
+    markerTexts.has(withoutVariation(inline[0].raw.trim())) &&
+    inline[1]?.type === "strong" &&
+    markdownInlineText(inline[1].tokens).trim() !== ""
+  );
 }
 
 function isTriageDisclaimer(block) {
@@ -1293,6 +1689,7 @@ function assessReadiness({
   previousFeedback,
   revision,
   openingEligible,
+  review,
 }) {
   const { event: currentEvent, issue, permissions } = snapshot;
   const currentReadyLabels = [...result.labels].filter((label) =>
@@ -1340,8 +1737,14 @@ function assessReadiness({
     latestEvent.label?.name === currentReadyLabels[0]
       ? latestEvent
       : null);
+  const approval = currentApproval(
+    recorded,
+    revision,
+    currentReadyLabels[0],
+    timeline,
+  );
   const grant =
-    currentApproval(recorded, revision, currentReadyLabels[0], timeline) ??
+    approval ??
     readinessGrant(
       recorded,
       previousFeedback,
@@ -1412,6 +1815,57 @@ function assessReadiness({
           !authority.error && creationEvent ? grant.label : null,
       };
     }
+    // The factory's readiness on a direct contract follows a notice that named
+    // the same valid review attestation of this revision, published in an
+    // earlier second. A recorded approval already passed that barrier.
+    if (authority.reviewAttested) {
+      const noticed = recorded?.factoryReview;
+      if (
+        recorded?.revision !== revision ||
+        !noticed ||
+        noticed.refusal !== null ||
+        !same(noticed.attestation, review.attestation) ||
+        (!approval &&
+          !noticePrecedes(
+            { comment: previousFeedback, state: noticed },
+            labelEvent?.created_at,
+          ))
+      )
+        return {
+          valid: false,
+          error:
+            "Wait for the validator's notice naming the factory review attestation of this revision before applying readiness, then apply it again.",
+          observedEventId,
+          sourceInvalidation,
+        };
+    }
+    // A new grant to a direct contract waits for a well-formed footprint and,
+    // for a specification, for every superseded issue's fate.
+    const supersession = snapshot.supersession;
+    const refusal = approval
+      ? null
+      : (footprintRefusal(
+          result.kind,
+          result.contract.body,
+          snapshot.repository,
+        ) ??
+        (result.kind !== "specification"
+          ? null
+          : !supersession
+            ? "The fates of the issues this specification supersedes were not read."
+            : supersession.error
+              ? `Could not read the fates of the issues this specification supersedes: ${supersession.error}`
+              : supersessionRefusal(
+                  supersession.unfated,
+                  snapshot.repository,
+                )));
+    if (refusal)
+      return {
+        valid: false,
+        observedEventId,
+        sourceInvalidation,
+        error: refusal,
+      };
     return {
       valid: true,
       approved: true,
@@ -1419,6 +1873,7 @@ function assessReadiness({
       reviewer: grant.reviewer,
       reviewEventId: grant.reviewEventId,
       triageRun: authority.run ?? null,
+      reviewAttested: Boolean(authority.reviewAttested),
       observedEventId,
       sourceInvalidation,
     };
@@ -1600,6 +2055,19 @@ function supersedingDeletedBrief(currentEvent, result) {
 function triageAuthority(snapshot, result, reviewer) {
   const { issue, triageResult } = snapshot;
   const { marker } = triageResult;
+  if (directContractKinds.includes(result.kind)) {
+    const contract = contractRevision(snapshot, result);
+    const review = factoryReview(snapshot, result, contract);
+    if (review && !review.refusal)
+      return { authorized: true, run: review.run, reviewAttested: true };
+    return {
+      authorized: false,
+      refusal: `@${reviewer}'s readiness on this ${result.kind} is not backed by a valid factory review attestation of revision ${contract.revision}. ${review?.refusal ?? missingReview(snapshot)} A person may review it instead.`,
+    };
+  }
+  const attestationNote = reviewAttestations(snapshot.comments).length
+    ? " A factory review attestation authorizes only a direct specification or implementation ticket."
+    : "";
   if (result.contract.type === "issue-body") {
     const association = bodyTriageAssociation(
       snapshot,
@@ -1608,7 +2076,7 @@ function triageAuthority(snapshot, result, reviewer) {
     if (association) return { authorized: true, run: association.run };
     return {
       authorized: false,
-      refusal: `@${reviewer}'s readiness lacks authenticated exact-body factory triage proof. A person must review it.`,
+      refusal: `@${reviewer}'s readiness lacks authenticated exact-body factory triage proof.${attestationNote} A person must review it.`,
     };
   }
   const brief = result.contract.comment;
@@ -1621,7 +2089,7 @@ function triageAuthority(snapshot, result, reviewer) {
   if (!run)
     return {
       authorized: false,
-      refusal: `@${reviewer}'s readiness is not backed by the factory's triage result for this revision.`,
+      refusal: `@${reviewer}'s readiness is not backed by the factory's triage result for this revision.${attestationNote}`,
     };
   if (!isFactoryTriageAuthor(issue.user?.login, triageResult))
     return { authorized: true, run };
@@ -1637,6 +2105,109 @@ function triageAuthority(snapshot, result, reviewer) {
       refusal: `The factory's triage run ${run} wrote this issue, so it cannot accept the brief. A person must review it.`,
     };
   return { authorized: true, run };
+}
+
+// The comments carrying a factory review attestation line, in posting order.
+function reviewAttestations(comments) {
+  return comments.filter((comment) =>
+    comment.body?.includes(`<!-- ${reviewAttestationMarker}`),
+  );
+}
+
+// The factory review attestation a direct contract's evaluation observes: the
+// latest one the configured triage author posted, with the reason it backs no
+// readiness of the current revision, or `refusal: null` when it does. It must
+// be unedited, carry one run marker naming the run it attests, name this
+// repository, issue, revision and body source, and come from a run that did not
+// write the issue, as the triage result's writer rule decides. `null` without a
+// factory triage configuration, for any other kind, or when the author posted
+// none. A deleted attestation is no longer observed.
+function factoryReview(snapshot, result, contract) {
+  const { issue, triageResult } = snapshot;
+  if (!triageResult || !directContractKinds.includes(result.kind)) return null;
+  const comment = reviewAttestations(snapshot.comments).findLast((candidate) =>
+    isFactoryTriageAuthor(
+      (candidate.user ?? candidate.author)?.login,
+      triageResult,
+    ),
+  );
+  if (!comment) return null;
+  const payload = attestationPayload(comment.body, reviewAttestationMarker);
+  const edit =
+    snapshot.sourceEdits?.[
+      String(comment.node_id ?? comment.nodeId ?? comment.id)
+    ] ?? null;
+  const run = markedRun(comment.body, triageResult.marker);
+  const writers = isFactoryTriageAuthor(issue.user?.login, triageResult)
+    ? markedRuns(issue.body, triageResult.marker)
+    : null;
+  const refusal = !edit
+    ? "Its edit history was not read, so it cannot be shown unedited."
+    : edit.editedAt !== null
+      ? "It was edited after posting; post a new attestation instead."
+      : !run
+        ? `It carries no single line marked \`${triageResult.marker}\` naming its run.`
+        : (verifyReviewAttestation(comment.body, {
+            repository: snapshot.repository,
+            issue: String(issue.node_id ?? issue.nodeId),
+            run,
+            revision: contract.revision,
+            source: contract.source,
+          }) ??
+          (writers && (writers.length !== 1 || !writers[0])
+            ? `The factory opened this issue without naming the run that wrote it, so its triage run ${run} cannot accept it.`
+            : writers?.[0] === run
+              ? `The factory's triage run ${run} wrote this issue, so it cannot accept it.`
+              : null));
+  return {
+    run: typeof payload?.run === "string" ? payload.run : null,
+    revision: /^sha256:[a-f0-9]{64}$/.test(payload?.revision ?? "")
+      ? payload.revision
+      : null,
+    attestation: {
+      id: String(comment.id),
+      revision: digest(comment.body),
+      edit,
+    },
+    refusal,
+  };
+}
+
+// Why no review attestation backs the factory's readiness when its author
+// posted none.
+function missingReview(snapshot) {
+  const { event, comments, triageResult } = snapshot;
+  if (
+    event?.kind === "commentDeleted" &&
+    event.comment?.body?.includes(`<!-- ${reviewAttestationMarker}`)
+  )
+    return "Its review attestation was deleted; post a new one.";
+  const other = reviewAttestations(comments).findLast(
+    (comment) =>
+      !isFactoryTriageAuthor(
+        (comment.user ?? comment.author)?.login,
+        triageResult,
+      ),
+  );
+  return other
+    ? `The review attestation @${(other.user ?? other.author)?.login} posted is not the configured triage author's.`
+    : "The configured triage author posted no review attestation.";
+}
+
+// The review attestation as a result publishes it, with `publishedAt`: when a
+// notice first named this same observation, carried by later results, or
+// `null` in the result that first names it, like a revision's `publishedAt`.
+function publishedReview(review, recorded, previousFeedback) {
+  if (!review) return null;
+  const noticed = recorded?.factoryReview;
+  const { publishedAt: _, ...previous } = noticed ?? {};
+  return {
+    ...review,
+    publishedAt:
+      noticed && same(previous, review)
+        ? firstPublication(noticed, previousFeedback)
+        : null,
+  };
 }
 
 // The run each line of `markdown` marked with the factory's triage-result
@@ -1729,6 +2300,14 @@ function feedbackState(body) {
       )
     )
       return null;
+    if (state.baseFormat === bodyResultFormat)
+      return validBodyResult(state) ? state : null;
+    return state.baseFormat === resultFormat && validResultCore(state)
+      ? state
+      : null;
+  }
+  if (state.format === reviewResultFormat) {
+    if (!validFactoryReview(state)) return null;
     if (state.baseFormat === bodyResultFormat)
       return validBodyResult(state) ? state : null;
     return state.baseFormat === resultFormat && validResultCore(state)
@@ -1830,16 +2409,40 @@ function isReadinessTransition(candidate) {
 // has recorded both events. A carried label whose application it has not
 // recorded follows every recorded event only when its latest recorded change
 // is a removal or nothing. A label the issue was opened with is the exception.
-// Timestamps are used only for what has no timeline position (the feedback
+// A non-readiness workflow state's recorded changes include those recorded
+// under a former name that is no longer a live label, before the first change
+// recorded under its current name. Timestamps are used only for what has no timeline position (the feedback
 // comment and Agent Brief comments) and to recognize labels applied at creation.
 // The creation snapshot (this issue's own `opened:` review ID and the labels it
 // was opened with) is at position zero and the Nth event at position N. Agent
 // Brief comments are ordered among themselves by comment ID, in
 // `latestAgentBrief`.
-function issueTimeline({ event, issue, issueEvents }) {
+function issueTimeline({ event, issue, issueEvents, repositoryLabels }) {
   if (!Array.isArray(issueEvents))
     throw new Error("The snapshot does not include the issue-event timeline.");
   const openingId = openingReviewId(issue);
+  const liveLabels = new Set(repositoryLabels);
+  // Keep event objects and positions intact, including readiness transitions.
+  // Only non-readiness workflow history can belong to an in-place rename.
+  const historyLabels = issueEvents.map((candidate, index) => {
+    const name = candidate.label?.name;
+    const canonical = canonicalLabelName(name);
+    if (
+      !Array.isArray(repositoryLabels) ||
+      !["labeled", "unlabeled"].includes(candidate.event) ||
+      name === canonical ||
+      !isWorkflowLabel(canonical) ||
+      readyLabels.has(canonical) ||
+      liveLabels.has(name)
+    )
+      return name;
+    const firstCurrent = issueEvents.findIndex(
+      (entry) =>
+        ["labeled", "unlabeled"].includes(entry.event) &&
+        entry.label?.name === canonical,
+    );
+    return firstCurrent < 0 || index < firstCurrent ? canonical : name;
+  });
 
   function position(eventId) {
     if (eventId == null) return null;
@@ -1852,8 +2455,8 @@ function issueTimeline({ event, issue, issueEvents }) {
 
   function lastApplication(label) {
     const index = issueEvents.findLastIndex(
-      (candidate) =>
-        candidate.event === "labeled" && candidate.label?.name === label,
+      (candidate, index) =>
+        candidate.event === "labeled" && historyLabels[index] === label,
     );
     return index < 0
       ? null
@@ -1935,9 +2538,9 @@ function issueTimeline({ event, issue, issueEvents }) {
   // Whether the label's latest recorded change is its application.
   function latestChangeIsApplication(label) {
     const latestChange = issueEvents.findLast(
-      (candidate) =>
+      (candidate, index) =>
         ["labeled", "unlabeled"].includes(candidate.event) &&
-        candidate.label?.name === label,
+        historyLabels[index] === label,
     );
     return latestChange?.event === "labeled";
   }
@@ -2104,10 +2707,21 @@ function resultLine({
   rejectionReason = null,
   rejectedCreationLabel = null,
   seamsExemption = null,
+  factoryReview = null,
 }) {
+  // A Seams exemption belongs to an Agent Brief and a review attestation to a
+  // direct contract, so a result never carries both.
   const state = JSON.stringify({
-    format: seamsExemption ? seamsResultFormat : resultFormat,
-    ...(seamsExemption ? { baseFormat: resultFormat, seamsExemption } : {}),
+    format: seamsExemption
+      ? seamsResultFormat
+      : factoryReview
+        ? reviewResultFormat
+        : resultFormat,
+    ...(seamsExemption
+      ? { baseFormat: resultFormat, seamsExemption }
+      : factoryReview
+        ? { baseFormat: resultFormat, factoryReview }
+        : {}),
     status,
     kind,
     revision,
@@ -2126,15 +2740,88 @@ function resultLine({
   return `${feedbackMarker}\n${feedbackStatePrefix}${state} -->`;
 }
 
+// The comment rules' Limits: a lead line holds at most 100 characters.
+// Seam (deferred): the comment rules' lead-line limit; consumers: 1; wrap at 2.
+const leadLineLimit = 100;
+
+// A notice after the result line: its lead line, the status marker and the
+// outcome in bold followed by facts, then anything a person must act on, then
+// the explanation collapsed under a summary stating the decision.
+function feedbackNotice({
+  lead,
+  facts = [],
+  visible = null,
+  summary,
+  details,
+}) {
+  return [
+    [lead, ...facts.filter(Boolean)].join(" · "),
+    visible,
+    `<details>\n<summary>${summary}</summary>\n\n${details.filter(Boolean).join("\n\n")}\n\n</details>`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+const revisionFact = (revision) =>
+  `revision \`${revision.replace(/^sha256:/, "").slice(0, 7)}\``;
+
+// A refusal reason short enough to end a lead line that already holds
+// `before`: its first sentence, ending at a stop outside code, cut at a word
+// outside code and marked when cut. The full reason stays in the notice's
+// details.
+function shortReason(reason, before) {
+  const room = leadLineLimit - [...`${before} · `].length;
+  const sentence = /^(?:[^`.!?]|`[^`]*`|[.!?](?!\s))*/
+    .exec(reason)[0]
+    .trimEnd()
+    .replace(/[.!?]$/, "");
+  if ([...sentence].length <= room) return sentence;
+  const words = sentence.split(" ");
+  let kept = "";
+  for (const word of words) {
+    const next = kept ? `${kept} ${word}` : word;
+    if ([...next].length + 1 > room) break;
+    kept = next;
+  }
+  while (kept && (kept.match(/`/g) ?? []).length % 2)
+    kept = kept.slice(0, kept.lastIndexOf("`")).trimEnd();
+  return `${kept.replace(/[,;:]$/, "")}…`;
+}
+
+// A retained Seams exemption keeps its Agent Brief's revision in the result.
 function invalidFeedback(errors, evaluation) {
-  return `${resultLine({ ...evaluation, status: "needs-attention" })}\n${needsAttentionHeading}\n\n${errors.map((error) => `- ${error}`).join("\n")}\n\nFix the items above. Structural validation will re-run, but only an authorized reviewer can grant readiness.`;
+  const { kind, revision } = evaluation;
+  return `${resultLine({ ...evaluation, status: "needs-attention" })}\n${feedbackNotice(
+    {
+      lead: "👤 **Contract needs attention**",
+      facts: [
+        revision && revisionFact(revision),
+        "its writer fixes the items below",
+      ],
+      visible: errors.map((error) => `- ${error}`).join("\n"),
+      summary: revision
+        ? "Structure incomplete, so no readiness"
+        : "Structure incomplete, so no revision and no readiness",
+      details: [
+        revision &&
+          `The ${kind} at revision \`${revision}\` lacks the required structure.`,
+        "Fix the items above. Structural validation will re-run, but only an authorized reviewer can grant readiness.",
+      ],
+    },
+  )}`;
 }
 
 // The readiness labels the validator's previous readiness-removed notice
-// names, so a run that keeps its reason publishes the same notice.
+// names, so a run that keeps its reason publishes the same notice. Earlier
+// notices name the removal by their heading, current ones by their lead line.
 function removedLabelsIn(feedback) {
   const body = feedback?.body ?? "";
-  if (!body.includes(`\n${readinessRemovedHeading}\n`)) return [];
+  if (
+    !body.includes(`\n${readinessRemovedHeading}\n`) &&
+    !body.includes(`\n${readinessRemovedLead} · `)
+  )
+    return [];
   const line = /^The validator removed (.+) from the /m.exec(body)?.[1] ?? "";
   return [...line.matchAll(/`([^`]+)`/g)]
     .map(([, label]) => label)
@@ -2156,30 +2843,86 @@ function awaitingReviewFeedback(
   });
   const review =
     "A repository admin, maintainer, or explicitly authorized triage-role collaborator must review this exact revision, then apply `state:ready`. For an Agent Brief, wait for this revision notice before applying the label. Structural validation never grants readiness.";
+  const revision = revisionFact(published.revision);
   if (reason && removedLabels.length > 0) {
     const labels = removedLabels.map((label) => `\`${label}\``).join(" and ");
-    return `${state}\n${readinessRemovedHeading}\n\nReadiness was removed: ${reason}\n\nThe validator removed ${labels} from the ${published.kind} at revision \`${published.revision}\`, which has the required structure.\n\nA fresh authorized review is required to restore readiness. ${review}`;
+    const lead = readinessRemovedLead;
+    return `${state}\n${feedbackNotice({
+      lead,
+      facts: [revision, shortReason(reason, `${lead} · ${revision}`)],
+      summary: `${removedLabels.map((label) => `<code>${label}</code>`).join(" and ")} removed; a fresh authorized review restores readiness`,
+      details: [
+        `Readiness was removed: ${reason}`,
+        `The validator removed ${labels} from the ${published.kind} at revision \`${published.revision}\`, which has the required structure.`,
+        `A fresh authorized review is required to restore readiness. ${review}`,
+        published.footprint,
+      ],
+    })}`;
   }
-  const explanation = reason
-    ? `\n\nThe last readiness attempt was rejected: ${reason}`
-    : "";
-  return `${state}\n## Issue contract awaiting review\n\nThe ${published.kind} has the required structure at revision \`${published.revision}\`.${explanation}\n\nA fresh authorized review is required. ${review}`;
+  const structure = `The ${published.kind} has the required structure at revision \`${published.revision}\`.`;
+  if (reason) {
+    const lead = "❌ **Readiness refused**";
+    return `${state}\n${feedbackNotice({
+      lead,
+      facts: [revision, shortReason(reason, `${lead} · ${revision}`)],
+      summary:
+        "Readiness refused; this revision needs a fresh authorized review",
+      details: [
+        `The last readiness attempt was rejected: ${reason}`,
+        structure,
+        `A fresh authorized review is required. ${review}`,
+        published.footprint,
+      ],
+    })}`;
+  }
+  return `${state}\n${feedbackNotice({
+    lead: "👤 **Awaiting review**",
+    facts: [revision, "an authorized reviewer applies `state:ready`"],
+    summary: "Structure complete; readiness needs an authorized review",
+    details: [
+      structure,
+      `A fresh authorized review is required. ${review}`,
+      published.footprint,
+    ],
+  })}`;
 }
 
 function approvedFeedback(
   published,
-  { label, reviewer, reviewEventId, triageRun },
+  { label, reviewer, reviewEventId, triageRun, reviewAttested },
 ) {
   const review = triageRun
-    ? `was accepted by the factory's triage run ${triageRun}, whose result @${reviewer} posted,`
+    ? `was accepted by the factory's triage run ${triageRun}, whose ${reviewAttested ? "review attestation" : "result"} @${reviewer} posted,`
     : `was reviewed by @${reviewer}, whose repository role authorizes triage,`;
-  return `${resultLine({ ...published, status: "approved", label, reviewer, reviewEventId })}\n## Issue contract readiness recorded\n\nThe ${published.kind} at revision \`${published.revision}\` ${review} and is bound to \`${label}\`. Editing or replacing the contract or removing readiness invalidates this association.`;
+  return `${resultLine({ ...published, status: "approved", label, reviewer, reviewEventId })}\n${feedbackNotice(
+    {
+      lead: "✅ **Readiness recorded**",
+      facts: [revisionFact(published.revision), `bound to \`${label}\``],
+      summary: `${triageRun ? "The factory's triage run" : `@${reviewer}`} reviewed this revision; editing it removes readiness`,
+      details: [
+        `The ${published.kind} at revision \`${published.revision}\` ${review} and is bound to \`${label}\`. Editing or replacing the contract or removing readiness invalidates this association.`,
+        published.footprint,
+      ],
+    },
+  )}`;
 }
 
 function noContractFeedback(evaluation, corrected) {
   const notice = corrected
-    ? `${structureCorrectedHeading}\n\nThe ${evaluation.kind} now has the required structure. A fresh authorized review is still required before restoring readiness.`
-    : `## Issue contract not required\n\nThe ${evaluation.kind} has the required structure and carries no implementation contract, so it carries no readiness.`;
+    ? feedbackNotice({
+        lead: "✅ **Structure corrected**",
+        summary: "No implementation contract; readiness needs a fresh review",
+        details: [
+          `The ${evaluation.kind} now has the required structure. A fresh authorized review is still required before restoring readiness.`,
+        ],
+      })
+    : feedbackNotice({
+        lead: "⏭️ **Contract not required**",
+        summary: "No implementation contract, so no readiness",
+        details: [
+          `The ${evaluation.kind} has the required structure and carries no implementation contract, so it carries no readiness.`,
+        ],
+      });
   return `${resultLine({ ...evaluation, status: "no-contract" })}\n${notice}`;
 }
 
@@ -2249,6 +2992,7 @@ export async function runIssueContractValidation(
   triageResult = factoryTriageResult(),
   sourceConfiguration = contractSourceConfiguration(),
   resolveBoundary = resolveSeamsBoundary,
+  resolveTracker = null,
 ) {
   const tracker = connection.issueTracker;
   if (!event) {
@@ -2298,6 +3042,7 @@ export async function runIssueContractValidation(
       lastEditedAt: current.bodyEditTime,
     },
     issueEvents: null,
+    repositoryLabels: null,
     permissions: {},
     triageResult,
   };
@@ -2379,10 +3124,25 @@ export async function runIssueContractValidation(
       selected.record,
     );
   }
+  // Body mode reads every comment's edit identity above. Otherwise only the
+  // factory's latest review attestation needs one, to show it unedited.
+  const attestation =
+    facts.mode !== "body" && triageResult
+      ? reviewAttestations(snapshot.comments).findLast((comment) =>
+          isFactoryTriageAuthor(comment.user?.login, triageResult),
+        )
+      : null;
+  if (attestation)
+    snapshot.sourceEdits = await sourceEditIdentities(connection, [
+      attestation.node_id,
+    ]);
   const readTimeline = async () =>
     (await tracker.labelChanges(issueNumber)).map(timelineEvent);
   let needs = snapshotNeeds(snapshot);
   if (needs.timeline) {
+    snapshot.repositoryLabels = (await tracker.labels()).map(
+      ({ name }) => name,
+    );
     snapshot.issueEvents = await readTimeline();
     needs = snapshotNeeds(snapshot);
   }
@@ -2409,6 +3169,39 @@ export async function runIssueContractValidation(
           error instanceof PlatformError && error.reason === "notFound"
             ? { role: null }
             : { error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+  }
+  const structure = assessStructure(snapshot);
+  if (structure.valid && structure.kind === "specification") {
+    const repository = snapshot.repository;
+    // An unreadable ticket's footprint is unknown, never empty.
+    snapshot.tickets = [];
+    for (const reference of current.subIssues ?? []) {
+      const body = await resolveIssue(reference).then(
+        (ticket) => ticket?.body ?? "",
+        () => "",
+      );
+      snapshot.tickets.push({ ...reference, body });
+    }
+    if (readinessLabels(structure.labels).length) {
+      resolveTracker ??= (path) => {
+        if (path.toLowerCase() === repository.toLowerCase()) return tracker;
+        throw new Error(`No issue access to ${path} is configured.`);
+      };
+      try {
+        snapshot.supersession = {
+          unfated: await supersededWithoutFate({
+            specification: { repository, number: issueNumber },
+            footprint: contractFootprint(issue.body, repository),
+            tickets: snapshot.tickets,
+            trackerFor: resolveTracker,
+          }),
+        };
+      } catch (error) {
+        snapshot.supersession = {
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     }
   }
@@ -2671,5 +3464,39 @@ function validBodyResult(state) {
       typeof proof.intake?.author === "string" &&
       nullableString(proof.intake.writerRun),
     )
+  );
+}
+
+// A v4 result's review attestation: on a direct contract's revision-bearing
+// result, naming the attestation comment, its exact bytes and edit identity.
+// Without a refusal it names a run and this result's revision, unedited.
+function validFactoryReview(state) {
+  const review = state.factoryReview;
+  const hash = (value) => /^sha256:[a-f0-9]{64}$/.test(value ?? "");
+  const nullableString = (value) => value === null || typeof value === "string";
+  const edit = review?.attestation?.edit;
+  return Boolean(
+    review &&
+    typeof review === "object" &&
+    ["approved", "awaiting-review"].includes(state.status) &&
+    directContractKinds.includes(state.kind) &&
+    hash(state.revision) &&
+    state.source?.type === "issue-body" &&
+    nullableString(review.run) &&
+    (review.revision === null || hash(review.revision)) &&
+    /^\d+$/.test(review.attestation?.id ?? "") &&
+    hash(review.attestation.revision) &&
+    (edit === null ||
+      (typeof edit?.id === "string" &&
+        edit.id &&
+        nullableString(edit.editedAt))) &&
+    nullableString(review.publishedAt) &&
+    (review.refusal === null
+      ? typeof review.run === "string" &&
+        review.run.trim() === review.run &&
+        review.run.length > 0 &&
+        review.revision === state.revision &&
+        edit?.editedAt === null
+      : typeof review.refusal === "string" && review.refusal.length > 0),
   );
 }

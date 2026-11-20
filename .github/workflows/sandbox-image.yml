@@ -9,7 +9,7 @@ permissions:
 jobs:
   build:
     name: Sandbox image
-    runs-on: ${{ vars.REPO_CANON_RUNS_ON && fromJSON(vars.REPO_CANON_RUNS_ON) || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - name: Check out the pull request head
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5

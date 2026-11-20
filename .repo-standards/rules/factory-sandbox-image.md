@@ -11,6 +11,8 @@ adds its own agent layer on top, and every run starts its agent in the result.
 The factory's layer brings Git, the GitHub CLI, the agent CLIs, the `agent` user, the working
 directory, and the entrypoint, so do not install those for the agent, create
 users, or add `ENTRYPOINT` or `CMD`.
+The factory's layer also brings `ps` from the distribution's `procps` package,
+so the repository image need not install it.
 
 Start from a Debian or Ubuntu base where `apt-get` is available, install the
 toolchain system-wide, and assume no user or home directory other than `agent`
