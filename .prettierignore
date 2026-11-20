@@ -1,7 +1,9 @@
 vendor/
 .repo-standards/
 .agents/skills/
-scripts/validate-issue-contract.mjs
+scripts/issue-contract-cutoff.mjs
+scripts/issue-contract-sources.mjs
+scripts/issue-contract-store.mjs
 .github/scripts/
 operations/
 dist/
@@ -12,13 +14,14 @@ AGENTS.md
 .github/ISSUE_TEMPLATE/bug-report.yml
 CONTRIBUTING.md
 docs/agents/domain.md
-.factory/config.json
+.scriptorium/config.json
 .github/workflows/sandbox-image.yml
 .github/ISSUE_TEMPLATE/feature-request.yml
 .github/ISSUE_TEMPLATE/implementation-ticket.yml
 .github/workflows/issue-contracts.yml
 docs/agents/issue-tracker.md
 .github/workflows/pr-metadata.yml
+.github/workflows/standards-update.yml
 .github/PULL_REQUEST_TEMPLATE.md
 .github/ISSUE_TEMPLATE/specification.yml
 docs/agents/triage-labels.md
