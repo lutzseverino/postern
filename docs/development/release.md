@@ -73,11 +73,32 @@ in this order:
 
 ## Publish
 
+`CHANGELOG.md` records every release and supplies its notes. Changes collect
+under `## Unreleased` at its top, above one `## <version>` section per
+release, newest first. Each version heading is the bare version with no date,
+as in `## 1.3.0`. Changes merged after a release collect under a new
+`## Unreleased` section above the newest version section, which feeds the
+next release.
+
 1. Record the exact stable version in `package.json` and merge that change.
    A version can never be published twice, so each release needs a new one.
-   A breaking port change needs a new major version.
-2. Write the release notes in Markdown: what changed, and any breaking change
-   with its migration.
+   A breaking port change needs a new major version. In the same pull
+   request, rename `## Unreleased` in `CHANGELOG.md` to `## <version>`, with
+   no date, leaving the section in place above the previous version's
+   section. That section describes the whole release: what changed, and any
+   breaking change with its migration. If `## Unreleased` is missing or
+   leaves out a change in the release, add or complete its entries in this
+   pull request.
+2. Take the release notes from `CHANGELOG.md` at the commit to be tagged:
+   the `## <version>` section's entries, without its heading. They are not
+   written separately:
+
+   ```sh
+   git show <reviewed-commit>:CHANGELOG.md \
+     | awk -v heading='## <version>' '$0 == heading { found = 1; next } /^## / { found = 0 } found' \
+     > <release-notes-file>
+   ```
+
 3. Create and push the annotated tag at the reviewed commit on `main`:
 
    ```sh
@@ -85,7 +106,7 @@ in this order:
    git push origin v<version>
    ```
 
-4. Dispatch the workflow at that tag with the version and notes:
+4. Dispatch the workflow at that tag with the version and the step 2 notes:
 
    ```sh
    gh workflow run release.yml --repo lutzseverino/postern \
